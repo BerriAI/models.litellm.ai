@@ -171,12 +171,23 @@ export function getImagePricingExtraRows(
   return rows;
 }
 
+function imageSlotSortValue(
+  slot: PricingSlots["input"] | PricingSlots["output"],
+  modelName: string,
+): number {
+  if (slot.unit === "per_pixel" && slot.amount_usd != null) {
+    const res = parseResolutionFromModelName(modelName);
+    return res ? slot.amount_usd * res.width * res.height : slot.amount_usd * 1e6;
+  }
+  return slotSortValue(slot);
+}
+
 export function imageModeInputSortValue(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
-  if (slots?.input && (slots.input.amount_usd != null || slots.input.unit)) {
-    return slotSortValue(slots.input);
-  }
   const modelName = String(item.name ?? "");
+  if (slots?.input && (slots.input.amount_usd != null || slots.input.unit)) {
+    return imageSlotSortValue(slots.input, modelName);
+  }
   for (const { key, format } of IMAGE_PRICE_FIELDS) {
     if (!key.startsWith("input_")) continue;
     const raw = num(item[key]);
@@ -193,10 +204,10 @@ export function imageModeInputSortValue(item: Record<string, unknown>): number {
 
 export function imageModeOutputSortValue(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
-  if (slots?.output && (slots.output.amount_usd != null || slots.output.unit)) {
-    return slotSortValue(slots.output);
-  }
   const modelName = String(item.name ?? "");
+  if (slots?.output && (slots.output.amount_usd != null || slots.output.unit)) {
+    return imageSlotSortValue(slots.output, modelName);
+  }
   for (const { key, format } of IMAGE_PRICE_FIELDS) {
     if (!key.startsWith("output_")) continue;
     const raw = num(item[key]);

@@ -397,7 +397,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       filteredResults = allItems.filter((item) => {
         const schema = item.name === SAMPLE_SPEC_ROW_NAME;
         const providerOk =
-          !selectedProvider || item.litellm_provider === selectedProvider;
+          !selectedProvider || schema || item.litellm_provider === selectedProvider;
         const inputOk =
           maxInputTokens === null ||
           schema ||
