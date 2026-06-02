@@ -185,7 +185,7 @@ function imageSlotSortValue(
 export function imageModeInputSortValue(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
   const modelName = String(item.name ?? "");
-  if (slots?.input && (slots.input.amount_usd != null || slots.input.unit)) {
+  if (slots?.input && slots.input.amount_usd != null) {
     return imageSlotSortValue(slots.input, modelName);
   }
   for (const { key, format } of IMAGE_PRICE_FIELDS) {
@@ -205,7 +205,7 @@ export function imageModeInputSortValue(item: Record<string, unknown>): number {
 export function imageModeOutputSortValue(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
   const modelName = String(item.name ?? "");
-  if (slots?.output && (slots.output.amount_usd != null || slots.output.unit)) {
+  if (slots?.output && slots.output.amount_usd != null) {
     return imageSlotSortValue(slots.output, modelName);
   }
   for (const { key, format } of IMAGE_PRICE_FIELDS) {
@@ -537,14 +537,14 @@ export function chatSortOutput(item: Record<string, unknown>): number {
 
 export function chatSortCacheRead(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
-  if (slots?.cache_read && (slots.cache_read.amount_usd != null || slots.cache_read.unit))
+  if (slots?.cache_read && slots.cache_read.amount_usd != null)
     return slotSortValue(slots.cache_read);
   return num(item.cache_read_input_token_cost) ?? 0;
 }
 
 export function chatSortCacheWrite(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
-  if (slots?.cache_write && (slots.cache_write.amount_usd != null || slots.cache_write.unit))
+  if (slots?.cache_write && slots.cache_write.amount_usd != null)
     return slotSortValue(slots.cache_write);
   return num(item.cache_creation_input_token_cost) ?? 0;
 }
