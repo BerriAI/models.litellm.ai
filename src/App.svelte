@@ -710,8 +710,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                             Audio pricing <span class="detail-unit">per character where applicable</span>
                           {:else if mode === "audio_transcription"}
                             Audio pricing <span class="detail-unit">per second where applicable</span>
-                          {:else if isAudioPricingMode(mode)}
-                            Audio pricing <span class="detail-unit">per second · per character where applicable</span>
                           {:else}
                             Token pricing <span class="detail-unit">per 1M tokens where applicable</span>
                           {/if}

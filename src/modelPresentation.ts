@@ -59,14 +59,6 @@ function num(v: unknown): number | null {
   return null;
 }
 
-function formatUsdFlat(n: number): string {
-  return formatExactUsd(n);
-}
-
-function formatUsdPerMillion(perToken: number): string {
-  return formatTokenCostPerMillion(perToken).replace(/\/M$/, "/M tok");
-}
-
 /** e.g. `256-x-256/dall-e-2` → { width: 256, height: 256 } */
 export function parseResolutionFromModelName(
   name: string,
@@ -202,8 +194,7 @@ export function imageModeInputSortValue(item: Record<string, unknown>): number {
 export function imageModeOutputSortValue(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
   if (slots?.output && (slots.output.amount_usd != null || slots.output.unit)) {
-    const v = slotSortValue(slots.output);
-    if (v > 0) return v;
+    return slotSortValue(slots.output);
   }
   const modelName = String(item.name ?? "");
   for (const { key, format } of IMAGE_PRICE_FIELDS) {
@@ -357,7 +348,7 @@ export function getLiteLLmProxyCurlSnippetHtml(mode: string | undefined, model: 
   -H ${curlStr("Content-Type: application/json")} \\
   -H ${curlStr("Authorization: Bearer sk-1234")} \\
   -d ${curlStr(`{
-    "model": "${modelStr}",
+    "model": "${model}",
     "prompt": "A cute baby sea otter",
     "n": 1,
     "size": "1024x1024"
@@ -375,7 +366,7 @@ export function getLiteLLmProxyCurlSnippetHtml(mode: string | undefined, model: 
   -H ${curlStr("Content-Type: application/json")} \\
   -H ${curlStr("Authorization: Bearer sk-1234")} \\
   -d ${curlStr(`{
-    "model": "${modelStr}",
+    "model": "${model}",
     "input": "hello world"
   }`)}`;
   }
@@ -390,7 +381,7 @@ export function getLiteLLmProxyCurlSnippetHtml(mode: string | undefined, model: 
   -H ${curlStr("Content-Type: application/json")} \\
   -H ${curlStr("Authorization: Bearer sk-1234")} \\
   -d ${curlStr(`{
-    "model": "${modelStr}",
+    "model": "${model}",
     "input": "Hello from LiteLLM",
     "voice": "alloy"
   }`)}`;
@@ -401,7 +392,7 @@ curl http://0.0.0.0:4000/v1/chat/completions \\
   -H ${curlStr("Content-Type: application/json")} \\
   -H ${curlStr("Authorization: Bearer sk-1234")} \\
   -d ${curlStr(`{
-    "model": "${modelStr}",
+    "model": "${model}",
     "messages": [{"role": "user", "content": "Hello!"}]
   }`)}`;
 }
