@@ -156,6 +156,8 @@
         })
         .catch((err) => {
           console.error(err);
+          loadError =
+            "Failed to load model catalog from the local API. Check that the litellm-model-catalog-api service is running and reachable.";
           loading = false;
         });
       return;
@@ -237,6 +239,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   let index: Fuse<Item>;
   let results: ResultItem[] = [];
   let loading = true;
+  let loadError: string | null = null;
   let expandedRows = new Set<string>();
 
   $: {
@@ -321,11 +324,18 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   function applySorting() {
     if (!sortColumn) return;
-    results = [...results].sort((a, b) => {
+    // Keep the sample_spec schema row pinned to the top, mirroring how
+    // filterResults pins it during search. Sorting reorders only the rest.
+    const schemaRow = results.find((r) => isSampleSpecCatalogRow(r.item));
+    const others = schemaRow
+      ? results.filter((r) => !isSampleSpecCatalogRow(r.item))
+      : results;
+    const sorted = [...others].sort((a, b) => {
       const aVal = getSortValue(a.item, sortColumn);
       const bVal = getSortValue(b.item, sortColumn);
       return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
     });
+    results = schemaRow ? [schemaRow, ...sorted] : sorted;
   }
 
   function isSampleSpecCatalogRow(item: { name: string }): boolean {
@@ -611,6 +621,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             <div class="skeleton-cell"></div>
           </div>
         {/each}
+      </div>
+    </div>
+  {:else if loadError}
+    <div class="table-container">
+      <div class="load-error" role="alert">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+        <span>{loadError}</span>
       </div>
     </div>
   {:else}
@@ -1723,6 +1740,23 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   .detail-action-link:hover { color: var(--litellm-primary); }
+
+  .load-error {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-color);
+    font-size: 0.875rem;
+  }
+
+  .load-error svg {
+    color: #ef4444;
+    flex-shrink: 0;
+  }
 
   /* Skeleton */
   .skeleton-table {

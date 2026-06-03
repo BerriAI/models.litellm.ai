@@ -131,18 +131,18 @@ function formatImageSlotForDisplay(
   if (fromSlot !== "—") return fromSlot;
   const modelName = String(item.name ?? "");
   const prefix = slotName === "input" ? "input_" : "output_";
-  let sawZero = false;
+  let zeroFormat: PriceFormat | null = null;
   for (const { key, format } of IMAGE_PRICE_FIELDS) {
     if (!key.startsWith(prefix)) continue;
     const raw = num(item[key]);
     if (raw === null) continue;
     if (raw === 0) {
-      sawZero = true;
+      if (zeroFormat === null) zeroFormat = format;
       continue;
     }
     return formatImageCatalogValue(format, raw, modelName);
   }
-  if (sawZero) return formatExactUsd(0, "/img");
+  if (zeroFormat !== null) return formatImageCatalogValue(zeroFormat, 0, modelName);
   return "—";
 }
 
