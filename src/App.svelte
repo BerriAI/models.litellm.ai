@@ -322,9 +322,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function formatDetailTokenField(v: unknown): string {
-    if (v == null || v === "") return "—";
-    if (typeof v === "number" && !Number.isNaN(v)) return v.toLocaleString() + " tokens";
-    return "—";
+    const n = tokenLimitValue(v);
+    if (n == null) return "—";
+    return n.toLocaleString() + " tokens";
   }
 
   function tableInputCell(item: any): string {
