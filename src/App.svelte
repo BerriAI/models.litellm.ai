@@ -48,9 +48,6 @@
   const RESOURCE_PATH = `${RESOURCE_NAME}`;
   const RESOURCE_BACKUP_PATH = `litellm/${RESOURCE_BACKUP_NAME}`;
 
-  /** Schema reference row in `model_prices_and_context_window.json` — same id as the JSON key. */
-  const SAMPLE_SPEC_ROW_NAME = "sample_spec";
-
   /** When true, load from litellm-model-catalog-api (see .env.example). */
   const useLocalCatalogApi =
     import.meta.env.VITE_USE_LOCAL_CATALOG_API === "true" ||
@@ -103,20 +100,10 @@
         sha = text;
       });
 
-    function prependSampleSpecRow(
-      rows: Item[],
-      spec: Record<string, unknown> | null | undefined,
-    ): Item[] {
-      if (!spec || typeof spec !== "object") return rows;
-      const refRow: Item = { ...spec, name: SAMPLE_SPEC_ROW_NAME } as Item;
-      return [refRow, ...rows];
-    }
-
     const finishLoad = (items: Item[]) => {
       providers = [
         ...new Set(
           items
-            .filter((i) => i.name !== SAMPLE_SPEC_ROW_NAME)
             .map((i) => i.litellm_provider)
             .filter(Boolean),
         ),
@@ -151,8 +138,8 @@
           console.error(err);
         });
       fetchAllCatalogModels(catalogApiBase)
-        .then(({ models, sample_spec }) => {
-          finishLoad(prependSampleSpecRow(models as Item[], sample_spec));
+        .then(({ models }) => {
+          finishLoad(models as Item[]);
         })
         .catch((err) => {
           console.error(err);
@@ -170,16 +157,10 @@
       .then((text) => {
         lines = text.split("\n");
         const parsed = JSON.parse(text) as Record<string, unknown>;
-        const spec =
-          parsed.sample_spec != null &&
-          typeof parsed.sample_spec === "object" &&
-          !Array.isArray(parsed.sample_spec)
-            ? (parsed.sample_spec as Record<string, unknown>)
-            : null;
         const items: Item[] = Object.entries(parsed)
           .filter(([k]) => k !== "sample_spec")
           .map(([k, v]: any) => ({ name: k, ...v }));
-        finishLoad(prependSampleSpecRow(items, spec));
+        finishLoad(items);
       });
   });
 
@@ -285,12 +266,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function getSortValue(item: any, column: string): number {
-    if (isSampleSpecCatalogRow(item)) {
-      if (column === "context") {
-        return typeof item.max_input_tokens === "number" ? item.max_input_tokens : 0;
-      }
-      return 0;
-    }
     if (isImagePricingMode(item.mode)) {
       switch (column) {
         case "context":
@@ -324,38 +299,17 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   function applySorting() {
     if (!sortColumn) return;
-    // Keep the sample_spec schema row pinned to the top, mirroring how
-    // filterResults pins it during search. Sorting reorders only the rest.
-    const schemaRow = results.find((r) => isSampleSpecCatalogRow(r.item));
-    const others = schemaRow
-      ? results.filter((r) => !isSampleSpecCatalogRow(r.item))
-      : results;
-    const sorted = [...others].sort((a, b) => {
+    const sorted = [...results].sort((a, b) => {
       const aVal = getSortValue(a.item, sortColumn);
       const bVal = getSortValue(b.item, sortColumn);
       return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
     });
-    results = schemaRow ? [schemaRow, ...sorted] : sorted;
-  }
-
-  function isSampleSpecCatalogRow(item: { name: string }): boolean {
-    return item.name === SAMPLE_SPEC_ROW_NAME;
-  }
-
-  /** Context column: `sample_spec` shows the catalog hint string (original UI), not "—". */
-  function contextCellForRow(item: Item, max_input_tokens: unknown): string {
-    if (isSampleSpecCatalogRow(item)) {
-      if (typeof max_input_tokens === "string" && max_input_tokens.trim() !== "") {
-        return max_input_tokens;
-      }
-      return "—";
-    }
-    return formatContext(max_input_tokens as number | undefined);
+    results = sorted;
   }
 
   /** Coerce a max_input/output_tokens field to a finite number for filtering.
    *  Accepts JS numbers and numeric strings (catalog payloads sometimes encode
-   *  limits as strings); returns null for non-numeric values like schema hints. */
+   *  limits as strings); returns null for non-numeric values. */
   function tokenLimitValue(v: unknown): number | null {
     if (typeof v === "number") return Number.isFinite(v) ? v : null;
     if (typeof v === "string") {
@@ -367,32 +321,26 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     return null;
   }
 
-  /** Model info max input/output: numbers get "tokens" suffix; strings (schema hints) pass through. */
   function formatDetailTokenField(v: unknown): string {
     if (v == null || v === "") return "—";
     if (typeof v === "number" && !Number.isNaN(v)) return v.toLocaleString() + " tokens";
-    if (typeof v === "string") return v;
     return "—";
   }
 
   function tableInputCell(item: any): string {
-    if (isSampleSpecCatalogRow(item)) return "—";
     return isImagePricingMode(item.mode) ? tableImageInputCost(item) : displayChatInputCost(item);
   }
 
   function tableOutputCell(item: any): string {
-    if (isSampleSpecCatalogRow(item)) return "—";
     return isImagePricingMode(item.mode) ? tableImageOutputCost(item) : displayChatOutputCost(item);
   }
 
   function tableCacheReadCell(item: any): string {
-    if (isSampleSpecCatalogRow(item)) return "—";
     if (isImagePricingMode(item.mode)) return "—";
     return displayChatCacheRead(item);
   }
 
   function tableCacheWriteCell(item: any): string {
-    if (isSampleSpecCatalogRow(item)) return "—";
     if (isImagePricingMode(item.mode)) return "—";
     return displayChatCacheWrite(item);
   }
@@ -432,34 +380,21 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       const allItems = index["_docs"] as Item[];
 
       filteredResults = allItems.filter((item) => {
-        const schema = item.name === SAMPLE_SPEC_ROW_NAME;
         const providerOk =
-          !selectedProvider || schema || item.litellm_provider === selectedProvider;
+          !selectedProvider || item.litellm_provider === selectedProvider;
         const inputLimit = tokenLimitValue(item.max_input_tokens);
         const outputLimit = tokenLimitValue(item.max_output_tokens);
         const inputOk =
           maxInputTokens === null ||
-          schema ||
           (inputLimit !== null && inputLimit >= maxInputTokens);
         const outputOk =
           maxOutputTokens === null ||
-          schema ||
           (outputLimit !== null && outputLimit >= maxOutputTokens);
         return providerOk && inputOk && outputOk;
       });
 
       if (query) {
-        // The sample_spec reference row is field documentation and stays
-        // visible regardless of the search query, mirroring its exemption from
-        // the provider/token filters above. Search the rest and re-pin it on top.
-        const schemaRow = filteredResults.find(
-          (item) => item.name === SAMPLE_SPEC_ROW_NAME,
-        );
-        const searchable = schemaRow
-          ? filteredResults.filter((item) => item.name !== SAMPLE_SPEC_ROW_NAME)
-          : filteredResults;
-
-        const filteredIndex = new Fuse(searchable, {
+        const filteredIndex = new Fuse(filteredResults, {
           threshold: 0.3,
           keys: [
             {
@@ -472,8 +407,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         });
 
         const searchResults = filteredIndex.search(query);
-        const matched = searchResults.map((result) => result.item);
-        filteredResults = schemaRow ? [schemaRow, ...matched] : matched;
+        filteredResults = searchResults.map((result) => result.item);
       }
 
       results = filteredResults.map((item, refIndex) => ({ item, refIndex }));
@@ -688,7 +622,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             {@const max_output_tokens = item.max_output_tokens}
             <tr
               class="model-row"
-              class:model-row-schema={name === SAMPLE_SPEC_ROW_NAME}
               class:expanded={expandedRows.has(name)}
               on:click={() => toggleRow(name)}
             >
@@ -720,7 +653,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                   <div class="model-name-group">
                     <span class="model-title" title={getDisplayModelName(name, litellm_provider)}>{getDisplayModelName(name, litellm_provider)}</span>
                     {#if mode}
-                      <span class="mode-badge" class:mode-badge-schema={name === SAMPLE_SPEC_ROW_NAME}>{getModeLabel(mode)}</span>
+                      <span class="mode-badge">{getModeLabel(mode)}</span>
                     {/if}
                   </div>
                   <button
@@ -740,11 +673,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                   </button>
                 </div>
               </td>
-              <td
-                class="context-cell"
-                class:context-cell-schema={name === SAMPLE_SPEC_ROW_NAME}
-                title={name === SAMPLE_SPEC_ROW_NAME && typeof max_input_tokens === "string" ? max_input_tokens : undefined}
-              >{contextCellForRow(item, max_input_tokens)}</td>
+              <td class="context-cell">{formatContext(max_input_tokens)}</td>
               <td class="cost-cell">{tableInputCell(item)}</td>
               <td class="cost-cell">{tableOutputCell(item)}</td>
               <td class="cost-cell td-hide-mobile">{tableCacheReadCell(item)}</td>
@@ -757,9 +686,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                     <div class="detail-grid">
                       <div class="detail-section">
                         <h4 class="detail-heading">
-                          {#if isSampleSpecCatalogRow(item)}
-                            Field reference <span class="detail-unit">example values and types from the catalog JSON</span>
-                          {:else if isImagePricingMode(mode)}
+                          {#if isImagePricingMode(mode)}
                             Image pricing <span class="detail-unit">per image where applicable</span>
                           {:else if mode === "audio_speech"}
                             Audio pricing <span class="detail-unit">per character where applicable</span>
@@ -883,14 +810,12 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                     </div>
 
                     <!-- Actions -->
-                    {#if name !== SAMPLE_SPEC_ROW_NAME}
                     <div class="detail-actions">
                       <a href={getIssueUrlForFix(name)} target="_blank" rel="noopener noreferrer" class="detail-action-link" on:click|stopPropagation>
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                         Report incorrect data
                       </a>
                     </div>
-                    {/if}
                   </div>
                 </td>
               </tr>
@@ -1343,10 +1268,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     z-index: 0;
   }
 
-  tbody tr.model-row-schema td {
-    vertical-align: top;
-  }
-
   tbody tr.model-row:hover {
     background-color: var(--hover-bg);
     box-shadow: inset 3px 0 0 var(--litellm-primary);
@@ -1468,29 +1389,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     flex-shrink: 0;
   }
 
-  .mode-badge.mode-badge-schema {
-    white-space: normal;
-    max-width: min(40rem, 92vw);
-    line-height: 1.35;
-    text-transform: none;
-    letter-spacing: normal;
-    font-weight: 500;
-    font-size: 0.625rem;
-  }
-
   .context-cell {
     font-weight: 600;
     font-variant-numeric: tabular-nums;
     font-size: 0.8125rem;
-  }
-
-  .context-cell.context-cell-schema {
-    white-space: normal;
-    font-weight: 400;
-    font-size: 0.75rem;
-    line-height: 1.4;
-    color: var(--text-secondary);
-    max-width: 18rem;
   }
 
   .cost-cell {
