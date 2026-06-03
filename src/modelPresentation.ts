@@ -522,7 +522,8 @@ export function chatSortInput(item: Record<string, unknown>): number {
   if (perChar !== null) return perChar;
   const perSec = num(item.input_cost_per_second);
   if (perSec !== null) return perSec;
-  return num(item.input_cost_per_token) ?? 0;
+  const perToken = num(item.input_cost_per_token);
+  return perToken !== null ? perToken * 1e6 : 0;
 }
 
 export function chatSortOutput(item: Record<string, unknown>): number {
@@ -532,19 +533,22 @@ export function chatSortOutput(item: Record<string, unknown>): number {
   if (perChar !== null) return perChar;
   const perSec = num(item.output_cost_per_second);
   if (perSec !== null) return perSec;
-  return num(item.output_cost_per_token) ?? 0;
+  const perToken = num(item.output_cost_per_token);
+  return perToken !== null ? perToken * 1e6 : 0;
 }
 
 export function chatSortCacheRead(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
   if (slots?.cache_read && slots.cache_read.amount_usd != null)
     return slotSortValue(slots.cache_read);
-  return num(item.cache_read_input_token_cost) ?? 0;
+  const perToken = num(item.cache_read_input_token_cost);
+  return perToken !== null ? perToken * 1e6 : 0;
 }
 
 export function chatSortCacheWrite(item: Record<string, unknown>): number {
   const slots = item.pricing_slots as PricingSlots | undefined;
   if (slots?.cache_write && slots.cache_write.amount_usd != null)
     return slotSortValue(slots.cache_write);
-  return num(item.cache_creation_input_token_cost) ?? 0;
+  const perToken = num(item.cache_creation_input_token_cost);
+  return perToken !== null ? perToken * 1e6 : 0;
 }

@@ -144,6 +144,7 @@ export async function fetchAllCatalogModels(baseUrl: string): Promise<CatalogFet
     }
     const batch = json.data ?? [];
     for (const row of batch) {
+      if (row?.id === "sample_spec") continue;
       all.push(mapCatalogEntryToItem(row));
     }
     hasMore = Boolean(json.has_more);

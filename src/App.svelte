@@ -108,7 +108,7 @@
       spec: Record<string, unknown> | null | undefined,
     ): Item[] {
       if (!spec || typeof spec !== "object") return rows;
-      const refRow: Item = { name: SAMPLE_SPEC_ROW_NAME, ...spec } as Item;
+      const refRow: Item = { ...spec, name: SAMPLE_SPEC_ROW_NAME } as Item;
       return [refRow, ...rows];
     }
 
@@ -140,6 +140,16 @@
     };
 
     if (useLocalCatalogApi) {
+      fetch(
+        `https://raw.githubusercontent.com/${REPO_FULL_NAME}/main/${RESOURCE_PATH}`,
+      )
+        .then((res) => res.text())
+        .then((text) => {
+          lines = text.split("\n");
+        })
+        .catch((err) => {
+          console.error(err);
+        });
       fetchAllCatalogModels(catalogApiBase)
         .then(({ models, sample_spec }) => {
           finishLoad(prependSampleSpecRow(models as Item[], sample_spec));
@@ -272,8 +282,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function getSortValue(item: any, column: string): number {
-    if (column === "context" && isSampleSpecCatalogRow(item)) {
-      return typeof item.max_input_tokens === "number" ? item.max_input_tokens : 0;
+    if (isSampleSpecCatalogRow(item)) {
+      if (column === "context") {
+        return typeof item.max_input_tokens === "number" ? item.max_input_tokens : 0;
+      }
+      return 0;
     }
     if (isImagePricingMode(item.mode)) {
       switch (column) {
