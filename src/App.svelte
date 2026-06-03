@@ -425,7 +425,17 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       });
 
       if (query) {
-        const filteredIndex = new Fuse(filteredResults, {
+        // The sample_spec reference row is field documentation and stays
+        // visible regardless of the search query, mirroring its exemption from
+        // the provider/token filters above. Search the rest and re-pin it on top.
+        const schemaRow = filteredResults.find(
+          (item) => item.name === SAMPLE_SPEC_ROW_NAME,
+        );
+        const searchable = schemaRow
+          ? filteredResults.filter((item) => item.name !== SAMPLE_SPEC_ROW_NAME)
+          : filteredResults;
+
+        const filteredIndex = new Fuse(searchable, {
           threshold: 0.3,
           keys: [
             {
@@ -438,7 +448,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         });
 
         const searchResults = filteredIndex.search(query);
-        filteredResults = searchResults.map((result) => result.item);
+        const matched = searchResults.map((result) => result.item);
+        filteredResults = schemaRow ? [schemaRow, ...matched] : matched;
       }
 
       results = filteredResults.map((item, refIndex) => ({ item, refIndex }));

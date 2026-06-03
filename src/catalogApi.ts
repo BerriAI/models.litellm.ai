@@ -27,11 +27,24 @@ function isRecord(v: unknown): v is Record<string, unknown> {
   return v !== null && typeof v === "object" && !Array.isArray(v);
 }
 
+function toAmountUsd(amount: unknown): number | null {
+  // Only accept finite numbers and non-empty numeric strings. An empty or
+  // whitespace-only string must stay null so it falls back to legacy fields,
+  // matching num() in modelPresentation.ts (Number("") would coerce to 0).
+  if (typeof amount === "number") return Number.isFinite(amount) ? amount : null;
+  if (typeof amount === "string") {
+    const trimmed = amount.trim();
+    if (trimmed === "") return null;
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+}
+
 function asPricingSlot(v: unknown): PricingSlot {
   if (!isRecord(v)) return { amount_usd: null, unit: null, source_field: null };
-  const amount = v.amount_usd;
   return {
-    amount_usd: typeof amount === "number" ? amount : amount != null ? Number(amount) : null,
+    amount_usd: toAmountUsd(v.amount_usd),
     unit: typeof v.unit === "string" ? v.unit : null,
     source_field: typeof v.source_field === "string" ? v.source_field : null,
   };
