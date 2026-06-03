@@ -162,7 +162,13 @@ export async function fetchAllCatalogModels(baseUrl: string): Promise<CatalogFet
     }
     hasMore = Boolean(json.has_more);
     page += 1;
-    if (page > 200) break; // safety
+    if (hasMore && page > 200) {
+      // Safety cap: surface an error instead of silently returning a partial
+      // catalog so callers can show loadError rather than a truncated list.
+      throw new Error(
+        `Catalog API returned more than 200 pages with has_more=true; aborting to avoid silent truncation`,
+      );
+    }
   }
   return { models: all, sample_spec };
 }

@@ -353,6 +353,20 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     return formatContext(max_input_tokens as number | undefined);
   }
 
+  /** Coerce a max_input/output_tokens field to a finite number for filtering.
+   *  Accepts JS numbers and numeric strings (catalog payloads sometimes encode
+   *  limits as strings); returns null for non-numeric values like schema hints. */
+  function tokenLimitValue(v: unknown): number | null {
+    if (typeof v === "number") return Number.isFinite(v) ? v : null;
+    if (typeof v === "string") {
+      const trimmed = v.trim();
+      if (trimmed === "") return null;
+      const n = Number(trimmed);
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  }
+
   /** Model info max input/output: numbers get "tokens" suffix; strings (schema hints) pass through. */
   function formatDetailTokenField(v: unknown): string {
     if (v == null || v === "") return "—";
@@ -421,16 +435,16 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         const schema = item.name === SAMPLE_SPEC_ROW_NAME;
         const providerOk =
           !selectedProvider || schema || item.litellm_provider === selectedProvider;
+        const inputLimit = tokenLimitValue(item.max_input_tokens);
+        const outputLimit = tokenLimitValue(item.max_output_tokens);
         const inputOk =
           maxInputTokens === null ||
           schema ||
-          (typeof item.max_input_tokens === "number" &&
-            item.max_input_tokens >= maxInputTokens);
+          (inputLimit !== null && inputLimit >= maxInputTokens);
         const outputOk =
           maxOutputTokens === null ||
           schema ||
-          (typeof item.max_output_tokens === "number" &&
-            item.max_output_tokens >= maxOutputTokens);
+          (outputLimit !== null && outputLimit >= maxOutputTokens);
         return providerOk && inputOk && outputOk;
       });
 
