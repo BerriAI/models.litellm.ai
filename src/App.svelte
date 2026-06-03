@@ -1207,14 +1207,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   table {
     width: 100%;
-    /* separate avoids sticky <th> overlapping first tbody rows (collapse + sticky bug) */
-    border-collapse: separate;
-    border-spacing: 0;
+    border-collapse: collapse;
     background: var(--card-bg);
     border-radius: 12px;
     border: 1px solid var(--border-color);
-    /* Do not use overflow:hidden here — it breaks position:sticky on <th> and clips header vs body paint. */
-    overflow: visible;
+    overflow: hidden;
   }
 
   thead {
@@ -1222,6 +1219,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     border-bottom: 1px solid var(--border-color);
   }
 
+  /* The previous build used `position: sticky; top: 63px` on the header
+   * cells so the column titles stayed visible while scrolling under the
+   * site nav. Because `position: sticky` behaves as `position: relative`
+   * before its threshold is crossed (and `top: 63px` on a relative-
+   * positioned element pushes it 63px down from its natural slot), the
+   * header was rendered 63px below the thead's actual position — directly
+   * on top of the first body row. Removing sticky restores the natural
+   * stacking: header above body, no overlap. */
   th {
     padding: 0.625rem 1rem;
     text-align: left;
@@ -1233,10 +1238,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     background-color: var(--bg-secondary);
     white-space: nowrap;
     user-select: none;
-    position: sticky;
-    top: 63px;
-    z-index: 25;
-    box-shadow: 0 1px 0 var(--border-color);
+    border-bottom: 1px solid var(--border-color);
   }
 
   .th-model { padding-left: 1rem; }
