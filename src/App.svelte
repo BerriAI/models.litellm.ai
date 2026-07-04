@@ -1268,6 +1268,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     cursor: pointer;
     position: relative;
     z-index: 0;
+    height: 52px;
   }
 
   tbody tr.model-row:hover {
@@ -1296,6 +1297,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     display: flex;
     align-items: center;
     gap: 0.625rem;
+    flex-wrap: nowrap;
+    min-width: 0;
+    min-height: 32px;
   }
 
   .expand-icon {
@@ -1367,6 +1371,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
   }
 
   .model-title {
@@ -1376,6 +1382,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .mode-badge {
@@ -1389,6 +1397,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     text-transform: uppercase;
     letter-spacing: 0.03em;
     flex-shrink: 0;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .context-cell {
@@ -1500,6 +1511,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     align-items: center;
     padding: 0.375rem 0;
     border-bottom: 1px solid var(--border-color);
+    gap: 0.75rem;
+    min-width: 0;
   }
 
   .info-row:last-child { border-bottom: none; }
@@ -1507,6 +1520,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .info-label {
     font-size: 0.8125rem;
     color: var(--muted-color);
+    flex-shrink: 0;
   }
 
   .info-value {
@@ -1514,8 +1528,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     font-weight: 600;
     color: var(--text-color);
     font-family: 'JetBrains Mono', monospace;
+    text-align: right;
     overflow-wrap: anywhere;
     word-break: break-word;
+    min-width: 0;
   }
 
   .feature-list {
@@ -1617,9 +1633,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     overflow-x: auto;
     background: var(--code-bg);
     color: var(--code-text);
+    max-width: 100%;
+    box-sizing: border-box;
+    -webkit-overflow-scrolling: touch;
   }
 
   .code-snippet code { display: block; white-space: pre; }
+  .detail-code-section { max-width: 100%; min-width: 0; }
 
   /* {@html} snippets are not scoped — use :global so .code-kw / .code-str apply */
   .code-snippet :global(.code-kw) {
@@ -1716,6 +1736,12 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     .th-hide-mobile, .td-hide-mobile { display: none; }
   }
 
+  /* Tablet — intermediate code-snippet size between desktop and phone */
+  @media (max-width: 1024px) {
+    .code-snippet { font-size: 0.6875rem; line-height: 1.5; padding: 0.75rem; }
+    .code-snippet code { white-space: pre-wrap; word-break: break-word; }
+  }
+
   @media (max-width: 768px) {
     .hero { padding: 2.5rem 1rem 1.5rem; }
     .hero-title { font-size: 2rem; }
@@ -1728,8 +1754,50 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     .table-container { padding: 0 1rem; }
     th, td { padding: 0.5rem 0.625rem; font-size: 0.8125rem; }
     .model-name { min-width: 180px; }
+    /* Model names are the primary content of the table — keep them near
+       the standard body size on phones. */
+    .model-title { font-size: 0.9375rem; }
     .trust-logos { gap: 1.25rem; }
     .trust-logo-img { height: 22px; }
-    .detail-grid { grid-template-columns: 1fr; }
+    .trust-logo-text { font-size: 0.9375rem; }
+    .detail-grid { grid-template-columns: 1fr; gap: 1rem; }
+
+    /* Detail panel: shrink section headings and pricing values so they
+       no longer dominate the body text on phones. Section headings
+       (Pricing, Model Info, Features) sit one tier above pricing-card
+       labels (Input, Cache Read, ...) for clear hierarchy. */
+    /* The detail row spans the full table width, which is wider than the
+       phone screen (the table scrolls horizontally). Pin the panel to the
+       visible area so its content is readable without horizontal scrolling. */
+    .detail-panel {
+      padding: 1rem;
+      position: sticky;
+      left: 0;
+      max-width: calc(100vw - 2rem);
+      box-sizing: border-box;
+    }
+    .detail-heading { font-size: 0.75rem; letter-spacing: 0.06em; margin-bottom: 0.5rem; }
+    .pricing-cards { gap: 0.3125rem; }
+    .pricing-card { padding: 0.4375rem 0.5rem; gap: 0.1875rem; }
+    .pricing-label { font-size: 0.6875rem; letter-spacing: 0.04em; font-weight: 500; }
+    .pricing-value { font-size: 0.875rem; font-weight: 600; }
+
+    /* Stack info-rows so "Max Input" label can't collide with long values */
+    .info-row { flex-direction: column; align-items: flex-start; gap: 0.125rem; padding: 0.375rem 0; }
+    .info-label { font-size: 0.75rem; }
+    .info-value { text-align: left; font-size: 0.8125rem; word-break: break-word; }
+
+    /* Code blocks: slightly smaller font and tighter padding on phones.
+       Wrap lines (pre-wrap) so very long model names break instead of
+       forcing the block to scroll horizontally. */
+    .code-snippet { font-size: 0.75rem; line-height: 1.5; padding: 0.625rem; }
+    .code-snippet code { white-space: pre-wrap; word-break: break-word; }
+    .code-header-row { padding: 0.5rem 0.75rem; flex-wrap: wrap; gap: 0.5rem; }
+    .code-tab { padding: 0.3125rem 0.625rem; font-size: 0.6875rem; }
+    .copy-code-btn { font-size: 0.6875rem; padding: 0.25rem 0.5rem; }
+
+    /* Lock row height so Bedrock / first entries don't render taller than others */
+    .model-row td { height: 48px; }
+    .provider-avatar { width: 24px; height: 24px; }
   }
 </style>
