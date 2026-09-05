@@ -30,11 +30,31 @@
     chatSortCacheRead,
     chatSortCacheWrite,
   } from "./modelPresentation";
+  import {
+    EMPTY_MODELS_DEV_INDEX,
+    MODELS_DEV_API_URL,
+    buildModelsDevIndex,
+    compareReleaseDates,
+    deriveModelMeta,
+    formatReleaseDate,
+    formatReleaseMonth,
+    type ModelsDevApi,
+    type ModelsDevIndex,
+  } from "./modelMeta";
 
   type Item = {
     name: string;
+    display_name: string;
+    release_date: string | null;
     [key: string]: any;
   };
+
+  const SEARCH_KEYS = [
+    { name: "name", weight: 1.5 },
+    { name: "display_name", weight: 1.5 },
+    "mode",
+    "litellm_provider",
+  ];
 
   type ResultItem = {
     refIndex: number;
@@ -60,8 +80,8 @@
   let maxOutputTokens: number | null = null;
 
   // Sorting state
-  let sortColumn: string = "";
-  let sortDirection: "asc" | "desc" = "asc";
+  let sortColumn: string = "released";
+  let sortDirection: "asc" | "desc" = "desc";
 
   // Copy toast
   let copiedModel = "";
@@ -100,30 +120,37 @@
         sha = text;
       });
 
-    const finishLoad = (items: Item[]) => {
-      providers = [
-        ...new Set(
-          items
-            .map((i) => i.litellm_provider)
-            .filter(Boolean),
-        ),
-      ];
-      providers.sort();
-
-      index = new Fuse(items, {
-        threshold: 0.3,
-        keys: [
-          {
-            name: "name",
-            weight: 1.5,
-          },
-          "mode",
-          "litellm_provider",
-        ],
+    const modelsDevIndex: Promise<ModelsDevIndex> = fetch(MODELS_DEV_API_URL)
+      .then((res) => res.json())
+      .then((api: ModelsDevApi) => buildModelsDevIndex(api))
+      .catch((err) => {
+        console.error("models.dev metadata unavailable", err);
+        return EMPTY_MODELS_DEV_INDEX;
       });
 
-      results = items.map((item, refIndex) => ({ item, refIndex }));
-      loading = false;
+    const finishLoad = (rawItems: Item[]) => {
+      modelsDevIndex.then((modelsDev) => {
+        const items: Item[] = rawItems.map((item) => ({
+          ...item,
+          ...deriveModelMeta(item.name, modelsDev),
+        }));
+        providers = [
+          ...new Set(
+            items
+              .map((i) => i.litellm_provider)
+              .filter(Boolean),
+          ),
+        ];
+        providers.sort();
+
+        index = new Fuse(items, {
+          threshold: 0.3,
+          keys: SEARCH_KEYS,
+        });
+
+        results = items.map((item, refIndex) => ({ item, refIndex }));
+        loading = false;
+      });
     };
 
     if (useLocalCatalogApi) {
@@ -260,7 +287,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       sortDirection = sortDirection === "asc" ? "desc" : "asc";
     } else {
       sortColumn = column;
-      sortDirection = "asc";
+      sortDirection = column === "released" ? "desc" : "asc";
     }
     applySorting();
   }
@@ -300,6 +327,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   function applySorting() {
     if (!sortColumn) return;
     const sorted = [...results].sort((a, b) => {
+      if (sortColumn === "released") {
+        return compareReleaseDates(a.item.release_date, b.item.release_date, sortDirection);
+      }
       const aVal = getSortValue(a.item, sortColumn);
       const bVal = getSortValue(b.item, sortColumn);
       return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
@@ -396,14 +426,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       if (query) {
         const filteredIndex = new Fuse(filteredResults, {
           threshold: 0.3,
-          keys: [
-            {
-              name: "name",
-              weight: 1.5,
-            },
-            "mode",
-            "litellm_provider",
-          ],
+          keys: SEARCH_KEYS,
         });
 
         const searchResults = filteredIndex.search(query);
@@ -461,29 +484,16 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   <div class="trust-section">
     <p class="trust-label">Trusted by leading teams</p>
     <div class="trust-logos">
-      <img class="trust-logo-img" src="https://github.com/user-attachments/assets/f7296d4f-9fbd-460d-9d05-e4df31697c4b" alt="Stripe" height="28" />
-      <img class="trust-logo-img" src="https://github.com/user-attachments/assets/caf270a2-5aee-45c4-8222-41a2070c4f19" alt="Google ADK" height="28" />
-      <img class="trust-logo-img" src="https://github.com/user-attachments/assets/0be4bd8a-7cfa-48d3-9090-f415fe948280" alt="Greptile" height="28" />
-      <img class="trust-logo-img" src="https://github.com/user-attachments/assets/a6150c4c-149e-4cae-888b-8b92be6e003f" alt="OpenHands" height="28" />
-      <span class="trust-logo-text">Netflix</span>
-      <img class="trust-logo-img" src="https://github.com/user-attachments/assets/c02f7be0-8c2e-4d27-aea7-7c024bfaebc0" alt="OpenAI Agents SDK" height="28" />
-      <img class="trust-logo-img trust-logo-svg" src="https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@latest/icons/adobe-text.svg" alt="Adobe" height="28" />
-      <span class="trust-logo-text trust-logo-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.381-.008.008 5.352 0 11.971V12c0 6.64 5.359 12 12 12 6.64 0 12-5.36 12-12 0-6.641-5.36-12-12-12zm0 20.801c-4.846.015-8.786-3.904-8.801-8.75V12c-.014-4.846 3.904-8.786 8.75-8.801H12c4.847-.014 8.786 3.904 8.801 8.75V12c.015 4.847-3.904 8.786-8.75 8.801H12zm5.44-11.76c0 1.359-1.12 2.479-2.481 2.479-1.366-.007-2.472-1.113-2.479-2.479 0-1.361 1.12-2.481 2.479-2.481 1.361 0 2.481 1.12 2.481 2.481zm0 5.919c0 1.36-1.12 2.48-2.481 2.48-1.367-.008-2.473-1.114-2.479-2.48 0-1.359 1.12-2.479 2.479-2.479 1.361-.001 2.481 1.12 2.481 2.479zm-5.919 0c0 1.36-1.12 2.48-2.479 2.48-1.368-.007-2.475-1.113-2.481-2.48 0-1.359 1.12-2.479 2.481-2.479 1.358-.001 2.479 1.12 2.479 2.479zm0-5.919c0 1.359-1.12 2.479-2.479 2.479-1.367-.007-2.475-1.112-2.481-2.479 0-1.361 1.12-2.481 2.481-2.481 1.358 0 2.479 1.12 2.479 2.481z"/></svg>
-        Twilio
-      </span>
-      <span class="trust-logo-text trust-logo-icon">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="12"/><text x="12" y="16.5" text-anchor="middle" fill="white" font-size="13" font-weight="700" font-family="Arial,sans-serif">Z</text></svg>
-        Zurich
-      </span>
-      <img class="trust-logo-img trust-logo-svg" src="https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@latest/icons/zapier-text.svg" alt="Zapier" height="28" />
-      <span class="trust-logo-text">Rocket Money</span>
-      <span class="trust-logo-text" style="font-style: italic;">Lemonade</span>
-      <span class="trust-logo-text trust-logo-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 6.07a6.26 6.26 0 00-3.24-3.47A6.04 6.04 0 0011.32 2c-3.36 0-6.2 2.76-6.2 6.36a7.1 7.1 0 001.65 4.52L12 22l5.24-9.12a7.1 7.1 0 001.64-4.52c0-.77-.14-1.54-.41-2.29zM12 11.13a2.89 2.89 0 110-5.78 2.89 2.89 0 010 5.78z"/></svg>
-        The Weather Company
-      </span>
-      <span class="trust-logo-text" style="font-weight: 300; letter-spacing: 0.15em;">samsara</span>
+      <img class="trust-logo-img" src="/logos/netflix.svg" alt="Netflix" height="28" />
+      <img class="trust-logo-img" src="/logos/nvidia.svg" alt="NVIDIA" height="28" />
+      <img class="trust-logo-img" src="/logos/ibm.svg" alt="IBM" height="28" />
+      <img class="trust-logo-img" src="/logos/sap.svg" alt="SAP" height="28" />
+      <img class="trust-logo-img" src="/logos/att.png" alt="AT&amp;T" height="28" />
+      <img class="trust-logo-img" src="/logos/cloudera.svg" alt="Cloudera" height="28" />
+      <img class="trust-logo-img" src="/logos/twilio.svg" alt="Twilio" height="28" />
+      <img class="trust-logo-img" src="/logos/okta.svg" alt="Okta" height="28" />
+      <img class="trust-logo-img" src="/logos/zurich.svg" alt="Zurich" height="28" />
+      <img class="trust-logo-img" src="/logos/lemonade.svg" alt="Lemonade" height="28" />
     </div>
   </div>
 
@@ -549,11 +559,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     {#if !loading}
       <div class="results-meta">
         <span class="results-count">{results.length.toLocaleString()} models</span>
-        {#if query || selectedProvider || maxInputTokens || maxOutputTokens}
-          <button class="clear-filters" on:click={() => { query = ""; selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
-            Clear all filters
-          </button>
-        {/if}
+        <div class="results-meta-right">
+          {#if query || selectedProvider || maxInputTokens || maxOutputTokens}
+            <button class="clear-filters" on:click={() => { query = ""; selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
+              Clear all filters
+            </button>
+          {/if}
+          <a class="results-credit" href="https://models.dev" target="_blank" rel="noopener noreferrer">Names and release dates via models.dev</a>
+        </div>
       </div>
     {/if}
   </div>
@@ -591,6 +604,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         <thead>
           <tr>
             <th class="th-model">Model</th>
+            <th class="th-sortable" on:click={() => handleSort("released")}>
+              Released
+              <span class="sort-icon" class:active={sortColumn === "released"} class:desc={sortColumn === "released" && sortDirection === "desc"}>↑</span>
+            </th>
             <th class="th-sortable" on:click={() => handleSort("context")}>
               Context
               <span class="sort-icon" class:active={sortColumn === "context"} class:desc={sortColumn === "context" && sortDirection === "desc"}>↑</span>
@@ -651,10 +668,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                     {/if}
                   </div>
                   <div class="model-name-group">
-                    <span class="model-title" title={getDisplayModelName(name, litellm_provider)}>{getDisplayModelName(name, litellm_provider)}</span>
-                    {#if mode}
-                      <span class="mode-badge">{getModeLabel(mode)}</span>
-                    {/if}
+                    <div class="model-title-row">
+                      <span class="model-title" title={item.display_name}>{item.display_name}</span>
+                      {#if mode}
+                        <span class="mode-badge">{getModeLabel(mode)}</span>
+                      {/if}
+                    </div>
+                    <span class="model-id" title={getDisplayModelName(name, litellm_provider)}>{getDisplayModelName(name, litellm_provider)}</span>
                   </div>
                   <button
                     class="copy-button"
@@ -673,6 +693,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                   </button>
                 </div>
               </td>
+              <td class="released-cell">{formatReleaseMonth(item.release_date)}</td>
               <td class="context-cell">{formatContext(max_input_tokens)}</td>
               <td class="cost-cell">{tableInputCell(item)}</td>
               <td class="cost-cell">{tableOutputCell(item)}</td>
@@ -681,7 +702,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             </tr>
             {#if expandedRows.has(name)}
               <tr class="expanded-content" transition:fly={{ y: -10, duration: 200 }}>
-                <td colspan="6">
+                <td colspan="7">
                   <div class="detail-panel">
                     <div class="detail-grid">
                       <div class="detail-section">
@@ -745,6 +766,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                           <div class="info-row">
                             <span class="info-label">Max Output</span>
                             <span class="info-value">{formatDetailTokenField(max_output_tokens)}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">Released</span>
+                            <span class="info-value">{formatReleaseDate(item.release_date)}</span>
                           </div>
                         </div>
                       </div>
@@ -967,49 +992,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   @media (prefers-color-scheme: dark) {
     .trust-logo-img {
-      filter: grayscale(100%) brightness(2);
+      filter: grayscale(100%) brightness(0) invert(1);
       opacity: 0.5;
     }
     .trust-logo-img:hover {
-      filter: grayscale(0%) brightness(1.2);
-      opacity: 0.9;
-    }
-  }
-
-  .trust-logo-text {
-    font-size: 1.125rem;
-    font-weight: 700;
-    color: var(--border-color-strong);
-    letter-spacing: 0.04em;
-  }
-
-  .trust-logo-icon {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-  }
-
-  .trust-logo-icon svg {
-    flex-shrink: 0;
-  }
-
-  .trust-logo-svg {
-    filter: brightness(0);
-    opacity: 0.45;
-  }
-
-  .trust-logo-svg:hover {
-    filter: brightness(0);
-    opacity: 0.8;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .trust-logo-svg {
-      filter: brightness(0) invert(1);
-      opacity: 0.5;
-    }
-    .trust-logo-svg:hover {
-      filter: brightness(0) invert(1);
+      filter: none;
       opacity: 0.9;
     }
   }
@@ -1060,7 +1047,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .search-input:focus {
     outline: none;
     border-color: var(--litellm-primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 
   .search-input::placeholder { color: var(--muted-color); }
@@ -1140,7 +1127,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .filter-input:focus {
     outline: none;
     border-color: var(--litellm-primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 
   .filter-input::placeholder { color: var(--muted-color); }
@@ -1364,18 +1351,56 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   .model-name-group {
     display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .model-title-row {
+    display: flex;
     align-items: center;
     gap: 0.5rem;
     min-width: 0;
   }
 
   .model-title {
-    font-family: 'JetBrains Mono', 'Menlo', monospace;
-    font-size: 0.8125rem;
-    font-weight: 500;
+    font-size: 0.875rem;
+    font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .model-id {
+    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    font-size: 0.6875rem;
+    color: var(--muted-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .released-cell {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .results-meta-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .results-credit {
+    font-size: 0.75rem;
+    color: var(--muted-color);
+    text-decoration: none;
+  }
+
+  .results-credit:hover {
+    color: var(--text-secondary);
+    text-decoration: underline;
   }
 
   .mode-badge {
@@ -1582,7 +1607,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .code-tab.active {
     background: var(--litellm-primary);
     border-color: var(--litellm-primary);
-    color: white;
+    color: var(--litellm-on-primary);
   }
 
   .code-tab:hover:not(.active) {
@@ -1600,7 +1625,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     font-weight: 600;
     padding: 0.25rem 0.625rem;
     background: var(--litellm-primary);
-    color: white;
+    color: var(--litellm-on-primary);
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -1623,7 +1648,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   /* {@html} snippets are not scoped — use :global so .code-kw / .code-str apply */
   .code-snippet :global(.code-kw) {
-    color: #8b5cf6;
+    color: #1d4ed8;
   }
   .code-snippet :global(.code-str) {
     color: #10b981;
@@ -1634,7 +1659,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   @media (prefers-color-scheme: dark) {
     .code-snippet :global(.code-kw) {
-      color: #a78bfa;
+      color: #93c5fd;
     }
     .code-snippet :global(.code-str) {
       color: #34d399;
