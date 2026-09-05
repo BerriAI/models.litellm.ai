@@ -31,14 +31,12 @@
     chatSortCacheWrite,
   } from "./modelPresentation";
   import {
-    EMPTY_MODELS_DEV_INDEX,
-    MODELS_DEV_API_URL,
-    buildModelsDevIndex,
+    MODELS_DEV_TIMEOUT_MS,
     compareReleaseDates,
     deriveModelMeta,
     formatReleaseDate,
     formatReleaseMonth,
-    type ModelsDevApi,
+    loadModelsDevIndex,
     type ModelsDevIndex,
   } from "./modelMeta";
 
@@ -122,13 +120,10 @@
         sha = text;
       });
 
-    const modelsDevIndex: Promise<ModelsDevIndex> = fetch(MODELS_DEV_API_URL)
-      .then((res) => res.json())
-      .then((api: ModelsDevApi) => buildModelsDevIndex(api))
-      .catch((err) => {
-        console.error("models.dev metadata unavailable", err);
-        return EMPTY_MODELS_DEV_INDEX;
-      });
+    const modelsDevIndex: Promise<ModelsDevIndex> = loadModelsDevIndex(
+      (input, init) => fetch(input, init),
+      MODELS_DEV_TIMEOUT_MS,
+    );
 
     const finishLoad = (rawItems: Item[]) => {
       modelsDevIndex.then((modelsDev) => {

@@ -397,3 +397,25 @@ export function formatReleaseDate(date: string | null): string {
   if (date.length !== 10) return formatReleaseMonth(date);
   return `${MONTHS[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8, 10))}, ${date.slice(0, 4)}`;
 }
+
+export const MODELS_DEV_TIMEOUT_MS = 10_000;
+
+export function loadModelsDevIndex(
+  fetchImpl: typeof fetch,
+  timeoutMs: number,
+): Promise<ModelsDevIndex> {
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), timeoutMs);
+  return fetchImpl(MODELS_DEV_API_URL, { signal: abort.signal })
+    .then((res) =>
+      res.ok
+        ? res.json()
+        : Promise.reject(new Error(`models.dev responded ${res.status}`)),
+    )
+    .then((api: ModelsDevApi) => buildModelsDevIndex(api))
+    .catch((err: unknown) => {
+      console.error("models.dev metadata unavailable", err);
+      return EMPTY_MODELS_DEV_INDEX;
+    })
+    .finally(() => clearTimeout(timer));
+}

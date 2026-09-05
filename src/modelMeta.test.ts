@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   EMPTY_MODELS_DEV_INDEX,
   buildModelsDevIndex,
@@ -7,6 +7,7 @@ import {
   formatReleaseDate,
   formatReleaseMonth,
   humanizeModelId,
+  loadModelsDevIndex,
   releaseDateFromId,
   type ModelsDevApi,
 } from "./modelMeta";
@@ -282,5 +283,63 @@ describe("release date formatting", () => {
     expect(formatReleaseDate("2025-09")).toBe("Sep 2025");
     expect(formatReleaseMonth(null)).toBe("—");
     expect(formatReleaseDate(null)).toBe("—");
+  });
+});
+
+const stalledFetch: typeof fetch = (_input, init) =>
+  new Promise((_resolve, reject) =>
+    init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))),
+  );
+
+const jsonFetch =
+  (body: unknown, ok: boolean): typeof fetch =>
+  () =>
+    Promise.resolve({
+      ok,
+      status: ok ? 200 : 503,
+      json: () => Promise.resolve(body),
+    } as Response);
+
+describe("loadModelsDevIndex", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+  });
+
+  it("gives up on a stalled models.dev once the timeout passes", async () => {
+    let settled = false;
+    const pending = loadModelsDevIndex(stalledFetch, 10_000).then((index) => {
+      settled = true;
+      return index;
+    });
+    await vi.advanceTimersByTimeAsync(9_999);
+    expect(settled).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await pending).toBe(EMPTY_MODELS_DEV_INDEX);
+  });
+
+  it("keeps the index when models.dev answers in time", async () => {
+    const index = await loadModelsDevIndex(jsonFetch(api, true), 10_000);
+    expect(deriveModelMeta("gpt-4o", index).display_name).toBe("GPT-4o");
+  });
+
+  it("falls back to the empty index on an error status", async () => {
+    const index = await loadModelsDevIndex(
+      jsonFetch({ error: "down" }, false),
+      10_000,
+    );
+    expect(index).toBe(EMPTY_MODELS_DEV_INDEX);
+  });
+
+  it("falls back to the empty index when the request fails", async () => {
+    const index = await loadModelsDevIndex(
+      () => Promise.reject(new TypeError("Failed to fetch")),
+      10_000,
+    );
+    expect(index).toBe(EMPTY_MODELS_DEV_INDEX);
   });
 });
