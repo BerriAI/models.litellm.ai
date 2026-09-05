@@ -82,6 +82,8 @@
   // Sorting state
   let sortColumn: string = "released";
   let sortDirection: "asc" | "desc" = "desc";
+  let userSorted = false;
+  $: sortApplied = userSorted || !query;
 
   // Copy toast
   let copiedModel = "";
@@ -283,12 +285,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function handleSort(column: string) {
-    if (sortColumn === column) {
+    if (sortApplied && sortColumn === column) {
       sortDirection = sortDirection === "asc" ? "desc" : "asc";
     } else {
       sortColumn = column;
       sortDirection = column === "released" ? "desc" : "asc";
     }
+    userSorted = true;
     applySorting();
   }
 
@@ -325,7 +328,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function applySorting() {
-    if (!sortColumn) return;
+    if (!sortColumn || (query && !userSorted)) return;
     const sorted = [...results].sort((a, b) => {
       if (sortColumn === "released") {
         return compareReleaseDates(a.item.release_date, b.item.release_date, sortDirection);
@@ -606,7 +609,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             <th class="th-model">Model</th>
             <th class="th-sortable" on:click={() => handleSort("released")}>
               Released
-              <span class="sort-icon" class:active={sortColumn === "released"} class:desc={sortColumn === "released" && sortDirection === "desc"}>↑</span>
+              <span class="sort-icon" class:active={sortApplied && sortColumn === "released"} class:desc={sortApplied && sortColumn === "released" && sortDirection === "desc"}>↑</span>
             </th>
             <th class="th-sortable" on:click={() => handleSort("context")}>
               Context
