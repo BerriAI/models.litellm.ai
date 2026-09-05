@@ -145,9 +145,6 @@
 </script>
 
 <div class="app-container">
-  <!-- Accent gradient bar -->
-  <div class="accent-bar"></div>
-
   <!-- Header -->
   <header class="header">
     <div class="header-content">
@@ -330,7 +327,7 @@
   }
 
   :global(::selection) {
-    background: rgba(99, 102, 241, 0.2);
+    background: var(--border-color-strong);
     color: inherit;
   }
 
@@ -364,10 +361,10 @@
   }
 
   :root {
-    --litellm-primary: #6366f1;
-    --litellm-dark: #4f46e5;
-    --litellm-purple: #8b5cf6;
-    --litellm-gradient: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa);
+    --litellm-primary: #0f172a;
+    --litellm-dark: #334155;
+    --litellm-on-primary: #ffffff;
+    --focus-ring: rgba(15, 23, 42, 0.1);
 
     --bg-color: #ffffff;
     --bg-secondary: #f8fafc;
@@ -381,8 +378,8 @@
     --code-bg: #f8fafc;
     --code-text: #1e293b;
     --hover-bg: #f8fafc;
-    --link-color: #6366f1;
-    --link-hover: #4f46e5;
+    --link-color: #0f172a;
+    --link-hover: #334155;
     --success-color: #10b981;
     --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
     --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
@@ -403,8 +400,12 @@
       --code-bg: #1a1e35;
       --code-text: #e2e8f0;
       --hover-bg: #1a1e35;
-      --link-color: #818cf8;
-      --link-hover: #a5b4fc;
+      --litellm-primary: #e2e8f0;
+      --litellm-dark: #cbd5e1;
+      --litellm-on-primary: #0c0f1a;
+      --focus-ring: rgba(226, 232, 240, 0.15);
+      --link-color: #e2e8f0;
+      --link-hover: #ffffff;
       --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.3);
       --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3);
       --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.4);
@@ -416,23 +417,12 @@
     background-color: var(--bg-color);
   }
 
-  /* Accent gradient bar */
-  .accent-bar {
-    height: 3px;
-    background: var(--litellm-gradient);
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 200;
-  }
-
   /* Header */
   .header {
     background: var(--bg-color);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
-    top: 3px;
+    top: 0;
     z-index: 100;
     backdrop-filter: blur(12px);
     background: rgba(255,255,255,0.92);
@@ -530,7 +520,7 @@
     gap: 0.375rem;
     padding: 0.5rem 1rem;
     background: var(--litellm-primary);
-    color: white;
+    color: var(--litellm-on-primary);
     border: none;
     border-radius: 8px;
     font-weight: 600;
@@ -542,7 +532,7 @@
 
   .request-button:hover {
     background: var(--litellm-dark);
-    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
     transform: translateY(-1px);
   }
 
@@ -618,7 +608,7 @@
     gap: 0.5rem;
     padding: 0.75rem 1rem;
     background: var(--litellm-primary);
-    color: white;
+    color: var(--litellm-on-primary);
     border: none;
     border-radius: 10px;
     font-weight: 600;

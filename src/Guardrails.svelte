@@ -335,7 +335,7 @@
     border: 1px solid transparent;
   }
 
-  .btn-primary { background: var(--litellm-primary); color: white; }
+  .btn-primary { background: var(--litellm-primary); color: var(--litellm-on-primary); }
   .btn-primary:hover { background: var(--litellm-dark); }
 
   .btn-secondary { background: transparent; color: var(--text-color); border-color: var(--border-color); }
@@ -359,7 +359,7 @@
     transition: border-color 0.15s; height: 40px; box-sizing: border-box;
   }
 
-  .search-input:focus { outline: none; border-color: var(--litellm-primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+  .search-input:focus { outline: none; border-color: var(--litellm-primary); box-shadow: 0 0 0 3px var(--focus-ring); }
 
   .filter-select {
     padding: 0.625rem 1rem; font-size: 0.875rem;
@@ -412,7 +412,7 @@
     border-radius: 4px; color: var(--muted-color); font-weight: 500;
   }
 
-  .tag-more { background: var(--litellm-primary); color: white; }
+  .tag-more { background: var(--litellm-primary); color: var(--litellm-on-primary); }
 
   .input-type-badge {
     font-size: 0.6875rem; padding: 0.25rem 0.625rem;
@@ -421,7 +421,7 @@
 
   .input-type-badge.request { background: #dbeafe; color: #1e40af; }
   .input-type-badge.response { background: #dcfce7; color: #166534; }
-  .input-type-badge.both { background: #f3e8ff; color: #7c3aed; }
+  .input-type-badge.both { background: var(--bg-tertiary); color: var(--text-secondary); }
 
   .card-expanded { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color); }
 
@@ -434,7 +434,7 @@
 
   .copy-btn {
     font-size: 0.75rem; padding: 0.25rem 0.625rem; background: var(--litellm-primary);
-    color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;
+    color: var(--litellm-on-primary); border: none; border-radius: 4px; cursor: pointer; font-weight: 600;
   }
 
   .copy-btn:hover { opacity: 0.85; }

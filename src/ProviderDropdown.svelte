@@ -137,8 +137,8 @@
 
   .dropdown-trigger:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: var(--litellm-primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 
   .dropdown-trigger-content {
@@ -208,8 +208,8 @@
 
   .search-input:focus {
     outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    border-color: var(--litellm-primary);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 
   .search-input::placeholder {

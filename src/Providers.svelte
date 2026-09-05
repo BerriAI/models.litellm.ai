@@ -345,7 +345,7 @@
   }
 
   .search-input:hover { border-color: var(--border-color-strong); }
-  .search-input:focus { outline: none; border-color: var(--litellm-primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.08); }
+  .search-input:focus { outline: none; border-color: var(--litellm-primary); box-shadow: 0 0 0 3px var(--focus-ring); }
   .search-input::placeholder { color: var(--muted-color); }
 
   .loading {
@@ -396,7 +396,7 @@
   .endpoint-item:hover { background-color: var(--hover-bg); }
 
   .endpoint-item.active {
-    background-color: rgba(99,102,241,0.06); color: var(--litellm-primary);
+    background-color: var(--bg-tertiary); color: var(--litellm-primary);
     font-weight: 600; border-left: 3px solid var(--litellm-primary);
     padding-left: calc(1.25rem - 3px);
   }
@@ -413,7 +413,7 @@
   }
 
   .endpoint-item.active .provider-count {
-    background: rgba(99,102,241,0.12); color: var(--litellm-primary);
+    background: var(--border-color); color: var(--litellm-primary);
   }
 
   .content { flex: 1; min-width: 0; }
@@ -449,7 +449,7 @@
 
   .provider-card:hover {
     border-color: var(--litellm-primary);
-    box-shadow: 0 4px 12px rgba(99,102,241,0.1);
+    box-shadow: 0 4px 12px var(--focus-ring);
     transform: translateY(-1px);
   }
 
