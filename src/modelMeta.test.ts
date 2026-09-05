@@ -128,7 +128,7 @@ describe("deriveModelMeta with a models.dev index", () => {
     });
   });
 
-  it("drops a region suffix from the name when the litellm id carries no region prefix", () => {
+  it("takes the region suffix from the litellm id, never from the source name", () => {
     expect(
       deriveModelMeta("anthropic.claude-haiku-4-5-20251001-v1:0", index)
         .display_name,
@@ -137,6 +137,17 @@ describe("deriveModelMeta with a models.dev index", () => {
       deriveModelMeta("us.anthropic.claude-haiku-4-5-20251001-v1:0", index)
         .display_name,
     ).toBe("Claude Haiku 4.5 (US)");
+    expect(
+      deriveModelMeta("eu.anthropic.claude-haiku-4-5-20251001-v1:0", index)
+        .display_name,
+    ).toBe("Claude Haiku 4.5 (EU)");
+    expect(
+      deriveModelMeta("global.anthropic.claude-haiku-4-5-20251001-v1:0", index)
+        .display_name,
+    ).toBe("Claude Haiku 4.5 (Global)");
+    expect(
+      deriveModelMeta("bedrock/us.amazon.nova-canvas-v1:0", index).display_name,
+    ).toBe("Nova Canvas v1 (US)");
   });
 
   it("keeps fine-tune and image qualifiers around a matched name", () => {

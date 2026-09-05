@@ -64,7 +64,8 @@ const FIRST_PARTY_PROVIDERS: ReadonlySet<string> = new Set([
 ]);
 
 const FINE_TUNE_PREFIX = /^ft:/;
-const REGION_PREFIX = /^(?:us|eu|apac|global|jp|au|ca|us-gov)\./;
+const REGION_PREFIX = /^(us|eu|apac|global|jp|au|ca|us-gov)\./;
+const REGION_LABELS: Readonly<Record<string, string>> = { global: "Global" };
 const VENDOR_PREFIX = /^[a-z0-9-]+\.(?=[a-z])/;
 const AT_SUFFIX = /@[^/]*$/;
 const VERSION_TAG_SUFFIX = /-\d+:\d+$|:\d+$/;
@@ -341,17 +342,23 @@ function qualifiers(id: string): readonly string[] {
     });
 }
 
+function regionLabel(id: string): string | null {
+  const match = REGION_PREFIX.exec(
+    tailOf(id).toLowerCase().replace(FINE_TUNE_PREFIX, ""),
+  );
+  return match === null
+    ? null
+    : REGION_LABELS[match[1]] ?? match[1].toUpperCase();
+}
+
 function decorateName(name: string, id: string): string {
   const prefixed = FINE_TUNE_PREFIX.test(tailOf(id))
     ? `Fine-tuned ${name}`
     : name;
+  const region = regionLabel(id);
+  const regional = region === null ? prefixed : `${prefixed} (${region})`;
   const extras = qualifiers(id);
-  return extras.length === 0 ? prefixed : `${prefixed} · ${extras.join(", ")}`;
-}
-
-function stripForeignRegion(name: string, id: string): string {
-  const tail = tailOf(id).toLowerCase().replace(FINE_TUNE_PREFIX, "");
-  return REGION_PREFIX.test(tail) ? name : name.replace(REGION_NAME_SUFFIX, "");
+  return extras.length === 0 ? regional : `${regional} · ${extras.join(", ")}`;
 }
 
 export function deriveModelMeta(id: string, index: ModelsDevIndex): ModelMeta {
@@ -360,7 +367,7 @@ export function deriveModelMeta(id: string, index: ModelsDevIndex): ModelMeta {
   const baseName =
     hit === null || hit.raw
       ? humanizeModelId(id)
-      : stripForeignRegion(hit.name, id);
+      : hit.name.replace(REGION_NAME_SUFFIX, "");
   const release_date =
     hit === null || hit.dateStripped
       ? idDate ?? hit?.date ?? null
