@@ -992,7 +992,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   @media (prefers-color-scheme: dark) {
     .trust-logo-img {
-      filter: grayscale(100%) brightness(0) invert(1);
+      filter: grayscale(100%) invert(1);
       opacity: 0.5;
     }
     .trust-logo-img:hover {
