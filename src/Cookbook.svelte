@@ -314,7 +314,7 @@
 
   .retry-button {
     padding: 0.625rem 1.25rem; background: var(--litellm-primary);
-    color: white; border: none; border-radius: 8px; font-weight: 600;
+    color: var(--litellm-on-primary); border: none; border-radius: 8px; font-weight: 600;
     cursor: pointer;
   }
 
@@ -342,13 +342,13 @@
   .submit-guide-button {
     display: inline-flex; align-items: center; gap: 0.375rem;
     padding: 0.625rem 1.25rem; background: var(--litellm-primary);
-    color: white; border: none; border-radius: 8px; font-weight: 600;
+    color: var(--litellm-on-primary); border: none; border-radius: 8px; font-weight: 600;
     font-size: 0.875rem; cursor: pointer; transition: all 0.15s;
   }
 
   .submit-guide-button:hover {
     background: var(--litellm-dark); transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   }
 
   .guides-grid {
@@ -394,7 +394,7 @@
     font-weight: 600;
   }
 
-  .tag-more { background: var(--litellm-primary); color: white; }
+  .tag-more { background: var(--litellm-primary); color: var(--litellm-on-primary); }
 
   /* Modal */
   .modal-backdrop {
@@ -458,7 +458,7 @@
 
   .form-group input:focus, .form-group textarea:focus {
     outline: none; border-color: var(--litellm-primary);
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.08);
+    box-shadow: 0 0 0 3px var(--focus-ring);
   }
 
   .form-group input::placeholder, .form-group textarea::placeholder { color: var(--muted-color); }
@@ -485,7 +485,7 @@
 
   .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-  .btn-primary { background: var(--litellm-primary); color: white; }
+  .btn-primary { background: var(--litellm-primary); color: var(--litellm-on-primary); }
   .btn-primary:hover:not(:disabled) { background: var(--litellm-dark); }
 
   .btn-secondary {
