@@ -442,7 +442,7 @@
   .code-block, .usage-code {
     background: var(--code-bg); border: 1px solid var(--border-color);
     border-radius: 8px; padding: 1rem; overflow-x: auto;
-    font-family: 'JetBrains Mono', 'Menlo', monospace; font-size: 0.75rem;
+    font-family: 'Geist Mono', 'Menlo', monospace; font-size: 0.75rem;
     line-height: 1.6; margin: 0; text-align: left; white-space: pre;
   }
 

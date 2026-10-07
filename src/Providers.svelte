@@ -402,7 +402,7 @@
   }
 
   .endpoint-label {
-    font-family: 'JetBrains Mono', monospace; font-size: 0.8125rem;
+    font-family: 'Geist Mono', monospace; font-size: 0.8125rem;
     flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
@@ -488,7 +488,7 @@
 
   .provider-key {
     font-size: 0.75rem; color: var(--muted-color);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Geist Mono', monospace;
   }
 
   .provider-meta svg { color: var(--muted-color); opacity: 0.4; }

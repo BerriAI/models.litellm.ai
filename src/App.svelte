@@ -6,6 +6,9 @@
   import { getProviderInitial, getProviderLogo } from "./providers";
   import ProviderDropdown from "./ProviderDropdown.svelte";
   import { trackSearch } from "./analytics";
+  import { buildInfo, formatStars } from "./buildInfo";
+  import CatalogStats from "./CatalogStats.svelte";
+  import QuickStartBox from "./QuickStartBox.svelte";
   import {
     fetchAllCatalogModels,
   } from "./catalogApi";
@@ -106,6 +109,15 @@
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
     query = urlParams.get("q") ?? "";
+
+    fetch("/models/slugs.json")
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((map: Record<string, string>) => {
+        modelPages = map;
+      })
+      .catch(() => {
+        // No generated pages in dev builds; rows stay plain text.
+      });
 
     fetch(
       `https://api.github.com/repos/${REPO_FULL_NAME}/commits/${DEFAULT_BRANCH}`,
@@ -246,6 +258,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   let loading = true;
   let loadError: string | null = null;
   let expandedRows = new Set<string>();
+
+  /** Cost-map key -> static model page slug, written by scripts/seo/generate.ts at build time. */
+  let modelPages: Record<string, string> = {};
 
   $: {
     if (index) {
@@ -448,11 +463,19 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   <div class="hero">
     <div class="hero-badge">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-      Open-source AI Gateway — 27K+ GitHub Stars
+      {#if $buildInfo?.stars}
+        Open-source AI Gateway · {formatStars($buildInfo.stars)} GitHub stars
+      {:else}
+        Open-source AI Gateway on GitHub
+      {/if}
     </div>
     <h1 class="hero-title">The Most Comprehensive<br/>AI Model Catalog</h1>
     <p class="hero-subtitle">
-      Compare pricing, context windows, and features for <strong>2,600+ models</strong> across <strong>140+ providers</strong>. Powered by LiteLLM's open-source model database.
+      {#if $buildInfo}
+        Compare pricing, context windows, and features for <strong>{$buildInfo.models.toLocaleString()} models</strong> across <strong>{$buildInfo.providers} providers</strong>. Powered by LiteLLM's open-source price file, updated several times a day.
+      {:else}
+        Compare pricing, context windows, and features across every model and provider LiteLLM supports. Powered by LiteLLM's open-source price file.
+      {/if}
     </p>
     
     <div class="cta-buttons">
@@ -476,6 +499,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         Read the Docs
       </a>
     </div>
+
+    <QuickStartBox />
   </div>
 
   <!-- Trust Logos -->
@@ -494,6 +519,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       <img class="trust-logo-img" src="/logos/lemonade.svg" alt="Lemonade" height="28" />
     </div>
   </div>
+
+  <CatalogStats />
 
   <!-- Search and Filters -->
   <div class="search-section">
@@ -667,7 +694,16 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                   </div>
                   <div class="model-name-group">
                     <div class="model-title-row">
-                      <span class="model-title" title={item.display_name}>{item.display_name}</span>
+                      {#if modelPages[name]}
+                        <a
+                          class="model-title model-page-link"
+                          href={`/models/${modelPages[name]}`}
+                          title={`${item.display_name} pricing and providers`}
+                          on:click|stopPropagation
+                        >{item.display_name}</a>
+                      {:else}
+                        <span class="model-title" title={item.display_name}>{item.display_name}</span>
+                      {/if}
                       {#if mode}
                         <span class="mode-badge">{getModeLabel(mode)}</span>
                       {/if}
@@ -852,7 +888,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
 <style>
   .container {
-    background-color: var(--bg-color);
     color: var(--text-color);
   }
 
@@ -885,11 +920,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   .hero-title {
     font-size: 3.25rem;
-    font-weight: 800;
+    font-weight: 700;
     line-height: 1.1;
     margin: 0 0 1.25rem 0;
     color: var(--text-color);
-    letter-spacing: -0.04em;
+    letter-spacing: -0.035em;
   }
 
   .hero-subtitle {
@@ -928,9 +963,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   .btn-primary {
-    background-color: var(--text-color);
-    color: var(--bg-color);
-    border-color: var(--text-color);
+    background-color: var(--litellm-primary);
+    color: var(--litellm-on-primary);
+    border-color: var(--litellm-primary);
   }
 
   .btn-primary:hover {
@@ -1361,6 +1396,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     min-width: 0;
   }
 
+  .model-page-link {
+    color: inherit;
+  }
+
+  .model-page-link:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
   .model-title {
     font-size: 0.875rem;
     font-weight: 600;
@@ -1370,7 +1414,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   .model-id {
-    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    font-family: 'Geist Mono', 'Menlo', monospace;
     font-size: 0.6875rem;
     color: var(--muted-color);
     white-space: nowrap;
@@ -1536,7 +1580,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-color);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Geist Mono', monospace;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
@@ -1634,7 +1678,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .code-snippet {
     margin: 0;
     padding: 1rem;
-    font-family: 'JetBrains Mono', 'Menlo', monospace;
+    font-family: 'Geist Mono', 'Menlo', monospace;
     font-size: 0.8125rem;
     line-height: 1.6;
     overflow-x: auto;
