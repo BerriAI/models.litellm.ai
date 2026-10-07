@@ -1307,9 +1307,18 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     color: var(--text-color);
   }
 
+  /* A fixed share keeps long ids (bedrock_mantle/us-gov-west-1/...) from
+     stretching the column; they truncate, with the full id in the tooltip.
+     max-width: 0 lets the cell shrink below its longest unbroken text. */
   .model-name {
     font-weight: 500;
     min-width: 280px;
+    width: 35%;
+    max-width: 0;
+  }
+
+  .th-model {
+    width: 35%;
   }
 
   .model-info {
