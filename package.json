@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && npm run seo && npm run seo:check",
+    "seo": "vite-node scripts/seo/generate.ts",
+    "seo:check": "vite-node scripts/seo/validate.ts",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "format": "prettier --write .",
@@ -21,6 +23,7 @@
     "tslib": "^2.6.2",
     "typescript": "^5.2.2",
     "vite": "^5.3.5",
+    "vite-node": "^3.2.4",
     "vitest": "^3.2.7"
   },
   "dependencies": {

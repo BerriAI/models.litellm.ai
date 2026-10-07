@@ -1,0 +1,72 @@
+# Rebuilds models.litellm.ai when LiteLLM's price file changes, so a new model
+# gets its page within about 30 minutes of landing in BerriAI/litellm, then
+# tells search engines which pages changed.
+#
+# Needs a repo secret VERCEL_DEPLOY_HOOK_URL (Vercel project > Settings > Git >
+# Deploy Hooks, branch main). Without it the job only reports whether the live
+# site is behind the price file.
+name: Refresh model pages
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: refresh-model-pages
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      SITE: https://models.litellm.ai
+      PRICE_FILE: https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+      DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
+      # Public by design: search engines verify it at $SITE/<key>.txt
+      INDEXNOW_KEY: 2e02f0e5791852cef4f32950cea58c1d
+    steps:
+      - name: Compare the live build with the price file
+        id: check
+        run: |
+          latest=$(curl -fsSL "$PRICE_FILE" | sha256sum | cut -d' ' -f1)
+          live=$(curl -fsSL "$SITE/build-info.json" | jq -r '.costMapHash // empty' || true)
+          echo "live=$live" >> "$GITHUB_OUTPUT"
+          if [ "$latest" = "$live" ]; then
+            echo "Live site matches the price file."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Price file changed since the last build."
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger a production deploy
+        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        run: curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null
+
+      - name: Wait for the new build to go live
+        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        run: |
+          for _ in $(seq 1 40); do
+            sleep 30
+            live=$(curl -fsSL "$SITE/build-info.json" | jq -r '.costMapHash // empty' || true)
+            if [ -n "$live" ] && [ "$live" != "${{ steps.check.outputs.live }}" ]; then exit 0; fi
+          done
+          echo "The new build did not go live within 20 minutes."
+          exit 1
+
+      - name: Ping IndexNow with the pages that changed
+        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        run: |
+          curl -fsSL "$SITE/changes.json" \
+            | jq --arg key "$INDEXNOW_KEY" '{host: "models.litellm.ai", key: $key, keyLocation: ("https://models.litellm.ai/" + $key + ".txt"), urlList: .urls[0:10000]}' \
+            > indexnow.json
+          if [ "$(jq '.urlList | length' indexnow.json)" -eq 0 ]; then echo "No changed pages."; exit 0; fi
+          curl -fsS -X POST https://api.indexnow.org/indexnow \
+            -H "Content-Type: application/json; charset=utf-8" \
+            --data @indexnow.json
+          echo "Submitted $(jq '.urlList | length' indexnow.json) URLs."
