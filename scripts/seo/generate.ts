@@ -24,6 +24,7 @@ import { escapeHtml as esc, int, longDate, monthYear, tokensShort, usd, usdShort
 import { assignSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
 import { indexTable, layout, modelBody, notFoundBody, type IndexRow } from "./html";
 import { listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
+import { loadPreviousManifest, type Manifest } from "./manifest";
 import { modelMarkdown } from "./markdown";
 import { buildModelView, type ModelView, type RowView } from "./model-view";
 import { CHAT_MODES, IMAGE_MODES } from "./pricing";
@@ -33,22 +34,6 @@ import { COST_MAP_RAW_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, p
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
 const HERE = path.dirname(new URL(import.meta.url).pathname);
-
-type ManifestModel = {
-  pageKey: string;
-  name: string;
-  lab: string | null;
-  price: string | null;
-  context?: number;
-  providers: string[];
-  hash: string;
-  firstSeen: string | null;
-  lastChanged: string;
-  history: { date: string; price: string }[];
-  retiredOn?: string;
-};
-
-type Manifest = { version: 1; buildDate: string; costMapHash: string; models: Record<string, ManifestModel> };
 
 function write(rel: string, content: string): void {
   const file = path.join(OUT, rel);
@@ -74,18 +59,6 @@ async function github<T>(pathAndQuery: string): Promise<T | null> {
     const res = await fetch(`https://api.github.com/${pathAndQuery}`, { headers, signal: AbortSignal.timeout(10_000) });
     return res.ok ? ((await res.json()) as T) : null;
   } catch {
-    return null;
-  }
-}
-
-async function loadPreviousManifest(): Promise<Manifest | null> {
-  const url = process.env.PREVIOUS_MANIFEST_URL ?? `${SITE_URL}/models/manifest.json`;
-  if (url === "none") return null;
-  try {
-    const data = JSON.parse(await fetchText(url, 15_000));
-    return data?.version === 1 && data.models ? (data as Manifest) : null;
-  } catch {
-    // First deploy, or the live site still serves the app shell for this path.
     return null;
   }
 }
@@ -148,7 +121,7 @@ async function main(): Promise<void> {
   }
   const overrides = JSON.parse(readFileSync(path.join(HERE, "overrides.json"), "utf8")) as Overrides;
   const seededDates = JSON.parse(readFileSync(path.join(HERE, "added-dates.json"), "utf8")) as Record<string, string>;
-  const previous = await loadPreviousManifest();
+  const previous = await loadPreviousManifest(process.env.PREVIOUS_MANIFEST_URL ?? `${SITE_URL}/models/manifest.json`);
 
   const groups = groupCostMap(costMap, overrides);
   const previousSlugs: Record<string, string> = {};
