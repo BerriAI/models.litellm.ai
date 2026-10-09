@@ -5,9 +5,9 @@
     { "source": "/model_catalog", "destination": "/models", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/providers", "destination": "/index.html" },
-    { "source": "/cookbook", "destination": "/index.html" },
-    { "source": "/guardrails", "destination": "/index.html" }
+    { "source": "/providers", "destination": "/" },
+    { "source": "/cookbook", "destination": "/" },
+    { "source": "/guardrails", "destination": "/" }
   ],
   "headers": [
     {

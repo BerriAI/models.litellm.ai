@@ -4,12 +4,16 @@
  * URL points at a file that exists; every catalog row links to a real page.
  * Exits non-zero on errors, so a bad build never replaces a good one.
  */
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { SITE_URL } from "./site";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
-const SPA_ROUTES = new Set(["/", "/providers", "/cookbook", "/guardrails"]);
+const vercelConfig = JSON.parse(readFileSync(path.resolve("vercel.json"), "utf8")) as {
+  rewrites?: { source: string; destination: string }[];
+};
+const appShellRewrites = (vercelConfig.rewrites ?? []).filter((r) => r.destination === "/").map((r) => r.source);
+const SPA_ROUTES = new Set(["/", ...appShellRewrites]);
 const errors: string[] = [];
 const warnings: string[] = [];
 
@@ -17,7 +21,7 @@ function fileFor(urlPath: string): string | null {
   const clean = decodeURIComponent(urlPath.split(/[?#]/)[0]).replace(/\/$/, "") || "/";
   if (SPA_ROUTES.has(clean)) return path.join(OUT, "index.html");
   const candidates = [path.join(OUT, clean), path.join(OUT, `${clean}.html`), path.join(OUT, clean, "index.html")];
-  return candidates.find((f) => existsSync(f) && !f.endsWith("/")) ?? null;
+  return candidates.find((f) => existsSync(f) && statSync(f).isFile()) ?? null;
 }
 
 function htmlFiles(dir: string): string[] {
