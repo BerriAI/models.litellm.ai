@@ -3,6 +3,7 @@ import { pageCopy } from "./copy";
 import { article, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, groupCostMap, normalizeKey, providerNamespaces, type CostMap } from "./group";
 import { jsonLdScript, modelGraph } from "./jsonld";
+import { loadPreviousManifest } from "./manifest";
 import { modelMarkdown } from "./markdown";
 import { buildModelView, cleanName } from "./model-view";
 import { isLabProvider } from "./providers";
@@ -141,6 +142,42 @@ describe("model view", () => {
 
   test("prefers the undated alias over snapshots", () => {
     expect(views().get("gpt-4o")!.headline?.key).toBe("gpt-4o");
+  });
+
+  test("lists a bare Vertex key and its vertex_ai/ twin once", () => {
+    const image = { litellm_provider: "vertex_ai-language-models", mode: "image_generation", output_cost_per_image: 0.0336 };
+    const [group] = groupCostMap({ "gemini-nano-banana-2.1": image, "vertex_ai/gemini-nano-banana-2.1": image });
+    expect(group.members).toHaveLength(2);
+    const names = buildModelView(group, "gemini-nano-banana-2.1", {}, {}, null).rows.map((r) => r.modelString);
+    expect(names).toEqual(["vertex_ai/gemini-nano-banana-2.1"]);
+  });
+});
+
+describe("previous manifest", () => {
+  const MANIFEST = { version: 1, buildDate: "2026-10-01", costMapHash: "abc", models: {} };
+  const answer = (res: Response | Error) => (async () => {
+    if (res instanceof Error) throw res;
+    return res;
+  }) as unknown as typeof fetch;
+  const json = (body: unknown) => new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
+  const URL = "https://models.litellm.ai/models/manifest.json";
+
+  test("returns the live manifest", async () => {
+    expect(await loadPreviousManifest(URL, answer(json(MANIFEST)))).toEqual(MANIFEST);
+  });
+
+  test("treats a missing manifest or the old app shell as a first deploy", async () => {
+    expect(await loadPreviousManifest(URL, answer(new Response("not found", { status: 404 })))).toBeNull();
+    const shell = new Response("<!doctype html><div id=app></div>", { headers: { "content-type": "text/html" } });
+    expect(await loadPreviousManifest(URL, answer(shell))).toBeNull();
+    expect(await loadPreviousManifest("none", answer(new Error("never fetched")))).toBeNull();
+  });
+
+  test("fails the build instead of dropping history when the live site errors", async () => {
+    await expect(loadPreviousManifest(URL, answer(new Response("down", { status: 503 })))).rejects.toThrow("503");
+    await expect(loadPreviousManifest(URL, answer(new TypeError("fetch failed")))).rejects.toThrow("fetch failed");
+    const truncated = new Response('{"version":1,"models":{', { headers: { "content-type": "application/json" } });
+    await expect(loadPreviousManifest(URL, answer(truncated))).rejects.toThrow();
   });
 });
 

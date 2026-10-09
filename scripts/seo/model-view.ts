@@ -200,7 +200,12 @@ export function buildModelView(
 ): ModelView {
   const mode = dominantMode(group.members);
   const lab = labFor(slug, group.members.map((m) => m.vendor));
-  const rows: RowView[] = group.members.map((m) => {
+  const memberKeys = new Set(group.members.map((m) => m.key));
+  const isShadowedByPrefixedTwin = (m: Member) => {
+    const callName = modelString(m.key, m.provider);
+    return callName !== m.key && memberKeys.has(callName);
+  };
+  const rows: RowView[] = group.members.filter((m) => !isShadowedByPrefixedTwin(m)).map((m) => {
     const prices = rowPrices(m.row);
     const deprecation = typeof m.row.deprecation_date === "string" ? m.row.deprecation_date : undefined;
     const source = typeof m.row.source === "string" && m.row.source.startsWith("http") ? m.row.source : undefined;
