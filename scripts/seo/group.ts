@@ -395,3 +395,7 @@ export function assignSlugs(
   }
   return slugs;
 }
+
+export function catalogSlugs(groups: Group[], slugs: Map<string, string>): Record<string, string> {
+  return Object.fromEntries(groups.flatMap((g) => g.members.map((m) => [m.key, slugs.get(g.pageKey)!])));
+}

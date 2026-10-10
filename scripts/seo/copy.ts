@@ -48,7 +48,7 @@ export function priceSentence(v: ModelView): string | null {
   if (v.free) return `${v.name} is free to use ${at}`;
   if (CHAT_MODES.has(r.mode) && p.input !== undefined && p.output !== undefined) {
     let s = `${v.name} costs ${usd(p.input)} per 1M input tokens and ${usd(p.output)} per 1M output tokens ${at}`;
-    if (p.cacheRead !== undefined && p.cacheWrite) {
+    if (p.cacheRead !== undefined && p.cacheWrite !== undefined) {
       s += `, with cache reads at ${usd(p.cacheRead)} and cache writes at ${usd(p.cacheWrite)} per 1M tokens`;
     } else if (p.cacheRead !== undefined) {
       s += `, with cache reads at ${usd(p.cacheRead)} per 1M tokens`;
@@ -91,7 +91,7 @@ function titlePrice(v: ModelView): string | null {
 }
 
 function rangeSentence(v: ModelView): string {
-  if (!v.range || v.headlineBasis !== "first_party" || v.range.min === v.range.max) return "";
+  if (!v.range || v.headlineBasis !== "first_party" || usd(v.range.min) === usd(v.range.max)) return "";
   const unit = v.headline?.metric?.unit === "per_1m_tokens" ? "the input price" : "the price";
   return ` Across ${v.providers.length} providers on LiteLLM, ${unit} ranges from ${usd(v.range.min)} to ${usd(v.range.max)}.`;
 }

@@ -21,7 +21,7 @@ import path from "node:path";
 import { pageCopy } from "./copy";
 import { llmsTxt, robotsTxt, sitemapIndex, urlset, type SitemapEntry } from "./crawl";
 import { escapeHtml as esc, int, longDate, monthYear, tokensShort, usd, usdShort } from "./format";
-import { assignSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
+import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
 import { indexTable, layout, modelBody, notFoundBody, type IndexRow } from "./html";
 import { listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadPreviousManifest, type Manifest } from "./manifest";
@@ -172,7 +172,7 @@ async function main(): Promise<void> {
   const manifest: Manifest = { version: 1, buildDate: BUILD_DATE, costMapHash: sha(costMapText), models: {} };
   const modelEntries: SitemapEntry[] = [];
   const changed: string[] = [];
-  const slugMap: Record<string, string> = {};
+  const slugMap = catalogSlugs(groups, slugs);
 
   for (const v of views) {
     const copy = pageCopy(v, BUILD_DATE);
@@ -203,7 +203,6 @@ async function main(): Promise<void> {
 
     if (!thin) modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });
     if (lastChanged === BUILD_DATE) changed.push(abs(modelPath(v.slug)));
-    for (const r of v.rows) slugMap[r.key] = v.slug;
     manifest.models[v.slug] = {
       pageKey: v.pageKey,
       name: v.name,

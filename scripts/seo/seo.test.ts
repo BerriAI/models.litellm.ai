@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import { pageCopy } from "./copy";
 import { article, tokensShort, usd, usdShort } from "./format";
-import { assignSlugs, groupCostMap, normalizeKey, providerNamespaces, type CostMap } from "./group";
+import { assignSlugs, catalogSlugs, groupCostMap, normalizeKey, providerNamespaces, type CostMap } from "./group";
 import { jsonLdScript, modelGraph } from "./jsonld";
 import { loadPreviousManifest } from "./manifest";
 import { modelMarkdown } from "./markdown";
@@ -89,6 +89,15 @@ describe("slugs", () => {
   test("never change once published", () => {
     const slugs = assignSlugs(groupCostMap(COST_MAP), {}, { "gpt-4o": "gpt-4o-legacy" });
     expect(slugs.get("gpt-4o")).toBe("gpt-4o-legacy");
+  });
+
+  test("link every catalog key to its page, a bare Vertex key shadowed by its twin included", () => {
+    const image = { litellm_provider: "vertex_ai-language-models", mode: "image_generation", output_cost_per_image: 0.0336 };
+    const groups = groupCostMap({ "gemini-nano-banana-2.1": image, "vertex_ai/gemini-nano-banana-2.1": image });
+    expect(catalogSlugs(groups, assignSlugs(groups))).toEqual({
+      "gemini-nano-banana-2.1": "gemini-nano-banana-2.1",
+      "vertex_ai/gemini-nano-banana-2.1": "gemini-nano-banana-2.1",
+    });
   });
 });
 
@@ -195,6 +204,24 @@ describe("copy", () => {
     expect(opus.faq[0].a).toContain("$4.00 per 1M input tokens and $20.00 per 1M output tokens on Anthropic");
     const nano = pageCopy(views().get("gemini-nano-banana-2-1")!, "2026-10-06");
     expect(nano.title).toContain("$0.0336 per Image");
+  });
+
+  test("prices that print the same are not quoted as a range", () => {
+    const groups = groupCostMap({
+      "claude-opus-5": chat("anthropic", 5, 25),
+      "databricks/databricks-claude-opus-5": chat("databricks", 5.00001, 25),
+    });
+    const view = buildModelView(groups[0], "claude-opus-5", {}, {}, null);
+    expect(view.range).toBeDefined();
+    expect(pageCopy(view, "2026-10-06").answer).not.toContain("ranges from");
+  });
+
+  test("a free cache write is quoted, not dropped", () => {
+    const groups = groupCostMap({
+      "deepseek/deepseek-chat": chat("deepseek", 0.28, 0.42, { cache_read_input_token_cost: 2.8e-8, cache_creation_input_token_cost: 0 }),
+    });
+    const copy = pageCopy(buildModelView(groups[0], "deepseek-chat", {}, {}, null), "2026-10-06");
+    expect(copy.answer).toContain("cache reads at $0.028 and cache writes at $0 per 1M tokens");
   });
 
   test("FAQ dates come from LiteLLM's own history", () => {
