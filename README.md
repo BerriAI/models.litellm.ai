@@ -29,6 +29,16 @@ The generator writes:
 | `/models/manifest.json` | Per-model content hash, change date, date added and price history; the next build diffs against it |
 | `/build-info.json` | Counts, GitHub stars and price-file freshness for the home page stats |
 | `/changes.json` | URLs that changed in this build, for IndexNow |
+| `/og/<kind>/<id>.json` | Each page's share-card text; `api/og.ts` draws it as `/og/<kind>/<id>.png` |
+| `/index.html`, `/providers.html`, `/cookbook.html`, `/guardrails.html` | The app's routes, each with its own title, canonical, share image and a `<noscript>` summary for crawlers that don't run JavaScript |
+
+## Share images
+
+Every page's `og:image` points at `/og/<kind>/<id>.png?v=<hash>`. `vercel.json` rewrites that to `api/og.ts`, which reads the card text the build wrote to `/og/<kind>/<id>.json` and draws a 1200x630 PNG with satori and resvg, using the 2026 logo and Geist. The CDN caches each image, and the `?v=` hash changes whenever a card's text does, so a price change gets a fresh image. Images are drawn on request rather than at build time, which keeps builds fast; only pages that are shared or crawled ever get one. The card layout is in `scripts/seo/og-card.ts`. To see cards locally after a build:
+
+```bash
+npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home
+```
 
 ## Model grouping
 
@@ -40,6 +50,6 @@ The page's headline price is the model's own lab when it sells the model (Anthro
 
 ## Keeping pages fresh
 
-`.github/workflows/refresh-model-pages.yml` runs every 30 minutes. When the price file's hash differs from the live `build-info.json`, it calls the Vercel deploy hook in the `VERCEL_DEPLOY_HOOK_URL` secret, waits for the new build, and submits the changed URLs to IndexNow. Set `GITHUB_TOKEN` in the Vercel project's environment so the build can read the star count without hitting GitHub's anonymous rate limit.
+`.github/workflows/refresh-model-pages.yml` runs every 30 minutes. When the price file's hash differs from the live `build-info.json`, it calls the Vercel deploy hook in the `VERCEL_DEPLOY_HOOK_URL` secret, waits for the new build, and submits the changed URLs to IndexNow. To submit every URL once, after a launch or a URL change, run the workflow manually with `submit_all` checked. Set `GITHUB_TOKEN` in the Vercel project's environment so the build can read the star count without hitting GitHub's anonymous rate limit.
 
 Build-time environment variables: `SITE_URL` (default `https://models.litellm.ai`), `COST_MAP_FILE` and `PROVIDER_SUPPORT_FILE` to build from local files, `PREVIOUS_MANIFEST_URL` (or `none`), `BUILD_DATE`, `SEO_OUT_DIR`, `GITHUB_TOKEN`.

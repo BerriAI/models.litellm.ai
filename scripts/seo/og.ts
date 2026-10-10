@@ -1,0 +1,136 @@
+/**
+ * Build side of the share images: writes each page's card data to
+ * /og/<kind>/<id>.json and returns the image URL for its meta tags. The PNG is
+ * rendered on request by api/og.ts and cached by the CDN, so builds stay fast
+ * and only shared or crawled images are ever drawn. The URL carries a hash of
+ * the card, so a price change gets a fresh image instead of a cached one.
+ */
+import { createHash } from "node:crypto";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
+import { int, tokensShort, usd, usdShort } from "./format";
+import type { ModelView } from "./model-view";
+import {
+  OG_FONTS,
+  OG_HEIGHT,
+  OG_WIDTH,
+  type CardInput,
+  type Stat,
+} from "./og-card";
+import { CHAT_MODES, IMAGE_MODES } from "./pricing";
+import { abs } from "./site";
+
+/** Bump when the card design changes so every URL changes too. */
+const CARD_VERSION = "1";
+
+export type OgImage = {
+  url: string;
+  alt: string;
+  width: number;
+  height: number;
+};
+
+export function writeCard(
+  out: string,
+  kind: "models" | "providers" | "pages",
+  id: string,
+  input: CardInput,
+): OgImage {
+  const json = JSON.stringify(input);
+  const file = path.join(out, "og", kind, `${id}.json`);
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, json);
+  const v = createHash("sha256")
+    .update(CARD_VERSION)
+    .update(json)
+    .digest("hex")
+    .slice(0, 10);
+  const alt = [
+    input.title,
+    input.subtitle,
+    ...input.stats.map((s) => `${s.value} ${s.label}`),
+  ]
+    .filter(Boolean)
+    .join(". ");
+  return {
+    url: abs(`/og/${kind}/${id}.png?v=${v}`),
+    alt,
+    width: OG_WIDTH,
+    height: OG_HEIGHT,
+  };
+}
+
+/** api/og.ts loads Geist from /og/fonts on the same origin. */
+export function copyCardFonts(out: string, root: string): void {
+  const dir = path.join(out, "og", "fonts");
+  mkdirSync(dir, { recursive: true });
+  for (const f of OG_FONTS)
+    copyFileSync(
+      path.join(root, "scripts/seo/fonts", f.file),
+      path.join(dir, f.file),
+    );
+}
+
+function priceStat(v: ModelView): Stat | null {
+  const r = v.headline;
+  if (!r) return null;
+  const p = r.prices;
+  if (v.free) return { value: "Free", label: "to use" };
+  if (
+    CHAT_MODES.has(r.mode) &&
+    p.input !== undefined &&
+    p.output !== undefined
+  ) {
+    return {
+      value: `${usdShort(p.input)} / ${usdShort(p.output)}`,
+      label: "per 1M input / output tokens",
+    };
+  }
+  if (r.mode === "embedding" && p.input !== undefined)
+    return { value: usdShort(p.input), label: "per 1M input tokens" };
+  if (IMAGE_MODES.has(r.mode) && p.perImage !== undefined)
+    return { value: usd(p.perImage), label: "per image" };
+  if (r.mode === "video_generation" && p.perSecond !== undefined)
+    return { value: usd(p.perSecond), label: "per second of video" };
+  if (r.mode === "audio_speech" && p.per1MChars !== undefined)
+    return { value: usdShort(p.per1MChars), label: "per 1M characters" };
+  if (r.mode === "audio_transcription" && p.perMinute !== undefined)
+    return { value: usd(p.perMinute), label: "per minute of audio" };
+  if (p.input !== undefined)
+    return { value: usdShort(p.input), label: "per 1M input tokens" };
+  return null;
+}
+
+export function modelCard(v: ModelView): CardInput {
+  const n = v.providers.length;
+  const who = v.lab ? `by ${v.lab} · ` : "";
+  const subtitle =
+    v.headlineBasis === "lowest"
+      ? `${who}lowest price of ${n} providers`
+      : `${who}${n} provider${n === 1 ? "" : "s"} on LiteLLM`;
+  const stats: Stat[] = [];
+  const price = priceStat(v);
+  if (price) stats.push(price);
+  if (v.context)
+    stats.push({ value: tokensShort(v.context), label: "context window" });
+  if (v.maxOutput && stats.length < 3)
+    stats.push({ value: tokensShort(v.maxOutput), label: "max output" });
+  if (stats.length < 3)
+    stats.push({ value: int(n), label: n === 1 ? "provider" : "providers" });
+  return { kicker: "Model pricing", title: v.name, subtitle, stats };
+}
+
+export function providerCard(
+  name: string,
+  models: number,
+  newest: string | undefined,
+): CardInput {
+  const stats: Stat[] = [{ value: int(models), label: "models with pricing" }];
+  if (newest) stats.push({ value: newest, label: "recently added" });
+  return {
+    kicker: "Provider pricing",
+    title: name,
+    subtitle: `Every ${name} model and price on LiteLLM`,
+    stats,
+  };
+}

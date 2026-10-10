@@ -6,6 +6,7 @@ import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/mode
 import type { PageCopy } from "./copy";
 import { escapeHtml as esc, int, longDate, tokensShort, usd } from "./format";
 import { jsonLdScript } from "./jsonld";
+import type { OgImage } from "./og";
 import type { ModelView, RowView } from "./model-view";
 import type { RowPrices } from "./pricing";
 import { DOCS_URL, GITHUB_URL, PRICE_FILE_URL, SITE_NAME, abs, modelPath, providerPath } from "./site";
@@ -55,6 +56,7 @@ td .q{display:block;font-size:12px;color:var(--muted)}
 td code{white-space:nowrap}
 td.p{min-width:150px}td.p a{white-space:nowrap}td.pr{white-space:nowrap;font-variant-numeric:tabular-nums}
 tr.hl td{background:var(--bg2)}
+caption{caption-side:bottom;text-align:left;font-size:12px;color:var(--muted);padding:8px 12px}
 .flag{color:var(--warn);font-weight:600}
 details summary{cursor:pointer;color:var(--accent);font-size:14px;padding:6px 0}
 .caps{display:flex;flex-wrap:wrap;gap:8px;list-style:none}
@@ -96,7 +98,23 @@ export type Layout = {
   markdownPath?: string;
   noindex?: boolean;
   ogType?: string;
+  image?: OgImage;
 };
+
+/** Share-image tags; large cards on X, Slack, LinkedIn and iMessage. */
+export function imageTags(image: OgImage | undefined): string {
+  if (!image) return `<meta name="twitter:card" content="summary">`;
+  return [
+    `<meta property="og:image" content="${esc(image.url)}">`,
+    `<meta property="og:image:type" content="image/png">`,
+    `<meta property="og:image:width" content="${image.width}">`,
+    `<meta property="og:image:height" content="${image.height}">`,
+    `<meta property="og:image:alt" content="${esc(image.alt)}">`,
+    `<meta name="twitter:card" content="summary_large_image">`,
+    `<meta name="twitter:image" content="${esc(image.url)}">`,
+    `<meta name="twitter:image:alt" content="${esc(image.alt)}">`,
+  ].join("\n");
+}
 
 export function layout(l: Layout): string {
   const url = abs(l.path);
@@ -114,7 +132,7 @@ ${l.markdownPath ? `<link rel="alternate" type="text/markdown" href="${esc(abs(l
 <meta property="og:title" content="${esc(l.title)}">
 <meta property="og:description" content="${esc(l.description)}">
 <meta property="og:url" content="${esc(url)}">
-<meta name="twitter:card" content="summary">
+${imageTags(l.image)}
 <meta name="twitter:title" content="${esc(l.title)}">
 <meta name="twitter:description" content="${esc(l.description)}">
 <link rel="icon" href="/favicon.ico" sizes="48x48">
@@ -122,7 +140,8 @@ ${l.markdownPath ? `<link rel="alternate" type="text/markdown" href="${esc(abs(l
 <link rel="apple-touch-icon" href="/brand/litellm-monogram-blue-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap"></noscript>
 <style>${CSS.trim()}</style>
 ${l.jsonLd ? jsonLdScript(l.jsonLd) : ""}
 </head>
@@ -166,7 +185,8 @@ const PRICE_COLS: Col[] = [
 const providerLink = (hub: string, name: string, hubs: Set<string>) =>
   hubs.has(hub) ? `<a href="${providerPath(hub)}">${esc(name)}</a>` : esc(name);
 
-function priceTable(v: ModelView, rows: RowView[], cols: Col[], hubs: Set<string>): string {
+/** `caption` makes a table quotable on its own: model, units, currency and date. */
+function priceTable(v: ModelView, rows: RowView[], cols: Col[], hubs: Set<string>, caption: string): string {
   const head = `<tr><th>Provider</th><th>Model name in LiteLLM</th>${cols.map((c) => `<th class="n">${c.label}</th>`).join("")}<th class="n">Context</th></tr>`;
   const body = rows
     .map((r) => {
@@ -181,7 +201,7 @@ function priceTable(v: ModelView, rows: RowView[], cols: Col[], hubs: Set<string
       return `<tr${r === v.headline ? ' class="hl"' : ""}><td class="p">${providerLink(r.hub, r.providerName, hubs)}${flag}${q}</td><td><code>${esc(r.modelString)}</code></td>${cells}<td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`;
     })
     .join("");
-  return `<div class="tbl"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="tbl"><table><caption>${esc(caption)}</caption><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 
 function otherPrices(r: RowView): [string, string][] {
@@ -280,6 +300,7 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
   const rest = v.rows.slice(25);
   const anyOutlier = v.rows.some((r) => r.outlier);
   const others = h ? otherPrices(h) : [];
+  const tableCaption = `${v.name} prices by provider in US dollars, token prices per 1M tokens, as of ${longDate(ctx.buildDate)}. Source: LiteLLM model price file.`;
   const mode = h?.mode ?? v.mode;
   const ms = h?.modelString ?? v.rows[0].modelString;
 
@@ -300,8 +321,8 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
 
   parts.push(`<section id="pricing"><h2>${esc(v.name)} pricing by provider</h2>
 <p>${v.rows.length} ${v.rows.length === 1 ? "listing" : "listings"} across ${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}. Token prices are in US dollars per 1M tokens. The highlighted row is the price quoted above.</p>
-${priceTable(v, shown, cols, ctx.hubs)}
-${rest.length ? `<details><summary>Show ${rest.length} more listings</summary>${priceTable(v, rest, cols, ctx.hubs)}</details>` : ""}
+${priceTable(v, shown, cols, ctx.hubs, tableCaption)}
+${rest.length ? `<details><summary>Show ${rest.length} more listings</summary>${priceTable(v, rest, cols, ctx.hubs, tableCaption)}</details>` : ""}
 ${anyOutlier ? `<p class="note"><span class="flag">†</span> This price differs from the other providers by more than 8x and is left out of the headline price. Check the provider's pricing page.</p>` : ""}
 </section>`);
 
@@ -360,7 +381,7 @@ ${codeBlock("curl", "Call the proxy", getLiteLLmProxyCurlSnippet(mode, v.slug))}
     .map((p) => providerLink(p.hub, p.name, ctx.hubs))
     .join(", ");
   parts.push(`<section class="src" id="sources"><h2>Sources</h2>
-<p>Prices come from LiteLLM's open-source <a href="${PRICE_FILE_URL}">model_prices_and_context_window.json</a>, which LiteLLM uses to calculate the cost of every request. ${v.sources.length ? "Provider pricing pages:" : ""}</p>
+<p>Prices come from LiteLLM's open-source <a href="${PRICE_FILE_URL}">model_prices_and_context_window.json</a>, which LiteLLM uses to calculate the cost of every request. Maintainers update it from each provider's published pricing, and this page is rebuilt within about 30 minutes of every change. ${v.sources.length ? "Provider pricing pages:" : ""}</p>
 ${v.sources.length ? `<ul>${v.sources.map((s) => `<li><a href="${esc(s)}" rel="nofollow">${esc(s.replace(/^https?:\/\//, ""))}</a></li>`).join("")}</ul>` : ""}
 ${v.docs.length ? `<p>LiteLLM docs: ${v.docs.map((d) => `<a href="${esc(d.url)}">${esc(d.name)}</a>`).join(", ")}.</p>` : ""}
 <p>Provider pages: ${providerLinks}.</p>

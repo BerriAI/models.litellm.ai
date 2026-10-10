@@ -61,6 +61,6 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
 
   lines.push("## FAQ", "");
   for (const f of copy.faq) lines.push(`### ${f.q}`, "", f.a, "");
-  lines.push(`Source: LiteLLM model price file, ${PRICE_FILE_URL}`, "");
+  lines.push(`Source: LiteLLM model price file, ${PRICE_FILE_URL}. Maintainers update it from each provider's published pricing, and this page is rebuilt within about 30 minutes of every change.`, "");
   return lines.join("\n");
 }

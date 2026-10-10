@@ -30,19 +30,42 @@ function htmlFiles(dir: string): string[] {
     .map((f) => path.join(dir, f));
 }
 
-const pages = [...htmlFiles("models"), ...htmlFiles("providers"), "models.html"];
+// The app's routes are copies of index.html with their own head (scripts/seo/shell.ts).
+const APP_PAGES: [string, string][] = [
+  ["index.html", "/"],
+  ["providers.html", "/providers"],
+  ["cookbook.html", "/cookbook"],
+  ["guardrails.html", "/guardrails"],
+];
+const pages: [string, string][] = [
+  ...[...htmlFiles("models"), ...htmlFiles("providers"), "models.html"].map((rel): [string, string] => [rel, `/${rel.replace(/\.html$/, "")}`]),
+  ...APP_PAGES,
+];
 const titles = new Map<string, string>();
 
-for (const rel of pages) {
+for (const [rel, urlPath] of pages) {
+  if (!existsSync(path.join(OUT, rel))) {
+    errors.push(`${rel}: missing`);
+    continue;
+  }
   const html = readFileSync(path.join(OUT, rel), "utf8");
-  const urlPath = `/${rel.replace(/\.html$/, "")}`;
   const title = /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? "";
   const description = /<meta name="description" content="([^"]*)"/.exec(html)?.[1] ?? "";
   const canonical = /<link rel="canonical" href="([^"]*)"/.exec(html)?.[1] ?? "";
   const noindex = html.includes('content="noindex');
   if (!title) errors.push(`${rel}: missing title`);
   if (!description) errors.push(`${rel}: missing description`);
-  if (canonical !== `${SITE_URL}${urlPath}`) errors.push(`${rel}: canonical ${canonical} != ${SITE_URL}${urlPath}`);
+  const expected = urlPath === "/" ? `${SITE_URL}/` : `${SITE_URL}${urlPath}`;
+  if (canonical !== expected) errors.push(`${rel}: canonical ${canonical} != ${expected}`);
+  // Share image: every indexable page has one, and its card data exists for api/og.ts.
+  const image = /<meta property="og:image" content="([^"]*)"/.exec(html)?.[1];
+  const retired = html.includes("(Retired)");
+  if (!image && !noindex && !retired) errors.push(`${rel}: missing og:image`);
+  if (image) {
+    const card = /^https?:\/\/[^/]+\/og\/([a-z]+)\/([^/?]+)\.png\?v=[0-9a-f]+$/.exec(image);
+    if (!card) errors.push(`${rel}: unexpected og:image ${image}`);
+    else if (!existsSync(path.join(OUT, "og", card[1], `${card[2]}.json`))) errors.push(`${rel}: no card data for ${image}`);
+  }
   if (description.replace(/&[a-z#0-9]+;/g, "x").length > 170) warnings.push(`${rel}: description is ${description.length} characters`);
   if (!noindex) {
     const other = titles.get(title);
@@ -59,6 +82,10 @@ for (const rel of pages) {
   for (const m of html.matchAll(/href="(\/[^"]*)"/g)) {
     if (!fileFor(m[1])) errors.push(`${rel}: broken link ${m[1]}`);
   }
+}
+
+for (const font of ["Geist-Medium.ttf", "Geist-SemiBold.ttf", "Geist-Bold.ttf"]) {
+  if (!existsSync(path.join(OUT, "og", "fonts", font))) errors.push(`og/fonts/${font} missing`);
 }
 
 const slugs = JSON.parse(readFileSync(path.join(OUT, "models/slugs.json"), "utf8")) as Record<string, string>;

@@ -16,7 +16,7 @@
  *   GITHUB_TOKEN           optional; avoids GitHub API rate limits for the star count
  */
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pageCopy } from "./copy";
 import { llmsTxt, robotsTxt, sitemapIndex, urlset, type SitemapEntry } from "./crawl";
@@ -26,6 +26,8 @@ import { indexTable, layout, modelBody, notFoundBody, type IndexRow } from "./ht
 import { listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { modelMarkdown } from "./markdown";
+import { copyCardFonts, modelCard, providerCard, writeCard } from "./og";
+import { appShell, linkList } from "./shell";
 import { buildModelView, type ModelView, type RowView } from "./model-view";
 import { CHAT_MODES, IMAGE_MODES } from "./pricing";
 import { providerDocsUrl, providerName, type ProviderSupport } from "./providers";
@@ -110,7 +112,7 @@ function addedLabel(date: string | null): string | null {
 
 async function main(): Promise<void> {
   // Start clean so pages for regrouped or renamed models never linger.
-  for (const dir of ["models", "providers", "sitemaps"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
+  for (const dir of ["models", "providers", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
   const costMapText = await loadText(process.env.COST_MAP_FILE, COST_MAP_RAW_URL);
   const costMap = JSON.parse(costMapText) as CostMap;
   let support: ProviderSupport = {};
@@ -178,7 +180,8 @@ async function main(): Promise<void> {
     const copy = pageCopy(v, BUILD_DATE);
     const hash = contentHash(v);
     const prev = previous?.models[v.slug];
-    const lastChanged = prev && prev.hash === hash && !prev.retiredOn ? prev.lastChanged : BUILD_DATE;
+    const unchanged = !!prev && prev.hash === hash && !prev.retiredOn;
+    const lastChanged = unchanged ? prev.lastChanged : BUILD_DATE;
     const firstSeen = v.addedDate;
     const price = shortPrice(v.headline);
     const history = [...(prev?.history ?? [])];
@@ -197,12 +200,15 @@ async function main(): Promise<void> {
         jsonLd: modelGraph(v, copy, lastChanged, firstSeen ?? undefined),
         markdownPath: `${modelPath(v.slug)}.md`,
         noindex: thin,
+        image: writeCard(OUT, "models", v.slug, modelCard(v)),
       }),
     );
     write(`models/${v.slug}.md`, modelMarkdown(v, copy, lastChanged));
 
     if (!thin) modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });
-    if (lastChanged === BUILD_DATE) changed.push(abs(modelPath(v.slug)));
+    // Compare with the previous build, not the date: a second build on the same day
+    // must not report every page that changed earlier that day.
+    if (!unchanged && !thin) changed.push(abs(modelPath(v.slug)));
     manifest.models[v.slug] = {
       pageKey: v.pageKey,
       name: v.name,
@@ -262,6 +268,16 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
       title: indexTitle,
       description: indexDescription,
       path: "/models",
+      image: writeCard(OUT, "pages", "models", {
+        kicker: "AI model pricing",
+        title: "Compare API pricing for every AI model",
+        subtitle: "From LiteLLM's open-source price file",
+        stats: [
+          { value: int(rows.length), label: "models" },
+          { value: int(hubList.length), label: "providers" },
+          { value: int(Object.keys(costMap).filter((k) => k !== "sample_spec").length), label: "price listings" },
+        ],
+      }),
       jsonLd: listGraph("/models", indexTitle, indexDescription, latestChange, [{ name: "Models", path: "/models" }], rows.map((r) => ({ name: r.name, path: modelPath(r.slug) }))),
       body: `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Models</span></nav>
 <h1>AI model API pricing</h1>
@@ -302,6 +318,7 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
         title,
         description,
         path: providerPath(h.hub),
+        image: writeCard(OUT, "providers", h.hub, providerCard(h.name, list.length, list[0]?.view.name)),
         jsonLd: listGraph(
           providerPath(h.hub),
           title,
@@ -329,9 +346,11 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
   const pageEntries: SitemapEntry[] = [
     { path: "/", lastmod: latestChange },
     { path: "/models", lastmod: latestChange },
+    // The app's other routes have their own pages now (see shell.ts); their content isn't dated.
+    ...(existsSync(path.join(OUT, "index.html")) ? [{ path: "/providers" }, { path: "/cookbook" }, { path: "/guardrails" }] : []),
   ];
   write("sitemaps/pages.xml", urlset(pageEntries));
-  write("sitemaps/models.xml", urlset(modelEntries.sort((a, b) => b.lastmod.localeCompare(a.lastmod))));
+  write("sitemaps/models.xml", urlset(modelEntries.sort((a, b) => (b.lastmod ?? "").localeCompare(a.lastmod ?? ""))));
   write("sitemaps/providers.xml", urlset(providerEntries));
   write(
     "sitemap.xml",
@@ -342,6 +361,69 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
     ]),
   );
   write("robots.txt", robotsTxt());
+
+  // Share-image fonts, then the app's routes with their own head and a no-JS summary.
+  copyCardFonts(OUT, path.resolve(HERE, "../.."));
+  const indexFile = path.join(OUT, "index.html");
+  if (existsSync(indexFile)) {
+    const appHtml = readFileSync(indexFile, "utf8");
+    const supported = Object.keys(support.providers ?? {}).length;
+    const listings = Object.keys(costMap).filter((k) => k !== "sample_spec").length;
+    const recent = sorted.slice(0, 20).map((v) => ({ href: modelPath(v.slug), text: v.name, note: shortPrice(v.headline) ?? undefined }));
+    const hubLinks = hubList.slice(0, 30).map((h) => ({ href: providerPath(h.hub), text: `${h.name} pricing`, note: `${h.list.length} models` }));
+    const homeDescription = `Compare pricing, context windows and features for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file.`;
+    write(
+      "index.html",
+      appShell(appHtml, {
+        path: "/",
+        title: "LiteLLM Model Catalog: AI Model Pricing & Context Windows",
+        description: homeDescription,
+        image: writeCard(OUT, "pages", "home", {
+          kicker: "LiteLLM Model Catalog",
+          title: "AI model pricing, context windows and providers",
+          subtitle: "Updated several times a day",
+          stats: [
+            { value: int(rows.length), label: "models" },
+            { value: int(hubList.length), label: "providers" },
+            { value: int(listings), label: "price listings" },
+          ],
+        }),
+        noscript: `<main><h1>AI model pricing, context windows and providers</h1><p>${esc(homeDescription)} <a href="/models">Browse every model</a>.</p><h2>Recently added models</h2>${linkList(recent)}<h2>Pricing by provider</h2>${linkList(hubLinks)}</main>`,
+      }),
+    );
+    const routes = [
+      {
+        path: "/providers",
+        title: "AI Provider Integrations and Supported Endpoints | LiteLLM",
+        description: `Browse ${supported} AI providers and the endpoints LiteLLM supports for each: chat completions, embeddings, images, audio, batches and more.`,
+        card: { kicker: "LiteLLM providers", title: "AI provider integrations", subtitle: "Supported endpoints for every provider", stats: [{ value: int(supported), label: "providers" }] },
+        noscript: `<main><h1>AI provider integrations</h1><p>LiteLLM supports ${supported} AI providers. Model prices by provider:</p>${linkList(hubLinks)}</main>`,
+      },
+      {
+        path: "/cookbook",
+        title: "AI Tool Guides | LiteLLM Cookbook",
+        description: "Guides for using LiteLLM with popular AI tools and coding assistants, from the LiteLLM community.",
+        card: { kicker: "LiteLLM cookbook", title: "AI tool guides", subtitle: "Use LiteLLM with popular AI tools and coding assistants", stats: [] },
+        noscript: `<main><h1>AI tool guides</h1><p>Guides for using LiteLLM with popular AI tools and coding assistants. See also the <a href="https://docs.litellm.ai">LiteLLM docs</a>.</p></main>`,
+      },
+      {
+        path: "/guardrails",
+        title: "Custom Code Guardrails | LiteLLM",
+        description: "Copy, customize, and deploy guardrails that protect your LLM applications with LiteLLM.",
+        card: { kicker: "LiteLLM guardrails", title: "Custom code guardrails", subtitle: "Copy, customize, and deploy them with LiteLLM", stats: [] },
+        noscript: `<main><h1>Custom code guardrails</h1><p>Copy, customize, and deploy guardrails that protect your LLM applications. See the <a href="https://docs.litellm.ai/docs/proxy/guardrails/quick_start">guardrails docs</a>.</p></main>`,
+      },
+    ];
+    for (const r of routes) {
+      const id = r.path.slice(1);
+      write(
+        `${id}.html`,
+        appShell(appHtml, { path: r.path, title: r.title, description: r.description, image: writeCard(OUT, "pages", id, r.card), noscript: r.noscript }),
+      );
+    }
+  } else {
+    console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");
+  }
   write(
     "llms.txt",
     llmsTxt(
