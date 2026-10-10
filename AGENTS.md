@@ -2,7 +2,9 @@
 
 ## Cursor Cloud specific instructions
 
-This is a **Svelte 4 + Vite 5 + TypeScript** client-side SPA (no backend). All data is fetched at runtime from public GitHub APIs.
+This is a **Svelte 4 + Vite 5 + TypeScript** client-side SPA (no backend). The app fetches its data at runtime from public GitHub files. `npm run build` also runs `scripts/seo/generate.ts`, which writes a static page per model and provider into `dist/` (see README.md). Static pages and the app share `src/modelPresentation.ts` and `src/modelMeta.ts`.
+
+Only LiteLLM's own data goes on the site: `model_prices_and_context_window.json` and `provider_endpoints_support.json` from BerriAI/litellm. Do not add prices, model names or dates from other sources to the generated pages; fix grouping and names in `scripts/seo/overrides.json`.
 
 ### Running the dev server
 
@@ -17,7 +19,10 @@ The app runs on `http://localhost:5173` by default.
 | Command | Purpose |
 |---|---|
 | `npm run dev` | Start Vite dev server |
-| `npm run build` | Production build to `dist/` |
+| `npm run build` | Production build to `dist/`: app, static model pages, then `seo:check` |
+| `npm run seo` | Regenerate only the static model pages into `dist/` |
+| `npm run seo:check` | Validate the generated pages and links |
+| `npm test` | Vitest, including `scripts/seo/seo.test.ts` |
 | `npm run check` | Run `svelte-check` (TypeScript + Svelte diagnostics) |
 | `npm run format` | Run Prettier with `--write` |
 

@@ -57,32 +57,6 @@
     const tab = event.state?.tab || getTabFromPath(window.location.pathname);
     selectTab(tab, false);
   }
-  const PROVIDERS_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/provider_endpoints_support.json";
-  const MODELS_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
-
-  let providerCount = 0;
-  let endpointCount = 0;
-  let providerEndpointCount = 0;
-  let modelCount = 0;
-  let statsLoading = true;
-
-  let displayModelCount = 0;
-  let displayProviderCount = 0;
-  let displayEndpointCount = 0;
-  let displayComboCount = 0;
-
-  function animateValue(start: number, end: number, duration: number, setter: (v: number) => void) {
-    const startTime = performance.now();
-    function step(now: number) {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setter(Math.round(start + (end - start) * eased));
-      if (progress < 1) requestAnimationFrame(step);
-    }
-    requestAnimationFrame(step);
-  }
-
   onMount(async () => {
     initAnalytics();
     trackPageView('Home');
@@ -99,45 +73,6 @@
       requestForm?.openModal();
     }
 
-    try {
-      const providersResponse = await fetch(PROVIDERS_URL);
-      const providersData = await providersResponse.json();
-      
-      if (providersData.providers) {
-        const providers = Object.entries(providersData.providers).map(([provider, info]: [string, any]) => ({
-          provider,
-          endpoints: info.endpoints || {}
-        }));
-        
-        providerCount = providers.length;
-        
-        const allEndpoints = new Set<string>();
-        providers.forEach(p => {
-          Object.keys(p.endpoints).forEach(e => allEndpoints.add(e));
-        });
-        endpointCount = allEndpoints.size;
-        
-        providerEndpointCount = providers.reduce((total, provider) => {
-          return total + Object.values(provider.endpoints).filter(supported => supported === true).length;
-        }, 0);
-      }
-
-      const modelsResponse = await fetch(MODELS_URL);
-      const modelsText = await modelsResponse.text();
-      const modelsData = JSON.parse(modelsText);
-      modelCount = Object.keys(modelsData).length;
-      
-      statsLoading = false;
-
-      animateValue(0, modelCount, 800, (v) => displayModelCount = v);
-      animateValue(0, providerCount, 600, (v) => displayProviderCount = v);
-      animateValue(0, endpointCount, 600, (v) => displayEndpointCount = v);
-      animateValue(0, providerEndpointCount, 700, (v) => displayComboCount = v);
-    } catch (error) {
-      console.error("Failed to load statistics:", error);
-      statsLoading = false;
-    }
-
     return () => {
       window.removeEventListener("popstate", handlePopState);
     };
@@ -149,8 +84,10 @@
   <header class="header">
     <div class="header-content">
       <a href="/" class="logo-section-header" on:click|preventDefault={() => selectTab("models")}>
-        <span class="logo-emoji">🚅</span>
-        <span class="logo-text-header">LiteLLM</span>
+        <picture>
+          <source srcset="/brand/litellm-logo-white.png" media="(prefers-color-scheme: dark)" />
+          <img class="brand-logo" src="/brand/litellm-logo-blue.png" alt="LiteLLM" width="132" height="25" />
+        </picture>
       </a>
 
       <!-- Desktop Navigation -->
@@ -193,6 +130,7 @@
             </svg>
             Request
           </button>
+          <a href="/models" class="nav-link">All models</a>
           <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="nav-link">Docs</a>
           <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="nav-link">
             <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor">
@@ -254,47 +192,13 @@
           </button>
         </div>
         <div class="mobile-links">
+          <a href="/models" class="mobile-link">All models</a>
           <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="mobile-link" on:click={closeMobileMenu}>Docs</a>
           <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" class="mobile-link" on:click={closeMobileMenu}>GitHub</a>
         </div>
       </div>
     {/if}
   </header>
-
-  <!-- Statistics Section -->
-  {#if statsLoading}
-    <div class="stats-section">
-      <div class="stats-container">
-        {#each [1,2,3,4] as _}
-          <div class="stat-card skeleton">
-            <div class="skeleton-value"></div>
-            <div class="skeleton-label"></div>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {:else}
-    <div class="stats-section">
-      <div class="stats-container">
-        <button class="stat-card" on:click={() => selectTab("models")}>
-          <div class="stat-value">{displayModelCount.toLocaleString()}</div>
-          <div class="stat-label">Models Supported</div>
-        </button>
-        <button class="stat-card" on:click={() => selectTab("providers")}>
-          <div class="stat-value">{displayProviderCount.toLocaleString()}</div>
-          <div class="stat-label">Providers</div>
-        </button>
-        <button class="stat-card" on:click={() => selectTab("providers")}>
-          <div class="stat-value">{displayEndpointCount.toLocaleString()}</div>
-          <div class="stat-label">Unique Endpoints</div>
-        </button>
-        <button class="stat-card" on:click={() => selectTab("providers")}>
-          <div class="stat-value">{displayComboCount.toLocaleString()}</div>
-          <div class="stat-label">Provider + Endpoint Combos</div>
-        </button>
-      </div>
-    </div>
-  {/if}
 
   <!-- Content -->
   {#key activeTab}
@@ -323,7 +227,7 @@
   :global(body) {
     background-color: var(--bg-color);
     color: var(--text-color);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
 
   :global(::selection) {
@@ -360,66 +264,79 @@
     background: var(--muted-color);
   }
 
+  /* Brand tokens, matching docs.litellm.ai: logo blue #0117be as the accent
+     on light, a light blue from the same hue on the blue-black dark ground
+     (#0117be is unreadable on dark). Surfaces stay neutral. */
   :root {
-    --litellm-primary: #0f172a;
-    --litellm-dark: #334155;
+    --litellm-primary: #0117be;
+    --litellm-dark: #0114ab;
     --litellm-on-primary: #ffffff;
-    --focus-ring: rgba(15, 23, 42, 0.1);
+    --focus-ring: rgba(1, 23, 190, 0.14);
 
     --bg-color: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-tertiary: #f1f5f9;
-    --text-color: #0f172a;
-    --text-secondary: #475569;
-    --muted-color: #64748b;
-    --border-color: #e2e8f0;
-    --border-color-strong: #cbd5e1;
+    --bg-secondary: #f7f8fc;
+    --bg-tertiary: #f2f4fd;
+    --text-color: #272b37;
+    --text-secondary: #3a3e4b;
+    --muted-color: #646875;
+    --border-color: #ececf0;
+    --border-color-strong: #d3d8f3;
     --card-bg: #ffffff;
-    --code-bg: #f8fafc;
-    --code-text: #1e293b;
-    --hover-bg: #f8fafc;
-    --link-color: #0f172a;
-    --link-hover: #334155;
+    --code-bg: #f7f8fc;
+    --code-text: #272b37;
+    --hover-bg: #f2f4fd;
+    --link-color: #0117be;
+    --link-hover: #0114ab;
+    --nav-bg: rgba(255, 255, 255, 0.72);
     --success-color: #10b981;
-    --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.05);
-    --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
-    --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+    --shadow-sm: 0 1px 2px 0 rgba(39, 43, 55, 0.05);
+    --shadow-md: 0 1px 2px rgba(39, 43, 55, 0.04), 0 6px 16px -8px rgba(1, 23, 190, 0.12);
+    --shadow-lg: 0 1px 2px rgba(39, 43, 55, 0.04), 0 10px 28px -14px rgba(1, 23, 190, 0.18);
+    --aurora-mesh:
+      radial-gradient(48% 540px at 4% -6%, rgba(1, 23, 190, 0.07) 0%, rgba(1, 23, 190, 0) 64%),
+      radial-gradient(42% 500px at 98% -4%, rgba(56, 170, 240, 0.12) 0%, rgba(56, 170, 240, 0) 66%),
+      radial-gradient(38% 400px at 52% -18%, rgba(110, 130, 255, 0.07) 0%, rgba(110, 130, 255, 0) 72%);
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg-color: #0c0f1a;
-      --bg-secondary: #131627;
-      --bg-tertiary: #1a1e35;
-      --text-color: #e2e8f0;
-      --text-secondary: #94a3b8;
-      --muted-color: #64748b;
-      --border-color: #1e293b;
-      --border-color-strong: #334155;
-      --card-bg: #131627;
-      --code-bg: #1a1e35;
-      --code-text: #e2e8f0;
-      --hover-bg: #1a1e35;
-      --litellm-primary: #e2e8f0;
-      --litellm-dark: #cbd5e1;
-      --litellm-on-primary: #0c0f1a;
-      --focus-ring: rgba(226, 232, 240, 0.15);
-      --link-color: #e2e8f0;
-      --link-hover: #ffffff;
-      --shadow-sm: 0 1px 2px 0 rgba(0,0,0,0.3);
-      --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.3);
-      --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.5), 0 4px 6px -4px rgba(0,0,0,0.4);
+      --bg-color: #080b26;
+      --bg-secondary: #0f1335;
+      --bg-tertiary: #151a44;
+      --text-color: #ffffff;
+      --text-secondary: #d6d4ea;
+      --muted-color: #a6a4c6;
+      --border-color: #1a1f45;
+      --border-color-strong: #2b3170;
+      --card-bg: #0f1335;
+      --code-bg: #0f1335;
+      --code-text: #d6d4ea;
+      --hover-bg: #151a44;
+      --litellm-primary: #9fabff;
+      --litellm-dark: #b8c1ff;
+      --litellm-on-primary: #080b26;
+      --focus-ring: rgba(159, 171, 255, 0.2);
+      --link-color: #9fabff;
+      --link-hover: #c6ceff;
+      --nav-bg: rgba(8, 11, 38, 0.72);
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+      --aurora-mesh:
+        radial-gradient(48% 560px at 2% -8%, rgba(20, 45, 220, 0.3) 0%, rgba(20, 45, 220, 0) 64%),
+        radial-gradient(42% 500px at 100% -6%, rgba(56, 170, 240, 0.12) 0%, rgba(56, 170, 240, 0) 66%),
+        radial-gradient(36% 380px at 52% -20%, rgba(110, 130, 255, 0.1) 0%, rgba(110, 130, 255, 0) 72%);
     }
   }
 
   .app-container {
     min-height: 100vh;
-    background-color: var(--bg-color);
+    background: var(--aurora-mesh) no-repeat, var(--bg-color);
   }
 
   /* Header */
   .header {
-    background: var(--bg-color);
+    background: var(--nav-bg);
     border-bottom: 1px solid var(--border-color);
     position: sticky;
     top: 0;
@@ -458,16 +375,12 @@
     color: inherit;
   }
 
-  .logo-emoji {
-    font-size: 1.5rem;
+  .brand-logo {
+    display: block;
+    height: 25px;
+    width: auto;
   }
 
-  .logo-text-header {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-color);
-    letter-spacing: -0.02em;
-  }
 
   .tabs {
     display: flex;
@@ -544,6 +457,7 @@
   .nav-link {
     color: var(--muted-color);
     text-decoration: none;
+    white-space: nowrap;
     font-weight: 500;
     font-size: 0.875rem;
     transition: color 0.15s ease;
@@ -669,97 +583,4 @@
     .mobile-menu { display: block; }
   }
 
-  /* Statistics Section */
-  .stats-section {
-    max-width: 1400px;
-    margin: 0 auto;
-    padding: 1.25rem 2rem;
-  }
-
-  .stats-container {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 0.75rem;
-  }
-
-  .stat-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 1rem 0.75rem;
-    text-align: center;
-    transition: all 0.2s ease;
-    cursor: pointer;
-    font-family: inherit;
-    width: 100%;
-  }
-
-  .stat-card:hover {
-    border-color: var(--litellm-primary);
-    box-shadow: 0 0 0 1px var(--litellm-primary);
-    background: var(--bg-color);
-  }
-
-  .stat-value {
-    font-size: 1.75rem;
-    font-weight: 800;
-    color: var(--text-color);
-    line-height: 1;
-    margin-bottom: 0.375rem;
-    letter-spacing: -0.03em;
-  }
-
-  .stat-label {
-    font-size: 0.6875rem;
-    font-weight: 600;
-    color: var(--muted-color);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-  }
-
-  /* Skeleton loading */
-  .stat-card.skeleton {
-    cursor: default;
-  }
-
-  .skeleton-value {
-    width: 60%;
-    height: 1.75rem;
-    background: var(--border-color);
-    border-radius: 6px;
-    margin: 0 auto 0.375rem;
-    animation: shimmer 1.5s ease-in-out infinite;
-  }
-
-  .skeleton-label {
-    width: 80%;
-    height: 0.6875rem;
-    background: var(--border-color);
-    border-radius: 4px;
-    margin: 0 auto;
-    animation: shimmer 1.5s ease-in-out infinite;
-    animation-delay: 0.15s;
-  }
-
-  @keyframes shimmer {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* Responsive */
-  @media (max-width: 1024px) {
-    .stats-container {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (max-width: 640px) {
-    .stats-section { padding: 1rem; }
-    .stats-container {
-      grid-template-columns: repeat(2, 1fr);
-      gap: 0.5rem;
-    }
-    .stat-card { padding: 0.75rem 0.5rem; }
-    .stat-value { font-size: 1.375rem; }
-  }
 </style>

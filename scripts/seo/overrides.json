@@ -1,0 +1,21 @@
+{
+  "keyToPage": {
+    "mistral/mistral-large-2512": "mistral-large-3",
+    "mistral/mistral-large-4-0": "mistral-large-4"
+  },
+  "mergePages": {
+    "nano-banana-2": "gemini-3-1-flash-image",
+    "nova-2-lite-v-1": "nova-2-lite"
+  },
+  "excludePages": [],
+  "displayNames": {},
+  "alsoKnownAs": {
+    "gemini-nano-banana-2-1": [
+      "Nano Banana 2.1"
+    ],
+    "gemini-3-1-flash-image": [
+      "Nano Banana 2"
+    ]
+  },
+  "slugs": {}
+}

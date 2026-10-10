@@ -81,3 +81,14 @@ export function trackTabChange(tab: 'models' | 'providers') {
   }
 }
 
+
+// Track Quick Start box copies (same event names as the docs site)
+export function trackQuickStartCopy(kind: 'gateway' | 'sdk', what: 'command' | 'prompt', os?: 'mac' | 'windows') {
+  if (MIXPANEL_TOKEN) {
+    mixpanel.track(what === 'command' ? 'Quick Start Command Copied' : 'Agent Prompt Copied', {
+      kind,
+      os,
+      source: 'models_catalog'
+    });
+  }
+}
