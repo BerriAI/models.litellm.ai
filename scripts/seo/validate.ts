@@ -88,6 +88,13 @@ for (const font of ["Geist-Medium.ttf", "Geist-SemiBold.ttf", "Geist-Bold.ttf"])
   if (!existsSync(path.join(OUT, "og", "fonts", font))) errors.push(`og/fonts/${font} missing`);
 }
 
+// The refresh workflow pre-warms these; each must have card data for api/og.ts.
+const changes = JSON.parse(readFileSync(path.join(OUT, "changes.json"), "utf8")) as { images?: string[] };
+for (const image of changes.images ?? []) {
+  const card = /\/og\/([a-z]+)\/([^/?]+)\.png\?v=[0-9a-f]+$/.exec(image);
+  if (!card || !existsSync(path.join(OUT, "og", card[1], `${card[2]}.json`))) errors.push(`changes.json: no card data for ${image}`);
+}
+
 const slugs = JSON.parse(readFileSync(path.join(OUT, "models/slugs.json"), "utf8")) as Record<string, string>;
 for (const slug of new Set(Object.values(slugs))) {
   if (!existsSync(path.join(OUT, "models", `${slug}.html`))) errors.push(`slugs.json points at missing page ${slug}`);

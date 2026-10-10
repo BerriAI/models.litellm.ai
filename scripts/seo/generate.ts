@@ -174,6 +174,8 @@ async function main(): Promise<void> {
   const manifest: Manifest = { version: 1, buildDate: BUILD_DATE, costMapHash: sha(costMapText), models: {} };
   const modelEntries: SitemapEntry[] = [];
   const changed: string[] = [];
+  /** Share images of changed pages; the refresh workflow loads them once so the CDN has them cached. */
+  const changedImages: string[] = [];
   const slugMap = catalogSlugs(groups, slugs);
 
   for (const v of views) {
@@ -190,6 +192,7 @@ async function main(): Promise<void> {
     const thin = !v.headline && !v.context;
     const related = relatedFor(v, byLab, byFamily).map((o) => ({ name: o.name, slug: o.slug, price: shortPrice(o.headline) }));
     const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet });
+    const image = writeCard(OUT, "models", v.slug, modelCard(v));
     write(
       `models/${v.slug}.html`,
       layout({
@@ -200,7 +203,7 @@ async function main(): Promise<void> {
         jsonLd: modelGraph(v, copy, lastChanged, firstSeen ?? undefined),
         markdownPath: `${modelPath(v.slug)}.md`,
         noindex: thin,
-        image: writeCard(OUT, "models", v.slug, modelCard(v)),
+        image,
       }),
     );
     write(`models/${v.slug}.md`, modelMarkdown(v, copy, lastChanged));
@@ -208,7 +211,10 @@ async function main(): Promise<void> {
     if (!thin) modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });
     // Compare with the previous build, not the date: a second build on the same day
     // must not report every page that changed earlier that day.
-    if (!unchanged && !thin) changed.push(abs(modelPath(v.slug)));
+    if (!unchanged && !thin) {
+      changed.push(abs(modelPath(v.slug)));
+      changedImages.push(image.url);
+    }
     manifest.models[v.slug] = {
       pageKey: v.pageKey,
       name: v.name,
@@ -262,22 +268,23 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
   const month = monthYear(BUILD_DATE);
   const indexTitle = `AI Model API Pricing (${month}): ${int(rows.length)} Models Compared | LiteLLM`;
   const indexDescription = `Prices per 1M tokens, per image and per second for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file. Updated ${longDate(latestChange)}.`;
+  const indexImage = writeCard(OUT, "pages", "models", {
+    kicker: "AI model pricing",
+    title: "Compare API pricing for every AI model",
+    subtitle: "From LiteLLM's open-source price file",
+    stats: [
+      { value: int(rows.length), label: "models" },
+      { value: int(hubList.length), label: "providers" },
+      { value: int(Object.keys(costMap).filter((k) => k !== "sample_spec").length), label: "price listings" },
+    ],
+  });
   write(
     "models.html",
     layout({
       title: indexTitle,
       description: indexDescription,
       path: "/models",
-      image: writeCard(OUT, "pages", "models", {
-        kicker: "AI model pricing",
-        title: "Compare API pricing for every AI model",
-        subtitle: "From LiteLLM's open-source price file",
-        stats: [
-          { value: int(rows.length), label: "models" },
-          { value: int(hubList.length), label: "providers" },
-          { value: int(Object.keys(costMap).filter((k) => k !== "sample_spec").length), label: "price listings" },
-        ],
-      }),
+      image: indexImage,
       jsonLd: listGraph("/models", indexTitle, indexDescription, latestChange, [{ name: "Models", path: "/models" }], rows.map((r) => ({ name: r.name, path: modelPath(r.slug) }))),
       body: `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Models</span></nav>
 <h1>AI model API pricing</h1>
@@ -440,8 +447,11 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
 
   write("models/manifest.json", JSON.stringify(manifest));
   write("models/slugs.json", JSON.stringify(slugMap));
-  if (changed.length) changed.push(abs("/models"));
-  write("changes.json", JSON.stringify({ buildDate: BUILD_DATE, urls: changed }));
+  if (changed.length) {
+    changed.push(abs("/models"));
+    changedImages.push(indexImage.url);
+  }
+  write("changes.json", JSON.stringify({ buildDate: BUILD_DATE, urls: changed, images: changedImages }));
   const repo = await github<{ stargazers_count?: number }>("repos/BerriAI/litellm");
   const lastCommit = await github<{ commit?: { committer?: { date?: string } } }[]>(
     "repos/BerriAI/litellm/commits?path=model_prices_and_context_window.json&per_page=1",

@@ -81,6 +81,28 @@ jobs:
           echo "The new build did not go live within 20 minutes."
           exit 1
 
+      - name: Pre-warm share images for the pages that changed
+        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        # Loads each changed page's share image once, so the CDN has it cached
+        # before anyone shares the link. Doubles as a health check for api/og.ts:
+        # a few failures warn, all of them failing fails the run.
+        run: |
+          curl -fsSL "$SITE/changes.json" | jq -r '(.images // [])[:200][]' > images.txt
+          total=$(wc -l < images.txt | tr -d ' ')
+          failed=0
+          while read -r url; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url" || true)
+            if [ "$code" != "200" ]; then
+              echo "::warning::Share image returned HTTP $code: $url"
+              failed=$((failed + 1))
+            fi
+          done < images.txt
+          echo "Pre-warmed $((total - failed)) of $total share images."
+          if [ "$total" -gt 0 ] && [ "$failed" -eq "$total" ]; then
+            echo "::error::Every share image failed; check api/og.ts on the live site."
+            exit 1
+          fi
+
       - name: Ping IndexNow with the pages that changed
         if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
         run: |

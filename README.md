@@ -50,6 +50,6 @@ The page's headline price is the model's own lab when it sells the model (Anthro
 
 ## Keeping pages fresh
 
-`.github/workflows/refresh-model-pages.yml` runs every 30 minutes. When the price file's hash differs from the live `build-info.json`, it calls the Vercel deploy hook in the `VERCEL_DEPLOY_HOOK_URL` secret, waits for the new build, and submits the changed URLs to IndexNow. To submit every URL once, after a launch or a URL change, run the workflow manually with `submit_all` checked. Set `GITHUB_TOKEN` in the Vercel project's environment so the build can read the star count without hitting GitHub's anonymous rate limit.
+`.github/workflows/refresh-model-pages.yml` runs every 30 minutes. When the price file's hash differs from the live `build-info.json`, it calls the Vercel deploy hook in the `VERCEL_DEPLOY_HOOK_URL` secret, waits for the new build, loads the share image of each changed page so the CDN has it cached (this also fails the run if the image function is down), and submits the changed URLs to IndexNow. To submit every URL once, after a launch or a URL change, run the workflow manually with `submit_all` checked. Set `GITHUB_TOKEN` in the Vercel project's environment so the build can read the star count without hitting GitHub's anonymous rate limit.
 
 Build-time environment variables: `SITE_URL` (default `https://models.litellm.ai`), `COST_MAP_FILE` and `PROVIDER_SUPPORT_FILE` to build from local files, `PREVIOUS_MANIFEST_URL` (or `none`), `BUILD_DATE`, `SEO_OUT_DIR`, `GITHUB_TOKEN`.
