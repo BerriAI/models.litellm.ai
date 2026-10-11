@@ -81,11 +81,22 @@ jobs:
           echo "The new build did not go live within 20 minutes."
           exit 1
 
+      - name: Ping IndexNow with the pages that changed
+        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        run: |
+          curl -fsSL "$SITE/changes.json" \
+            | jq --arg key "$INDEXNOW_KEY" '{host: "models.litellm.ai", key: $key, keyLocation: ("https://models.litellm.ai/" + $key + ".txt"), urlList: .urls[0:10000]}' \
+            > indexnow.json
+          if [ "$(jq '.urlList | length' indexnow.json)" -eq 0 ]; then echo "No changed pages."; exit 0; fi
+          submit_indexnow
+
       - name: Pre-warm share images for the pages that changed
         if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
         # Loads each changed page's share image once, so the CDN has it cached
         # before anyone shares the link. Doubles as a health check for api/og.ts:
-        # a few failures warn, all of them failing fails the run.
+        # a few failures warn, all of them failing fails the run. Runs after the
+        # IndexNow ping so a broken image endpoint never strands that ping: the
+        # next run sees the deployed price hash and would not send it again.
         run: |
           curl -fsSL "$SITE/changes.json" | jq -r '(.images // [])[:200][]' > images.txt
           total=$(wc -l < images.txt | tr -d ' ')
@@ -102,15 +113,6 @@ jobs:
             echo "::error::Every share image failed; check api/og.ts on the live site."
             exit 1
           fi
-
-      - name: Ping IndexNow with the pages that changed
-        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
-        run: |
-          curl -fsSL "$SITE/changes.json" \
-            | jq --arg key "$INDEXNOW_KEY" '{host: "models.litellm.ai", key: $key, keyLocation: ("https://models.litellm.ai/" + $key + ".txt"), urlList: .urls[0:10000]}' \
-            > indexnow.json
-          if [ "$(jq '.urlList | length' indexnow.json)" -eq 0 ]; then echo "No changed pages."; exit 0; fi
-          submit_indexnow
 
       - name: Submit every sitemap URL to IndexNow
         if: github.event_name == 'workflow_dispatch' && inputs.submit_all

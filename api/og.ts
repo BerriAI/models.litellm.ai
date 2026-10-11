@@ -10,8 +10,8 @@ import {
   OG_ID,
   OG_KINDS,
   type CardInput,
-} from "../scripts/seo/og-card";
-import { renderCardPng, type CardAssets } from "../scripts/seo/og-render";
+} from "../scripts/seo/og-card.js";
+import { renderCardPng, type CardAssets } from "../scripts/seo/og-render.js";
 
 let assets: Promise<CardAssets> | null = null;
 

@@ -5,7 +5,7 @@
  */
 import { Resvg } from "@resvg/resvg-js";
 import satori from "satori";
-import { OG_HEIGHT, OG_WIDTH, cardElement, type CardInput } from "./og-card";
+import { OG_HEIGHT, OG_WIDTH, cardElement, type CardInput } from "./og-card.js";
 
 export type CardAssets = {
   fonts: {
