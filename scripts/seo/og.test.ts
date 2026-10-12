@@ -1,7 +1,7 @@
 import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { GET, HEAD, selfHeaders } from "../../api/og";
 import { assignSlugs, groupCostMap, type CostMap } from "./group";
 import { buildModelView } from "./model-view";
@@ -165,6 +165,27 @@ describe("image endpoint", () => {
     );
     expect(res.status).toBe(404);
     expect(res.body).toBeNull();
+  });
+
+  test("HEAD confirms the card exists without rendering it", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (input: URL, init?: RequestInit) => {
+      calls.push(`${init?.method ?? "GET"} ${input.pathname}`);
+      return new Response(null, { status: 200 });
+    });
+    try {
+      const res = await HEAD(
+        new Request(
+          "https://models.litellm.ai/api/og?kind=models&id=claude-opus-5-5",
+        ),
+      );
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/png");
+      expect(res.body).toBeNull();
+      expect(calls).toEqual(["HEAD /og/models/claude-opus-5-5.json"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });
 

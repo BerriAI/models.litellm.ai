@@ -70,31 +70,43 @@ function loadAssets(
   return assets;
 }
 
-export async function GET(request: Request): Promise<Response> {
+const IMAGE_HEADERS = {
+  "Content-Type": "image/png",
+  "Cache-Control": "public, max-age=86400, s-maxage=31536000, immutable",
+};
+
+/** The build-written card behind /og/<kind>/<id>.png, or null when the URL names no such card. */
+function cardUrl(request: Request): URL | null {
   const url = new URL(request.url);
   const kind = url.searchParams.get("kind") ?? "";
   const id = url.searchParams.get("id") ?? "";
   if (!(OG_KINDS as readonly string[]).includes(kind) || !OG_ID.test(id)) {
-    return new Response("Not found", { status: 404 });
+    return null;
   }
-  const headers = selfHeaders(request);
-  const card = await fetch(new URL(`/og/${kind}/${id}.json`, url.origin), {
-    headers,
-  });
-  if (!card.ok) return new Response("Not found", { status: 404 });
-  const png = await renderCardPng(
-    (await card.json()) as CardInput,
-    await loadAssets(url.origin, headers),
-  );
-  return new Response(new Uint8Array(png), {
-    headers: {
-      "Content-Type": "image/png",
-      "Cache-Control": "public, max-age=86400, s-maxage=31536000, immutable",
-    },
-  });
+  return new URL(`/og/${kind}/${id}.json`, url.origin);
 }
 
+export async function GET(request: Request): Promise<Response> {
+  const card = cardUrl(request);
+  if (!card) return new Response("Not found", { status: 404 });
+  const headers = selfHeaders(request);
+  const res = await fetch(card, { headers });
+  if (!res.ok) return new Response("Not found", { status: 404 });
+  const png = await renderCardPng(
+    (await res.json()) as CardInput,
+    await loadAssets(card.origin, headers),
+  );
+  return new Response(new Uint8Array(png), { headers: IMAGE_HEADERS });
+}
+
+/** A status probe only checks that the card exists; nothing is rendered. */
 export async function HEAD(request: Request): Promise<Response> {
-  const res = await GET(request);
-  return new Response(null, { status: res.status, headers: res.headers });
+  const card = cardUrl(request);
+  const found =
+    card !== null &&
+    (await fetch(card, { method: "HEAD", headers: selfHeaders(request) })).ok;
+  return new Response(
+    null,
+    found ? { headers: IMAGE_HEADERS } : { status: 404 },
+  );
 }
