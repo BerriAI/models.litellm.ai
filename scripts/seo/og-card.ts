@@ -6,8 +6,26 @@
  * so headline numbers are 64px and up and no text is under 28px.
  */
 
+import { createHash } from "node:crypto";
+
 export const OG_WIDTH = 1200;
 export const OG_HEIGHT = 630;
+
+/** Bump when the card design changes so every URL changes too. */
+export const CARD_VERSION = "1";
+
+/**
+ * The ?v= in a card's image URL: a hash of the card's JSON text and the design
+ * version, so a changed card gets a fresh URL and api/og.ts can tell the card's
+ * own URL from a made-up one.
+ */
+export function cardHash(json: string): string {
+  return createHash("sha256")
+    .update(CARD_VERSION)
+    .update(json)
+    .digest("hex")
+    .slice(0, 10);
+}
 
 export type Stat = { value: string; label: string };
 

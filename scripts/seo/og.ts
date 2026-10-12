@@ -5,7 +5,6 @@
  * and only shared or crawled images are ever drawn. The URL carries a hash of
  * the card, so a price change gets a fresh image instead of a cached one.
  */
-import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { headlinePrice } from "./copy";
@@ -15,13 +14,11 @@ import {
   OG_FONTS,
   OG_HEIGHT,
   OG_WIDTH,
+  cardHash,
   type CardInput,
   type Stat,
 } from "./og-card";
 import { abs } from "./site";
-
-/** Bump when the card design changes so every URL changes too. */
-const CARD_VERSION = "1";
 
 export type OgImage = {
   url: string;
@@ -40,11 +37,7 @@ export function writeCard(
   const file = path.join(out, "og", kind, `${id}.json`);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, json);
-  const v = createHash("sha256")
-    .update(CARD_VERSION)
-    .update(json)
-    .digest("hex")
-    .slice(0, 10);
+  const v = cardHash(json);
   const alt = [
     input.title,
     input.subtitle,

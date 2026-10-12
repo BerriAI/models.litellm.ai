@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from "vitest";
 import { GET, HEAD, selfHeaders } from "../../api/og";
 import { assignSlugs, groupCostMap, type CostMap } from "./group";
 import { buildModelView } from "./model-view";
-import { cardElement } from "./og-card";
+import { cardElement, cardHash } from "./og-card";
 import { priceSentence } from "./copy";
 import { modelCard, providerCard, writeCard } from "./og";
 import { appShell } from "./shell";
@@ -121,11 +121,12 @@ describe("share cards", () => {
       /^https:\/\/models\.litellm\.ai\/og\/providers\/bedrock\.png\?v=[0-9a-f]{10}$/,
     );
     expect(a.url).not.toBe(b.url);
-    expect(
-      JSON.parse(
-        readFileSync(path.join(out, "og/providers/bedrock.json"), "utf8"),
-      ).stats[0].value,
-    ).toBe("164");
+    const stored = readFileSync(
+      path.join(out, "og/providers/bedrock.json"),
+      "utf8",
+    );
+    expect(JSON.parse(stored).stats[0].value).toBe("164");
+    expect(b.url.endsWith(`?v=${cardHash(stored)}`)).toBe(true);
     expect(a.alt).toContain("163 models with pricing");
   });
 
@@ -140,6 +141,13 @@ describe("share cards", () => {
     );
     expect((el.props.children as unknown[]).length).toBe(2);
   });
+});
+
+const CARD_JSON = JSON.stringify({
+  kicker: "Model pricing",
+  title: "Claude Opus 5.5",
+  subtitle: "by Anthropic · 8 providers on LiteLLM",
+  stats: [{ value: "$4 / $20", label: "per 1M input / output tokens" }],
 });
 
 describe("image endpoint", () => {
@@ -171,7 +179,7 @@ describe("image endpoint", () => {
     const calls: string[] = [];
     vi.stubGlobal("fetch", async (input: URL, init?: RequestInit) => {
       calls.push(`${init?.method ?? "GET"} ${input.pathname}`);
-      return new Response(null, { status: 200 });
+      return new Response(CARD_JSON, { status: 200 });
     });
     try {
       const res = await HEAD(
@@ -182,7 +190,36 @@ describe("image endpoint", () => {
       expect(res.status).toBe(200);
       expect(res.headers.get("content-type")).toBe("image/png");
       expect(res.body).toBeNull();
-      expect(calls).toEqual(["HEAD /og/models/claude-opus-5-5.json"]);
+      expect(calls).toEqual(["GET /og/models/claude-opus-5-5.json"]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  test("only the card's own ?v= renders; any other answers a cacheable 404", async () => {
+    vi.stubGlobal("fetch", async (input: URL) => {
+      if (input.pathname.endsWith(".json")) return new Response(CARD_JSON);
+      const file = input.pathname.startsWith("/og/fonts/")
+        ? path.join("scripts/seo/fonts", path.basename(input.pathname))
+        : path.join("public", input.pathname);
+      return new Response(readFileSync(file));
+    });
+    try {
+      const at = (v: string) =>
+        `https://models.litellm.ai/api/og?kind=models&id=claude-opus-5-5&v=${v}`;
+      for (const probe of [GET, HEAD]) {
+        const miss = await probe(new Request(at("0123456789")));
+        expect(miss.status).toBe(404);
+        expect(miss.headers.get("cache-control")).toContain("s-maxage");
+      }
+      const hit = await GET(new Request(at(cardHash(CARD_JSON))));
+      expect(hit.status).toBe(200);
+      expect(hit.headers.get("content-type")).toBe("image/png");
+      expect(
+        Buffer.from(await hit.arrayBuffer())
+          .subarray(1, 4)
+          .toString(),
+      ).toBe("PNG");
     } finally {
       vi.unstubAllGlobals();
     }

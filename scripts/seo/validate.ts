@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { OG_ID } from "./og-card";
 import { SITE_URL } from "./site";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
@@ -64,6 +65,7 @@ for (const [rel, urlPath] of pages) {
   if (image) {
     const card = /^https?:\/\/[^/]+\/og\/([a-z]+)\/([^/?]+)\.png\?v=[0-9a-f]+$/.exec(image);
     if (!card) errors.push(`${rel}: unexpected og:image ${image}`);
+    else if (!OG_ID.test(card[2])) errors.push(`${rel}: og:image id ${card[2]} is not one api/og.ts serves`);
     else if (!existsSync(path.join(OUT, "og", card[1], `${card[2]}.json`))) errors.push(`${rel}: no card data for ${image}`);
   }
   if (description.replace(/&[a-z#0-9]+;/g, "x").length > 170) warnings.push(`${rel}: description is ${description.length} characters`);
