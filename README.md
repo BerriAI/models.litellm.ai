@@ -17,19 +17,19 @@ npm test
 
 The generator writes:
 
-| Path                                                                   | What it is                                                                                                                          |
-| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `/models/<model-id>`                                                   | One page per model, grouping every provider's listing of it, with prices, context window, features, code samples, FAQ and JSON-LD   |
-| `/models/<model-id>.md`                                                | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts`                                               |
-| `/models`                                                              | Every model, most recently added first                                                                                              |
-| `/providers/<provider>`                                                | Every model one provider sells, at that provider's price                                                                            |
-| `/sitemap.xml`, `/sitemaps/*.xml`                                      | Sitemap index split by page type, with `lastmod` from real data changes                                                             |
-| `/robots.txt`, `/llms.txt`                                             | Crawl rules and a plain-text index for AI agents                                                                                    |
-| `/models/slugs.json`                                                   | Price-file key to page slug, used by the catalog table to link rows                                                                 |
-| `/models/manifest.json`                                                | Per-model content hash, change date, date added and price history; the next build diffs against it                                  |
-| `/build-info.json`                                                     | Counts, GitHub stars and price-file freshness for the home page stats                                                               |
-| `/changes.json`                                                        | URLs that changed in this build, for IndexNow                                                                                       |
-| `/og/<kind>/<id>.json`                                                 | Each page's share-card text; `api/og.ts` draws it as `/og/<kind>/<id>.png`                                                          |
+| Path | What it is |
+|---|---|
+| `/models/<model-id>` | One page per model, grouping every provider's listing of it, with prices, context window, features, code samples, FAQ and JSON-LD |
+| `/models/<model-id>.md` | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts` |
+| `/models` | Every model, most recently added first |
+| `/providers/<provider>` | Every model one provider sells, at that provider's price |
+| `/sitemap.xml`, `/sitemaps/*.xml` | Sitemap index split by page type, with `lastmod` from real data changes |
+| `/robots.txt`, `/llms.txt` | Crawl rules and a plain-text index for AI agents |
+| `/models/slugs.json` | Price-file key to page slug, used by the catalog table to link rows |
+| `/models/manifest.json` | Per-model content hash, change date, date added and price history; the next build diffs against it |
+| `/build-info.json` | Counts, GitHub stars and price-file freshness for the home page stats |
+| `/changes.json` | URLs that changed in this build, for IndexNow |
+| `/og/<kind>/<id>.json` | Each page's share-card text; `api/og.ts` draws it as `/og/<kind>/<id>.png` |
 | `/index.html`, `/providers.html`, `/cookbook.html`, `/guardrails.html` | The app's routes, each with its own title, canonical, share image and a `<noscript>` summary for crawlers that don't run JavaScript |
 
 ## Share images
