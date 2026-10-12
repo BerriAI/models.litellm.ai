@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { GET } from "../../api/og";
+import { GET, selfHeaders } from "../../api/og";
 import { assignSlugs, groupCostMap, type CostMap } from "./group";
 import { buildModelView } from "./model-view";
 import { cardElement } from "./og-card";
@@ -157,5 +157,30 @@ describe("app route pages", () => {
       '<meta name="twitter:card" content="summary_large_image">',
     );
     expect(once).toContain("<noscript><p>hi</p></noscript>");
+  });
+});
+
+describe("self fetches", () => {
+  test("forward only the Vercel session cookie and the bypass token", () => {
+    const preview = new Request(
+      "https://site-abc123-team.vercel.app/api/og?kind=models&id=x",
+      {
+        headers: {
+          cookie: "a=1; _vercel_jwt=token.value; b=2",
+          "x-vercel-protection-bypass": "secret",
+        },
+      },
+    );
+    expect(selfHeaders(preview)).toEqual({
+      "x-vercel-protection-bypass": "secret",
+      cookie: "_vercel_jwt=token.value",
+    });
+    expect(
+      selfHeaders(
+        new Request("https://models.litellm.ai/api/og?kind=models&id=x", {
+          headers: { cookie: "a=1" },
+        }),
+      ),
+    ).toEqual({});
   });
 });

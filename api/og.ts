@@ -15,20 +15,43 @@ import { renderCardPng, type CardAssets } from "../scripts/seo/og-render.js";
 
 let assets: Promise<CardAssets> | null = null;
 
-async function fetchOk(url: URL): Promise<Response> {
-  const res = await fetch(url);
+/**
+ * Preview deployments sit behind Vercel Authentication, which also covers the
+ * static files this function reads from its own origin. Forwarding the
+ * viewer's Vercel session (or an automation bypass token) lets a preview
+ * render; the production domain is not protected, so nothing is forwarded.
+ */
+export function selfHeaders(request: Request): Record<string, string> {
+  const bypass = request.headers.get("x-vercel-protection-bypass");
+  const session = /(?:^|;\s*)_vercel_jwt=([^;]+)/.exec(
+    request.headers.get("cookie") ?? "",
+  )?.[1];
+  return {
+    ...(bypass ? { "x-vercel-protection-bypass": bypass } : {}),
+    ...(session ? { cookie: `_vercel_jwt=${session}` } : {}),
+  };
+}
+
+async function fetchOk(
+  url: URL,
+  headers: Record<string, string>,
+): Promise<Response> {
+  const res = await fetch(url, { headers });
   if (!res.ok) throw new Error(`${url.pathname}: ${res.status}`);
   return res;
 }
 
 /** Fonts and logo come from the same deployment's static files; kept for the life of the instance. */
-function loadAssets(origin: string): Promise<CardAssets> {
+function loadAssets(
+  origin: string,
+  headers: Record<string, string>,
+): Promise<CardAssets> {
   assets ??= (async () => {
     const fonts = await Promise.all(
       OG_FONTS.map(async (f) => ({
         name: "Geist",
         data: await (
-          await fetchOk(new URL(`/og/fonts/${f.file}`, origin))
+          await fetchOk(new URL(`/og/fonts/${f.file}`, origin), headers)
         ).arrayBuffer(),
         weight: f.weight,
         style: "normal" as const,
@@ -36,7 +59,7 @@ function loadAssets(origin: string): Promise<CardAssets> {
     );
     const logo = Buffer.from(
       await (
-        await fetchOk(new URL("/brand/litellm-logo-white.png", origin))
+        await fetchOk(new URL("/brand/litellm-logo-white.png", origin), headers)
       ).arrayBuffer(),
     );
     return { fonts, logo: `data:image/png;base64,${logo.toString("base64")}` };
@@ -54,11 +77,14 @@ export async function GET(request: Request): Promise<Response> {
   if (!(OG_KINDS as readonly string[]).includes(kind) || !OG_ID.test(id)) {
     return new Response("Not found", { status: 404 });
   }
-  const card = await fetch(new URL(`/og/${kind}/${id}.json`, url.origin));
+  const headers = selfHeaders(request);
+  const card = await fetch(new URL(`/og/${kind}/${id}.json`, url.origin), {
+    headers,
+  });
   if (!card.ok) return new Response("Not found", { status: 404 });
   const png = await renderCardPng(
     (await card.json()) as CardInput,
-    await loadAssets(url.origin),
+    await loadAssets(url.origin, headers),
   );
   return new Response(new Uint8Array(png), {
     headers: {

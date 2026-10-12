@@ -83,6 +83,8 @@ jobs:
 
       - name: Ping IndexNow with the pages that changed
         if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        # A failed ping must not skip the image health check below.
+        continue-on-error: true
         run: |
           curl -fsSL "$SITE/changes.json" \
             | jq --arg key "$INDEXNOW_KEY" '{host: "models.litellm.ai", key: $key, keyLocation: ("https://models.litellm.ai/" + $key + ".txt"), urlList: .urls[0:10000]}' \
