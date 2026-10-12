@@ -5,9 +5,7 @@
     { "source": "/model_catalog", "destination": "/models", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/providers", "destination": "/" },
-    { "source": "/cookbook", "destination": "/" },
-    { "source": "/guardrails", "destination": "/" }
+    { "source": "/og/:kind/:id.png", "destination": "/api/og?kind=:kind&id=:id" }
   ],
   "headers": [
     {

@@ -11,6 +11,11 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
+    inputs:
+      submit_all:
+        description: "Submit every URL in the sitemaps to IndexNow, not just changed pages (use after launches or URL changes)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -30,6 +35,23 @@ jobs:
       # Public by design: search engines verify it at $SITE/<key>.txt
       INDEXNOW_KEY: 2e02f0e5791852cef4f32950cea58c1d
     steps:
+      - name: Define the IndexNow helper
+        run: |
+          # The deploy is what matters; an IndexNow rejection is reported as a
+          # warning with IndexNow's own explanation instead of failing the run.
+          cat > "$RUNNER_TEMP/indexnow.sh" <<'SH'
+          submit_indexnow() {
+            status=$(curl -sS -o indexnow-response.txt -w '%{http_code}' -X POST https://api.indexnow.org/indexnow \
+              -H "Content-Type: application/json; charset=utf-8" --data @indexnow.json)
+            count=$(jq '.urlList | length' indexnow.json)
+            case "$status" in
+              200|202) echo "IndexNow accepted $count URLs (HTTP $status)." ;;
+              *) echo "::warning::IndexNow rejected $count URLs with HTTP $status: $(head -c 500 indexnow-response.txt)" ;;
+            esac
+          }
+          SH
+          echo "BASH_ENV=$RUNNER_TEMP/indexnow.sh" >> "$GITHUB_ENV"
+
       - name: Compare the live build with the price file
         id: check
         run: |
@@ -61,12 +83,44 @@ jobs:
 
       - name: Ping IndexNow with the pages that changed
         if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        # A failed ping must not skip the image health check below.
+        continue-on-error: true
         run: |
           curl -fsSL "$SITE/changes.json" \
             | jq --arg key "$INDEXNOW_KEY" '{host: "models.litellm.ai", key: $key, keyLocation: ("https://models.litellm.ai/" + $key + ".txt"), urlList: .urls[0:10000]}' \
             > indexnow.json
           if [ "$(jq '.urlList | length' indexnow.json)" -eq 0 ]; then echo "No changed pages."; exit 0; fi
-          curl -fsS -X POST https://api.indexnow.org/indexnow \
-            -H "Content-Type: application/json; charset=utf-8" \
-            --data @indexnow.json
-          echo "Submitted $(jq '.urlList | length' indexnow.json) URLs."
+          submit_indexnow
+
+      - name: Pre-warm share images for the pages that changed
+        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        # Loads each changed page's share image once, so the CDN has it cached
+        # before anyone shares the link. Doubles as a health check for api/og.ts:
+        # a few failures warn, all of them failing fails the run. Runs after the
+        # IndexNow ping so a broken image endpoint never strands that ping: the
+        # next run sees the deployed price hash and would not send it again.
+        run: |
+          curl -fsSL "$SITE/changes.json" | jq -r '(.images // [])[:200][]' > images.txt
+          total=$(wc -l < images.txt | tr -d ' ')
+          failed=0
+          while read -r url; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "$url" || true)
+            if [ "$code" != "200" ]; then
+              echo "::warning::Share image returned HTTP $code: $url"
+              failed=$((failed + 1))
+            fi
+          done < images.txt
+          echo "Pre-warmed $((total - failed)) of $total share images."
+          if [ "$total" -gt 0 ] && [ "$failed" -eq "$total" ]; then
+            echo "::error::Every share image failed; check api/og.ts on the live site."
+            exit 1
+          fi
+
+      - name: Submit every sitemap URL to IndexNow
+        if: github.event_name == 'workflow_dispatch' && inputs.submit_all
+        run: |
+          for map in pages models providers; do
+            curl -fsSL "$SITE/sitemaps/$map.xml" | grep -o '<loc>[^<]*</loc>' | sed -e 's/<loc>//' -e 's#</loc>##'
+          done > urls.txt
+          jq -R -s --arg key "$INDEXNOW_KEY" '{host: "models.litellm.ai", key: $key, keyLocation: ("https://models.litellm.ai/" + $key + ".txt"), urlList: (split("\n") | map(select(length > 0)) | .[0:10000])}' urls.txt > indexnow.json
+          submit_indexnow

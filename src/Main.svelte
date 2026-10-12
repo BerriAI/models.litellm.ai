@@ -7,6 +7,7 @@
   import Guardrails from "./Guardrails.svelte";
   import RequestForm from "./RequestForm.svelte";
   import { initAnalytics, trackPageView, trackTabChange } from "./analytics";
+  import { PAGE_TITLES } from "./pageTitles";
 
   let activeTab: "models" | "providers" | "cookbook" | "guardrails" = "models";
   let mobileMenuOpen = false;
@@ -43,6 +44,7 @@
 
   function selectTab(tab: "models" | "providers" | "cookbook" | "guardrails", updateUrl = true) {
     activeTab = tab;
+    document.title = PAGE_TITLES[tab];
     closeMobileMenu();
     trackTabChange(tab);
     window.scrollTo({ top: 0, behavior: "smooth" });

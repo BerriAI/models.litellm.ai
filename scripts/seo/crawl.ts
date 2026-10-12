@@ -1,7 +1,8 @@
 /** robots.txt, the sitemap index and its children, and llms.txt. */
 import { SITE_URL, abs } from "./site";
 
-export type SitemapEntry = { path: string; lastmod: string };
+/** `lastmod` only when we know when the page's content changed. */
+export type SitemapEntry = { path: string; lastmod?: string };
 
 const xmlEscape = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -15,7 +16,7 @@ Sitemap: ${SITE_URL}/sitemap.xml
 
 export function urlset(entries: SitemapEntry[]): string {
   const urls = entries
-    .map((e) => `<url><loc>${xmlEscape(abs(e.path))}</loc><lastmod>${e.lastmod}</lastmod></url>`)
+    .map((e) => `<url><loc>${xmlEscape(abs(e.path))}</loc>${e.lastmod ? `<lastmod>${e.lastmod}</lastmod>` : ""}</url>`)
     .join("\n");
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
