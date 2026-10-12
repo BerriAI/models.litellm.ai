@@ -8,6 +8,7 @@
 import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { headlinePrice } from "./copy";
 import { int, tokensShort, usd, usdShort } from "./format";
 import type { ModelView } from "./model-view";
 import {
@@ -17,7 +18,6 @@ import {
   type CardInput,
   type Stat,
 } from "./og-card";
-import { CHAT_MODES, IMAGE_MODES } from "./pricing";
 import { abs } from "./site";
 
 /** Bump when the card design changes so every URL changes too. */
@@ -72,33 +72,34 @@ export function copyCardFonts(out: string, root: string): void {
 }
 
 function priceStat(v: ModelView): Stat | null {
-  const r = v.headline;
-  if (!r) return null;
-  const p = r.prices;
-  if (v.free) return { value: "Free", label: "to use" };
-  if (
-    CHAT_MODES.has(r.mode) &&
-    p.input !== undefined &&
-    p.output !== undefined
-  ) {
-    return {
-      value: `${usdShort(p.input)} / ${usdShort(p.output)}`,
-      label: "per 1M input / output tokens",
-    };
+  const price = headlinePrice(v);
+  if (!price) return null;
+  switch (price.unit) {
+    case "free":
+      return { value: "Free", label: "to use" };
+    case "tokens":
+      return {
+        value: `${usdShort(price.input)} / ${usdShort(price.output)}`,
+        label: "per 1M input / output tokens",
+      };
+    case "input_tokens":
+      return { value: usdShort(price.value), label: "per 1M input tokens" };
+    case "image":
+      return { value: usd(price.value), label: "per image" };
+    case "image_tokens":
+      return {
+        value: usdShort(price.value),
+        label: "per 1M output image tokens",
+      };
+    case "second":
+      return { value: usd(price.value), label: "per second of video" };
+    case "chars":
+      return { value: usdShort(price.value), label: "per 1M characters" };
+    case "minute":
+      return { value: usd(price.value), label: "per minute of audio" };
+    case "metric":
+      return { value: usd(price.value), label: price.label };
   }
-  if (r.mode === "embedding" && p.input !== undefined)
-    return { value: usdShort(p.input), label: "per 1M input tokens" };
-  if (IMAGE_MODES.has(r.mode) && p.perImage !== undefined)
-    return { value: usd(p.perImage), label: "per image" };
-  if (r.mode === "video_generation" && p.perSecond !== undefined)
-    return { value: usd(p.perSecond), label: "per second of video" };
-  if (r.mode === "audio_speech" && p.per1MChars !== undefined)
-    return { value: usdShort(p.per1MChars), label: "per 1M characters" };
-  if (r.mode === "audio_transcription" && p.perMinute !== undefined)
-    return { value: usd(p.perMinute), label: "per minute of audio" };
-  if (p.input !== undefined)
-    return { value: usdShort(p.input), label: "per 1M input tokens" };
-  return null;
 }
 
 export function modelCard(v: ModelView): CardInput {

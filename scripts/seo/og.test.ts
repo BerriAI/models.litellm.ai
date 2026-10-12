@@ -2,10 +2,11 @@ import { mkdtempSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { GET, selfHeaders } from "../../api/og";
+import { GET, HEAD, selfHeaders } from "../../api/og";
 import { assignSlugs, groupCostMap, type CostMap } from "./group";
 import { buildModelView } from "./model-view";
 import { cardElement } from "./og-card";
+import { priceSentence } from "./copy";
 import { modelCard, providerCard, writeCard } from "./og";
 import { appShell } from "./shell";
 
@@ -29,6 +30,24 @@ const COST_MAP: CostMap = {
     mode: "image_generation",
     output_cost_per_image: 0.0336,
     max_input_tokens: 131072,
+  },
+  "rerank-v3.5": {
+    litellm_provider: "cohere",
+    mode: "rerank",
+    input_cost_per_query: 0.002,
+    input_cost_per_token: 0,
+    output_cost_per_token: 0,
+  },
+  "gpt-image-1": {
+    litellm_provider: "openai",
+    mode: "image_generation",
+    input_cost_per_token: 5e-6,
+    output_cost_per_image_token: 4e-5,
+  },
+  "mistral/mistral-ocr-latest": {
+    litellm_provider: "mistral",
+    mode: "ocr",
+    ocr_cost_per_page: 0.004,
   },
 };
 
@@ -60,6 +79,28 @@ describe("share cards", () => {
       { value: "128K", label: "context window" },
       { value: "1", label: "provider" },
     ]);
+  });
+
+  test("cards price queries, image tokens and pages the way the page's own sentence does", () => {
+    const lead = (pageKey: string) => modelCard(view(pageKey)).stats[0];
+    expect(lead("rerank-v-3-5")).toEqual({
+      value: "$2.00",
+      label: "per 1K queries",
+    });
+    expect(lead("gpt-image-1")).toEqual({
+      value: "$40",
+      label: "per 1M output image tokens",
+    });
+    expect(lead("mistral-ocr")).toEqual({
+      value: "$4.00",
+      label: "per 1K pages",
+    });
+    for (const key of ["rerank-v-3-5", "gpt-image-1", "mistral-ocr"]) {
+      const v = view(key);
+      expect(priceSentence(v)).toContain(
+        `${modelCard(v).stats[0].value.replace(/^\$(\d+)$/, "$$$1.00")} ${modelCard(v).stats[0].label}`,
+      );
+    }
   });
 
   test("writeCard stores the card and versions the image URL by its content", () => {
@@ -114,6 +155,16 @@ describe("image endpoint", () => {
           .status,
       ).toBe(404);
     }
+  });
+});
+
+describe("image endpoint", () => {
+  test("HEAD answers like GET without a body", async () => {
+    const res = await HEAD(
+      new Request("https://models.litellm.ai/api/og?kind=etc&id=passwd"),
+    );
+    expect(res.status).toBe(404);
+    expect(res.body).toBeNull();
   });
 });
 

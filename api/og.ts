@@ -19,7 +19,7 @@ let assets: Promise<CardAssets> | null = null;
  * Preview deployments sit behind Vercel Authentication, which also covers the
  * static files this function reads from its own origin. Forwarding the
  * viewer's Vercel session (or an automation bypass token) lets a preview
- * render; the production domain is not protected, so nothing is forwarded.
+ * render; a production request carries neither, so nothing is forwarded there.
  */
 export function selfHeaders(request: Request): Record<string, string> {
   const bypass = request.headers.get("x-vercel-protection-bypass");
@@ -92,4 +92,9 @@ export async function GET(request: Request): Promise<Response> {
       "Cache-Control": "public, max-age=86400, s-maxage=31536000, immutable",
     },
   });
+}
+
+export async function HEAD(request: Request): Promise<Response> {
+  const res = await GET(request);
+  return new Response(null, { status: res.status, headers: res.headers });
 }

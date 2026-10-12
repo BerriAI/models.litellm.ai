@@ -39,38 +39,78 @@ const ENDPOINTS: Record<string, string> = {
 const where = (v: ModelView, r: RowView) =>
   v.headlineBasis === "lowest" ? `from ${r.providerName}, the lowest of ${v.providers.length} providers` : `on ${r.providerName}`;
 
-/** "X costs $4.00 per 1M input tokens and $20.00 per 1M output tokens on Anthropic". */
-export function priceSentence(v: ModelView): string | null {
+export type HeadlinePrice =
+  | { unit: "free" }
+  | { unit: "tokens"; input: number; output: number }
+  | { unit: "input_tokens"; value: number }
+  | { unit: "image"; value: number }
+  | { unit: "image_tokens"; value: number }
+  | { unit: "second"; value: number }
+  | { unit: "chars"; value: number }
+  | { unit: "minute"; value: number }
+  | { unit: "metric"; value: number; label: string };
+
+/** The one price a model page leads with; the price sentence and the share card both read it from here. */
+export function headlinePrice(v: ModelView): HeadlinePrice | null {
   const r = v.headline;
   if (!r) return null;
   const p = r.prices;
-  const at = where(v, r);
-  if (v.free) return `${v.name} is free to use ${at}`;
+  if (v.free) return { unit: "free" };
   if (CHAT_MODES.has(r.mode) && p.input !== undefined && p.output !== undefined) {
-    let s = `${v.name} costs ${usd(p.input)} per 1M input tokens and ${usd(p.output)} per 1M output tokens ${at}`;
-    if (p.cacheRead !== undefined && p.cacheWrite !== undefined) {
-      s += `, with cache reads at ${usd(p.cacheRead)} and cache writes at ${usd(p.cacheWrite)} per 1M tokens`;
-    } else if (p.cacheRead !== undefined) {
-      s += `, with cache reads at ${usd(p.cacheRead)} per 1M tokens`;
-    }
-    return s;
+    return { unit: "tokens", input: p.input, output: p.output };
   }
-  if (r.mode === "embedding" && p.input !== undefined) return `${v.name} costs ${usd(p.input)} per 1M input tokens ${at}`;
-  if (IMAGE_MODES.has(r.mode) && p.perImage !== undefined) {
-    const extra = p.input ? `, plus ${usd(p.input)} per 1M input tokens` : "";
-    return `${v.name} costs ${usd(p.perImage)} per image ${at}${extra}`;
-  }
+  if (r.mode === "embedding" && p.input !== undefined) return { unit: "input_tokens", value: p.input };
+  if (IMAGE_MODES.has(r.mode) && p.perImage !== undefined) return { unit: "image", value: p.perImage };
   if (IMAGE_MODES.has(r.mode) && p.imageOutputTokens !== undefined) {
-    return `${v.name} costs ${usd(p.imageOutputTokens)} per 1M output image tokens ${at}`;
+    return { unit: "image_tokens", value: p.imageOutputTokens };
   }
-  if (r.mode === "video_generation" && p.perSecond !== undefined) return `${v.name} costs ${usd(p.perSecond)} per second of video ${at}`;
-  if (r.mode === "audio_speech" && p.per1MChars !== undefined) return `${v.name} costs ${usd(p.per1MChars)} per 1M characters ${at}`;
-  if (r.mode === "audio_transcription" && p.perMinute !== undefined) return `${v.name} costs ${usd(p.perMinute)} per minute of audio ${at}`;
-  if (r.metric) {
-    const unit = r.metric.unit.replace(/_/g, " ").replace("per 1m", "per 1M").replace("per 1k", "per 1K");
-    return `${v.name} costs ${usd(r.metric.value)} ${unit} ${at}`;
-  }
+  if (r.mode === "video_generation" && p.perSecond !== undefined) return { unit: "second", value: p.perSecond };
+  if (r.mode === "audio_speech" && p.per1MChars !== undefined) return { unit: "chars", value: p.per1MChars };
+  if (r.mode === "audio_transcription" && p.perMinute !== undefined) return { unit: "minute", value: p.perMinute };
+  if (r.metric) return { unit: "metric", value: r.metric.value, label: metricUnit(r.metric.unit) };
   return null;
+}
+
+function metricUnit(unit: string): string {
+  return unit.replace(/_/g, " ").replace("per 1m", "per 1M").replace("per 1k", "per 1K");
+}
+
+/** "X costs $4.00 per 1M input tokens and $20.00 per 1M output tokens on Anthropic". */
+export function priceSentence(v: ModelView): string | null {
+  const r = v.headline;
+  const price = headlinePrice(v);
+  if (!r || !price) return null;
+  const p = r.prices;
+  const at = where(v, r);
+  switch (price.unit) {
+    case "free":
+      return `${v.name} is free to use ${at}`;
+    case "tokens": {
+      let s = `${v.name} costs ${usd(price.input)} per 1M input tokens and ${usd(price.output)} per 1M output tokens ${at}`;
+      if (p.cacheRead !== undefined && p.cacheWrite !== undefined) {
+        s += `, with cache reads at ${usd(p.cacheRead)} and cache writes at ${usd(p.cacheWrite)} per 1M tokens`;
+      } else if (p.cacheRead !== undefined) {
+        s += `, with cache reads at ${usd(p.cacheRead)} per 1M tokens`;
+      }
+      return s;
+    }
+    case "input_tokens":
+      return `${v.name} costs ${usd(price.value)} per 1M input tokens ${at}`;
+    case "image": {
+      const extra = p.input ? `, plus ${usd(p.input)} per 1M input tokens` : "";
+      return `${v.name} costs ${usd(price.value)} per image ${at}${extra}`;
+    }
+    case "image_tokens":
+      return `${v.name} costs ${usd(price.value)} per 1M output image tokens ${at}`;
+    case "second":
+      return `${v.name} costs ${usd(price.value)} per second of video ${at}`;
+    case "chars":
+      return `${v.name} costs ${usd(price.value)} per 1M characters ${at}`;
+    case "minute":
+      return `${v.name} costs ${usd(price.value)} per minute of audio ${at}`;
+    case "metric":
+      return `${v.name} costs ${usd(price.value)} ${price.label} ${at}`;
+  }
 }
 
 function titlePrice(v: ModelView): string | null {
