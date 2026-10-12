@@ -3,10 +3,10 @@
  * rewritten here (vercel.json). The card's text comes only from the
  * /og/<kind>/<id>.json file the build wrote, so the URL can't be used to draw
  * arbitrary text with the LiteLLM brand. Responses are cached by the CDN; the
- * ?v= hash in each page's og:image changes whenever the card does, and a ?v=
- * that is not the card's hash redirects to the card's current URL, so each
- * card renders under its own URL only, a made-up query string cannot force
- * endless renders, and a link shared before the card changed keeps its image.
+ * ?v= hash in each page's og:image changes whenever the card does, and any
+ * other query on a card's URL (an older hash, a made-up one, none, an extra
+ * parameter) redirects to the card's current URL, so exactly one URL per card
+ * ever renders and a link shared before the card changed keeps its image.
  */
 import {
   OG_FONTS,
@@ -84,7 +84,13 @@ const PROBE_CACHE = "public, max-age=0, s-maxage=3600";
 
 const NOT_FOUND = { status: 404, headers: { "Cache-Control": PROBE_CACHE } };
 
-type CardRef = { kind: string; id: string; v: string | null; url: URL };
+type CardRef = { kind: string; id: string; query: string; url: URL };
+
+function sortedQuery(params: URLSearchParams): string {
+  const sorted = new URLSearchParams(params);
+  sorted.sort();
+  return sorted.toString();
+}
 
 /** The build-written card behind /og/<kind>/<id>.png?v=<hash>, or null when the URL names no such card. */
 function cardRef(request: Request): CardRef | null {
@@ -97,7 +103,7 @@ function cardRef(request: Request): CardRef | null {
   return {
     kind,
     id,
-    v: url.searchParams.get("v"),
+    query: sortedQuery(url.searchParams),
     url: new URL(`/og/${kind}/${id}.json`, url.origin),
   };
 }
@@ -114,9 +120,16 @@ async function loadCard(request: Request): Promise<Card | null> {
   return { ref, json, hash: cardHash(json) };
 }
 
-/** A ?v= from before the card last changed, or a made-up one, is sent to the card's current URL: only that URL ever renders. */
+/** The one query a render is cached under: the rewrite's kind and id plus the card's hash, nothing else. */
+function canonicalQuery(ref: CardRef, hash: string): string {
+  return sortedQuery(
+    new URLSearchParams({ kind: ref.kind, id: ref.id, v: hash }),
+  );
+}
+
+/** Any other query (an older hash, a made-up one, none, an extra parameter) is sent to the card's current URL: only that URL ever renders. */
 function redirectStale(card: Card): Response | null {
-  if (card.ref.v === null || card.ref.v === card.hash) return null;
+  if (card.ref.query === canonicalQuery(card.ref, card.hash)) return null;
   return new Response(null, {
     status: 302,
     headers: {

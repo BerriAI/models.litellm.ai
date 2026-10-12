@@ -34,7 +34,7 @@ The generator writes:
 
 ## Share images
 
-Every page's `og:image` points at `/og/<kind>/<id>.png?v=<hash>`. `vercel.json` rewrites that to `api/og.ts`, which reads the card text the build wrote to `/og/<kind>/<id>.json` and draws a 1200x630 PNG with satori and resvg, using the 2026 logo and Geist. The CDN caches each image, and the `?v=` hash changes whenever a card's text does, so a price change gets a fresh image, and an image URL with an older hash redirects to the current one, so a link shared before the change keeps its picture. Images are drawn on request rather than at build time, which keeps builds fast; only pages that are shared or crawled ever get one. The card layout is in `scripts/seo/og-card.ts`. To see cards locally after a build:
+Every page's `og:image` points at `/og/<kind>/<id>.png?v=<hash>`. `vercel.json` rewrites that to `api/og.ts`, which reads the card text the build wrote to `/og/<kind>/<id>.json` and draws a 1200x630 PNG with satori and resvg, using the 2026 logo and Geist. The CDN caches each image, and the `?v=` hash changes whenever a card's text does, so a price change gets a fresh image, and an image URL with any other query (an older hash, none, an extra parameter) redirects to the current one, so a link shared before the change keeps its picture and only one URL per card is ever drawn. Images are drawn on request rather than at build time, which keeps builds fast; only pages that are shared or crawled ever get one. The card layout is in `scripts/seo/og-card.ts`. To see cards locally after a build:
 
 ```bash
 npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home

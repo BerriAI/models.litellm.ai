@@ -32,6 +32,7 @@ import { buildModelView, type ModelView, type RowView } from "./model-view";
 import { CHAT_MODES, IMAGE_MODES } from "./pricing";
 import { providerDocsUrl, providerName, type ProviderSupport } from "./providers";
 import { COST_MAP_RAW_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, providerPath } from "./site";
+import { PAGE_TITLES } from "../../src/pageTitles";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
@@ -383,7 +384,7 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
       "index.html",
       appShell(appHtml, {
         path: "/",
-        title: "LiteLLM Model Catalog: AI Model Pricing & Context Windows",
+        title: PAGE_TITLES.models,
         description: homeDescription,
         image: writeCard(OUT, "pages", "home", {
           kicker: "LiteLLM Model Catalog",
@@ -401,21 +402,21 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
     const routes = [
       {
         path: "/providers",
-        title: "AI Provider Integrations and Supported Endpoints | LiteLLM",
+        title: PAGE_TITLES.providers,
         description: `Browse ${supported} AI providers and the endpoints LiteLLM supports for each: chat completions, embeddings, images, audio, batches and more.`,
         card: { kicker: "LiteLLM providers", title: "AI provider integrations", subtitle: "Supported endpoints for every provider", stats: [{ value: int(supported), label: "providers" }] },
         noscript: `<main><h1>AI provider integrations</h1><p>LiteLLM supports ${supported} AI providers. Model prices by provider:</p>${linkList(hubLinks)}</main>`,
       },
       {
         path: "/cookbook",
-        title: "AI Tool Guides | LiteLLM Cookbook",
+        title: PAGE_TITLES.cookbook,
         description: "Guides for using LiteLLM with popular AI tools and coding assistants, from the LiteLLM community.",
         card: { kicker: "LiteLLM cookbook", title: "AI tool guides", subtitle: "Use LiteLLM with popular AI tools and coding assistants", stats: [] },
         noscript: `<main><h1>AI tool guides</h1><p>Guides for using LiteLLM with popular AI tools and coding assistants. See also the <a href="https://docs.litellm.ai">LiteLLM docs</a>.</p></main>`,
       },
       {
         path: "/guardrails",
-        title: "Custom Code Guardrails | LiteLLM",
+        title: PAGE_TITLES.guardrails,
         description: "Copy, customize, and deploy guardrails that protect your LLM applications with LiteLLM.",
         card: { kicker: "LiteLLM guardrails", title: "Custom code guardrails", subtitle: "Copy, customize, and deploy them with LiteLLM", stats: [] },
         noscript: `<main><h1>Custom code guardrails</h1><p>Copy, customize, and deploy guardrails that protect your LLM applications. See the <a href="https://docs.litellm.ai/docs/proxy/guardrails/quick_start">guardrails docs</a>.</p></main>`,

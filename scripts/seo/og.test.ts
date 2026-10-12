@@ -184,7 +184,7 @@ describe("image endpoint", () => {
     try {
       const res = await HEAD(
         new Request(
-          "https://models.litellm.ai/api/og?kind=models&id=claude-opus-5-5",
+          `https://models.litellm.ai/api/og?kind=models&id=claude-opus-5-5&v=${cardHash(CARD_JSON)}`,
         ),
       );
       expect(res.status).toBe(200);
@@ -196,7 +196,7 @@ describe("image endpoint", () => {
     }
   });
 
-  test("only the card's own ?v= renders; any other redirects to it", async () => {
+  test("only /og/<kind>/<id>.png?v=<hash> renders; every other query redirects to it", async () => {
     vi.stubGlobal("fetch", async (input: URL) => {
       if (input.pathname.endsWith(".json")) return new Response(CARD_JSON);
       const file = input.pathname.startsWith("/og/fonts/")
@@ -205,18 +205,29 @@ describe("image endpoint", () => {
       return new Response(readFileSync(file));
     });
     try {
-      const at = (v: string) =>
-        `https://models.litellm.ai/api/og?kind=models&id=claude-opus-5-5&v=${v}`;
+      const v = cardHash(CARD_JSON);
+      const at = (query: string) =>
+        `https://models.litellm.ai/api/og?kind=models&id=claude-opus-5-5${query}`;
+      const others = [
+        "&v=0123456789",
+        "",
+        `&v=${v}&x=1`,
+        `&x=1&v=${v}`,
+        `&v=${v}&v=${v}`,
+        `&v=${v}&kind=pages`,
+      ];
       for (const probe of [GET, HEAD]) {
-        const stale = await probe(new Request(at("0123456789")));
-        expect(stale.status).toBe(302);
-        expect(stale.headers.get("location")).toBe(
-          `/og/models/claude-opus-5-5.png?v=${cardHash(CARD_JSON)}`,
-        );
-        expect(stale.headers.get("cache-control")).toContain("s-maxage");
-        expect(stale.body).toBeNull();
+        for (const query of others) {
+          const stale = await probe(new Request(at(query)));
+          expect(stale.status, query).toBe(302);
+          expect(stale.headers.get("location")).toBe(
+            `/og/models/claude-opus-5-5.png?v=${v}`,
+          );
+          expect(stale.headers.get("cache-control")).toContain("s-maxage");
+          expect(stale.body).toBeNull();
+        }
       }
-      const hit = await GET(new Request(at(cardHash(CARD_JSON))));
+      const hit = await GET(new Request(at(`&v=${v}`)));
       expect(hit.status).toBe(200);
       expect(hit.headers.get("content-type")).toBe("image/png");
       expect(
