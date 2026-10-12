@@ -196,7 +196,7 @@ describe("image endpoint", () => {
     }
   });
 
-  test("only the card's own ?v= renders; any other answers a cacheable 404", async () => {
+  test("only the card's own ?v= renders; any other redirects to it", async () => {
     vi.stubGlobal("fetch", async (input: URL) => {
       if (input.pathname.endsWith(".json")) return new Response(CARD_JSON);
       const file = input.pathname.startsWith("/og/fonts/")
@@ -208,9 +208,13 @@ describe("image endpoint", () => {
       const at = (v: string) =>
         `https://models.litellm.ai/api/og?kind=models&id=claude-opus-5-5&v=${v}`;
       for (const probe of [GET, HEAD]) {
-        const miss = await probe(new Request(at("0123456789")));
-        expect(miss.status).toBe(404);
-        expect(miss.headers.get("cache-control")).toContain("s-maxage");
+        const stale = await probe(new Request(at("0123456789")));
+        expect(stale.status).toBe(302);
+        expect(stale.headers.get("location")).toBe(
+          `/og/models/claude-opus-5-5.png?v=${cardHash(CARD_JSON)}`,
+        );
+        expect(stale.headers.get("cache-control")).toContain("s-maxage");
+        expect(stale.body).toBeNull();
       }
       const hit = await GET(new Request(at(cardHash(CARD_JSON))));
       expect(hit.status).toBe(200);

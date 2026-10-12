@@ -4,8 +4,9 @@
  * /og/<kind>/<id>.json file the build wrote, so the URL can't be used to draw
  * arbitrary text with the LiteLLM brand. Responses are cached by the CDN; the
  * ?v= hash in each page's og:image changes whenever the card does, and a ?v=
- * that is not the card's hash answers 404, so each card renders under its own
- * URL only and a made-up query string cannot force endless renders.
+ * that is not the card's hash redirects to the card's current URL, so each
+ * card renders under its own URL only, a made-up query string cannot force
+ * endless renders, and a link shared before the card changed keeps its image.
  */
 import {
   OG_FONTS,
@@ -78,13 +79,12 @@ const IMAGE_HEADERS = {
   "Cache-Control": "public, max-age=86400, s-maxage=31536000, immutable",
 };
 
-/** A deployment's cards never change, so the CDN can keep a miss instead of invoking the function for every probe. */
-const NOT_FOUND = {
-  status: 404,
-  headers: { "Cache-Control": "public, max-age=0, s-maxage=3600" },
-};
+/** A deployment's cards never change, so the CDN can keep a miss or a redirect instead of invoking the function for every probe. */
+const PROBE_CACHE = "public, max-age=0, s-maxage=3600";
 
-type CardRef = { url: URL; v: string | null };
+const NOT_FOUND = { status: 404, headers: { "Cache-Control": PROBE_CACHE } };
+
+type CardRef = { kind: string; id: string; v: string | null; url: URL };
 
 /** The build-written card behind /og/<kind>/<id>.png?v=<hash>, or null when the URL names no such card. */
 function cardRef(request: Request): CardRef | null {
@@ -95,26 +95,44 @@ function cardRef(request: Request): CardRef | null {
     return null;
   }
   return {
-    url: new URL(`/og/${kind}/${id}.json`, url.origin),
+    kind,
+    id,
     v: url.searchParams.get("v"),
+    url: new URL(`/og/${kind}/${id}.json`, url.origin),
   };
 }
 
-/** The card's JSON text, or null when there is no such card or ?v= is not its hash. */
-async function loadCard(request: Request): Promise<string | null> {
-  const card = cardRef(request);
-  if (!card) return null;
-  const res = await fetch(card.url, { headers: selfHeaders(request) });
+type Card = { ref: CardRef; json: string; hash: string };
+
+/** The card's JSON text and its hash, or null when there is no such card. */
+async function loadCard(request: Request): Promise<Card | null> {
+  const ref = cardRef(request);
+  if (!ref) return null;
+  const res = await fetch(ref.url, { headers: selfHeaders(request) });
   if (!res.ok) return null;
   const json = await res.text();
-  return card.v === null || card.v === cardHash(json) ? json : null;
+  return { ref, json, hash: cardHash(json) };
+}
+
+/** A ?v= from before the card last changed, or a made-up one, is sent to the card's current URL: only that URL ever renders. */
+function redirectStale(card: Card): Response | null {
+  if (card.ref.v === null || card.ref.v === card.hash) return null;
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: `/og/${card.ref.kind}/${card.ref.id}.png?v=${card.hash}`,
+      "Cache-Control": PROBE_CACHE,
+    },
+  });
 }
 
 export async function GET(request: Request): Promise<Response> {
-  const json = await loadCard(request);
-  if (json === null) return new Response("Not found", NOT_FOUND);
+  const card = await loadCard(request);
+  if (card === null) return new Response("Not found", NOT_FOUND);
+  const stale = redirectStale(card);
+  if (stale) return stale;
   const png = await renderCardPng(
-    JSON.parse(json) as CardInput,
+    JSON.parse(card.json) as CardInput,
     await loadAssets(new URL(request.url).origin, selfHeaders(request)),
   );
   return new Response(new Uint8Array(png), { headers: IMAGE_HEADERS });
@@ -122,9 +140,7 @@ export async function GET(request: Request): Promise<Response> {
 
 /** A status probe only checks that the card exists at this version; nothing is rendered. */
 export async function HEAD(request: Request): Promise<Response> {
-  const json = await loadCard(request);
-  return new Response(
-    null,
-    json === null ? NOT_FOUND : { headers: IMAGE_HEADERS },
-  );
+  const card = await loadCard(request);
+  if (card === null) return new Response(null, NOT_FOUND);
+  return redirectStale(card) ?? new Response(null, { headers: IMAGE_HEADERS });
 }
