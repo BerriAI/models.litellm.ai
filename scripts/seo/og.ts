@@ -8,7 +8,7 @@
 import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { headlinePrice } from "./copy";
-import { int, tokensShort, usd, usdShort } from "./format";
+import { int, longDate, tokensShort, usd, usdShort } from "./format";
 import type { ModelView } from "./model-view";
 import {
   OG_FONTS,
@@ -111,7 +111,8 @@ export function modelCard(v: ModelView): CardInput {
     stats.push({ value: tokensShort(v.maxOutput), label: "max output" });
   if (stats.length < 3)
     stats.push({ value: int(n), label: n === 1 ? "provider" : "providers" });
-  return { kicker: "Model pricing", title: v.name, subtitle, stats };
+  const kicker = v.intro ? `Introductory price until ${longDate(v.intro.until).replace(/^(\w{3})\w*/, "$1")}` : "Model pricing";
+  return { kicker, title: v.name, subtitle, stats };
 }
 
 export function providerCard(

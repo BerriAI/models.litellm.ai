@@ -77,6 +77,8 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:8px;paddin
 .links li a span{font-size:13px;color:var(--muted)}
 .src{font-size:13px;color:var(--muted);display:grid;gap:4px}
 .src ul{padding-left:18px}
+.intro{display:flex;gap:6px 10px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--fg2)}
+.tag{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:999px;padding:1px 10px}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--bg3);color:var(--fg2)}
 .warnbox{border:1px solid var(--warn);border-radius:8px;padding:10px 14px;color:var(--fg);max-width:75ch}
 footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13px}
@@ -309,6 +311,7 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(v.name)}</span></nav>
 <h1>${esc(copy.h1)}</h1>
 <p class="answer">${esc(copy.answer)}</p>
+${v.intro && h ? `<p class="intro"><span class="tag">Introductory price</span><span>Until ${longDate(v.intro.until)}, per <a href="${esc(v.intro.source)}">${esc(v.lab ?? h.providerName)}'s pricing page</a></span></p>` : ""}
 <div class="meta">${v.lab ? `<span>By ${esc(v.lab)}</span>` : ""}<span>Model ID <code>${esc(ms)}</code></span><span>Prices updated <time datetime="${ctx.lastChanged}">${longDate(ctx.lastChanged)}</time></span><span>Checked <time datetime="${ctx.buildDate}">${longDate(ctx.buildDate)}</time></span></div>
 </div>`);
 
@@ -381,7 +384,7 @@ ${codeBlock("curl", "Call the proxy", getLiteLLmProxyCurlSnippet(mode, v.slug))}
     .map((p) => providerLink(p.hub, p.name, ctx.hubs))
     .join(", ");
   parts.push(`<section class="src" id="sources"><h2>Sources</h2>
-<p>Prices come from LiteLLM's open-source <a href="${PRICE_FILE_URL}">model_prices_and_context_window.json</a>, which LiteLLM uses to calculate the cost of every request. Maintainers update it from each provider's published pricing, and this page is rebuilt within about 30 minutes of every change. ${v.sources.length ? "Provider pricing pages:" : ""}</p>
+<p>Prices come from LiteLLM's open-source <a href="${PRICE_FILE_URL}">model_prices_and_context_window.json</a>, which LiteLLM uses to calculate the cost of every request. Maintainers update it from each provider's published pricing, and this page is usually rebuilt within 20 minutes of every change. ${v.sources.length ? "Provider pricing pages:" : ""}</p>
 ${v.sources.length ? `<ul>${v.sources.map((s) => `<li><a href="${esc(s)}" rel="nofollow">${esc(s.replace(/^https?:\/\//, ""))}</a></li>`).join("")}</ul>` : ""}
 ${v.docs.length ? `<p>LiteLLM docs: ${v.docs.map((d) => `<a href="${esc(d.url)}">${esc(d.name)}</a>`).join(", ")}.</p>` : ""}
 <p>Provider pages: ${providerLinks}.</p>

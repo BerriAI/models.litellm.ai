@@ -60,7 +60,14 @@ export type Overrides = {
   alsoKnownAs?: Record<string, string[]>;
   /** Page key -> URL slug, to pin a slug. */
   slugs?: Record<string, string>;
+  /**
+   * Page key -> an introductory price window: the lab's pricing page (`source`) says the
+   * current price ends after `until` (YYYY-MM-DD). The price itself still comes from the price file.
+   */
+  introPricing?: Record<string, IntroPricing>;
 };
+
+export type IntroPricing = { until: string; source: string };
 
 const NON_MODEL_KEYS = new Set(["sample_spec", "fallback_generalizations"]);
 const SIZE_BUCKET = /^(fireworks-ai|together-ai)-/;

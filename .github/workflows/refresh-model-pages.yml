@@ -1,6 +1,6 @@
 # Rebuilds models.litellm.ai when LiteLLM's price file changes, so a new model
-# gets its page within about 30 minutes of landing in BerriAI/litellm, then
-# tells search engines which pages changed.
+# usually gets its page within 10 to 20 minutes of landing in BerriAI/litellm,
+# then tells search engines which pages changed.
 #
 # Needs a repo secret VERCEL_DEPLOY_HOOK_URL (Vercel project > Settings > Git >
 # Deploy Hooks, branch main). Without it the job only reports whether the live
@@ -9,7 +9,9 @@ name: Refresh model pages
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    # GitHub may start scheduled runs a few minutes late; checking often keeps
+    # the delay short. A run with no price change takes a few seconds.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
     inputs:
       submit_all:
@@ -31,6 +33,7 @@ jobs:
     env:
       SITE: https://models.litellm.ai
       PRICE_FILE: https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+      GH_TOKEN: ${{ github.token }}
       DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK_URL }}
       # Public by design: search engines verify it at $SITE/<key>.txt
       INDEXNOW_KEY: 2e02f0e5791852cef4f32950cea58c1d
@@ -55,7 +58,14 @@ jobs:
       - name: Compare the live build with the price file
         id: check
         run: |
-          latest=$(curl -fsSL "$PRICE_FILE" | sha256sum | cut -d' ' -f1)
+          # raw.githubusercontent.com serves main from a cache for up to five minutes,
+          # which can hide a change that just landed. Read the file at its latest
+          # commit instead, falling back to main if the API call fails.
+          commit=$(gh api 'repos/BerriAI/litellm/commits?path=model_prices_and_context_window.json&per_page=1' --jq '.[0].sha' || true)
+          url="$PRICE_FILE"
+          if [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then url="https://raw.githubusercontent.com/BerriAI/litellm/$commit/model_prices_and_context_window.json"; fi
+          echo "Reading the price file at ${commit:-main}."
+          latest=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
           live=$(curl -fsSL "$SITE/build-info.json" | jq -r '.costMapHash // empty' || true)
           echo "live=$live" >> "$GITHUB_OUTPUT"
           if [ "$latest" = "$live" ]; then

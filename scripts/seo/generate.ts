@@ -91,6 +91,7 @@ function contentHash(v: ModelView): string {
       name: v.name,
       rows: v.rows.map((r) => [r.key, r.prices, r.context, r.maxOutput, r.deprecation, r.outlier]),
       caps: v.capabilities,
+      intro: v.intro,
     }),
   ).slice(0, 16);
 }
@@ -114,7 +115,14 @@ function addedLabel(date: string | null): string | null {
 async function main(): Promise<void> {
   // Start clean so pages for regrouped or renamed models never linger.
   for (const dir of ["models", "providers", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
-  const costMapText = await loadText(process.env.COST_MAP_FILE, COST_MAP_RAW_URL);
+  // raw.githubusercontent.com serves `main` from a cache for up to five minutes, so a deploy
+  // triggered right after a price change could rebuild the old file. A commit URL is never stale.
+  const lastCommit = await github<{ sha?: string; commit?: { committer?: { date?: string } } }[]>(
+    "repos/BerriAI/litellm/commits?path=model_prices_and_context_window.json&per_page=1",
+  );
+  const priceSha = lastCommit?.[0]?.sha;
+  const costMapUrl = priceSha && /^[0-9a-f]{40}$/.test(priceSha) ? COST_MAP_RAW_URL.replace("/main/", `/${priceSha}/`) : COST_MAP_RAW_URL;
+  const costMapText = await loadText(process.env.COST_MAP_FILE, costMapUrl);
   const costMap = JSON.parse(costMapText) as CostMap;
   let support: ProviderSupport = {};
   try {
@@ -127,6 +135,12 @@ async function main(): Promise<void> {
   const previous = await loadPreviousManifest(process.env.PREVIOUS_MANIFEST_URL ?? `${SITE_URL}/models/manifest.json`);
 
   const groups = groupCostMap(costMap, overrides);
+  for (const [key, intro] of Object.entries(overrides.introPricing ?? {})) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(intro.until) || !intro.source?.startsWith("https://")) {
+      throw new Error(`overrides.json introPricing.${key} needs "until" as YYYY-MM-DD and an https "source"`);
+    }
+    if (!groups.some((g) => g.pageKey === key)) console.warn(`seo: overrides.json introPricing.${key} matches no model page`);
+  }
   const previousSlugs: Record<string, string> = {};
   for (const [slug, m] of Object.entries(previous?.models ?? {})) if (!m.retiredOn) previousSlugs[m.pageKey] = slug;
   const slugs = assignSlugs(groups, overrides, previousSlugs);
@@ -137,7 +151,7 @@ async function main(): Promise<void> {
     const prev = previous?.models[slug];
     const seeded = seededDates[g.pageKey] ?? null;
     const added = prev && !prev.retiredOn ? prev.firstSeen ?? seeded : seeded ?? (previous ? BUILD_DATE : null);
-    return buildModelView(g, slug, overrides, support, added);
+    return buildModelView(g, slug, overrides, support, added, BUILD_DATE);
   });
 
   const byLab = new Map<string, ModelView[]>();
@@ -454,9 +468,6 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
   }
   write("changes.json", JSON.stringify({ buildDate: BUILD_DATE, urls: changed, images: changedImages }));
   const repo = await github<{ stargazers_count?: number }>("repos/BerriAI/litellm");
-  const lastCommit = await github<{ commit?: { committer?: { date?: string } } }[]>(
-    "repos/BerriAI/litellm/commits?path=model_prices_and_context_window.json&per_page=1",
-  );
   write(
     "build-info.json",
     JSON.stringify({
