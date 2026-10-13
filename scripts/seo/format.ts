@@ -56,6 +56,11 @@ export function longDate(iso: string): string {
   return d ? `${MONTHS_LONG[m - 1]} ${d}, ${y}` : `${MONTHS_LONG[m - 1]} ${y}`;
 }
 
+/** `2026-10-06` -> `Oct 6, 2026`. */
+export function shortDate(iso: string): string {
+  return longDate(iso).replace(/^(\w{3})\w*/, "$1");
+}
+
 /** `2026-10-06` -> `Oct 2026`. */
 export function monthYear(iso: string): string {
   const [y, m] = iso.slice(0, 7).split("-").map(Number);
