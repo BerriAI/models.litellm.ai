@@ -81,6 +81,7 @@ function offers(v: ModelView): Json[] {
       name,
       price: Number(value!.toPrecision(4)),
       priceCurrency: "USD",
+      ...(v.intro ? { priceValidUntil: v.intro.until } : {}),
       seller,
       priceSpecification: {
         "@type": "UnitPriceSpecification",

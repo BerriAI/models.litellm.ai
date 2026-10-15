@@ -251,3 +251,32 @@ describe("structured data and markdown", () => {
     expect(md).toContain("### How much does Claude Opus 5.5 cost?");
   });
 });
+
+describe("introductory prices", () => {
+  const argon = (today: string) => {
+    const costMap: CostMap = { "gemini/gemini-4-argon": chat("gemini", 2, 10, { cache_read_input_token_cost: 1e-7 }) };
+    const overrides = { introPricing: { "gemini-4-argon": { until: "2026-11-30", source: "https://ai.google.dev/gemini-api/docs/pricing" } } };
+    const groups = groupCostMap(costMap, overrides);
+    const slugs = assignSlugs(groups, overrides);
+    return buildModelView(groups[0], slugs.get(groups[0].pageKey)!, overrides, {}, "2026-10-13", today);
+  };
+
+  test("are named in the answer, description, FAQ, markdown and offers until they end", () => {
+    const v = argon("2026-10-13");
+    const copy = pageCopy(v, "2026-10-13");
+    expect(copy.answer).toContain("Google lists these as introductory prices through November 30, 2026.");
+    expect(copy.description).toContain("Introductory price through November 30, 2026.");
+    expect(copy.description.length).toBeLessThanOrEqual(160);
+    expect(copy.faq[0].a).toContain("introductory prices through November 30, 2026");
+    expect(modelMarkdown(v, copy, "2026-10-13")).toContain("- Introductory price until: November 30, 2026");
+    const graph = JSON.stringify(modelGraph(v, copy, "2026-10-13"));
+    expect(graph).toContain('"priceValidUntil":"2026-11-30"');
+  });
+
+  test("drop off once the end date has passed", () => {
+    expect(argon("2026-11-30").intro).toBeDefined();
+    const v = argon("2026-12-01");
+    expect(v.intro).toBeUndefined();
+    expect(pageCopy(v, "2026-12-01").answer).not.toContain("introductory");
+  });
+});

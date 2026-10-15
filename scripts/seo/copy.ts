@@ -130,6 +130,12 @@ function titlePrice(v: ModelView): string | null {
   return null;
 }
 
+/** " Google lists these as introductory prices through November 30, 2026." */
+function introSentence(v: ModelView): string {
+  if (!v.intro || !v.headline) return "";
+  return ` ${v.lab ?? v.headline.providerName} lists these as introductory prices through ${longDate(v.intro.until)}.`;
+}
+
 function rangeSentence(v: ModelView): string {
   if (!v.range || v.headlineBasis !== "first_party" || usd(v.range.min) === usd(v.range.max)) return "";
   const unit = v.headline?.metric?.unit === "per_1m_tokens" ? "the input price" : "the price";
@@ -200,7 +206,7 @@ function faq(v: ModelView, price: string | null, buildDate: string): Faq[] {
   const items: Faq[] = [];
   const h = v.headline;
   if (price && h) {
-    let a = `${price}.`;
+    let a = `${price}.${introSentence(v)}`;
     const p = h.prices;
     if (p.batchInput !== undefined && p.batchOutput !== undefined) {
       a += ` Batch requests cost ${usd(p.batchInput)} per 1M input tokens and ${usd(p.batchOutput)} per 1M output tokens.`;
@@ -256,8 +262,17 @@ function faq(v: ModelView, price: string | null, buildDate: string): Faq[] {
 /** Meta description: whole sentences only, numbers first, within 160 characters. */
 function describe(v: ModelView, price: string | null): string {
   const short = price?.replace(/, with cache (reads|writes) at .*$/, "") ?? null;
-  const lead = price && price.length + 1 <= 160 ? `${price}.` : short ? `${short}.` : `${v.name} pricing, context window and providers.`;
+  // An introductory price matters more to a searcher than the cache price, so it takes that room.
+  const intro = v.intro ? `Introductory price through ${longDate(v.intro.until)}.` : null;
+  const fits = (s: string) => s.length <= 160;
+  const lead =
+    price && fits(`${price}.`) && (!intro || fits(`${price}. ${intro}`))
+      ? `${price}.`
+      : short
+        ? `${short}.`
+        : `${v.name} pricing, context window and providers.`;
   const extras = [
+    intro,
     v.context ? `${tokensShort(v.context)}-token context.` : null,
     v.providers.length > 1 ? `Compare ${v.providers.length} providers and call it through LiteLLM.` : "Call it through LiteLLM.",
   ];
@@ -275,7 +290,7 @@ export function pageCopy(v: ModelView, buildDate: string): PageCopy {
   const description = describe(v, price);
 
   const answer = price
-    ? `As of ${longDate(buildDate)}, ${price}.${rangeSentence(v)}${contextSentence(v)}`
+    ? `As of ${longDate(buildDate)}, ${price}.${introSentence(v)}${rangeSentence(v)}${contextSentence(v)}`
     : `${v.name} is available through LiteLLM.${contextSentence(v)}`;
 
   return {

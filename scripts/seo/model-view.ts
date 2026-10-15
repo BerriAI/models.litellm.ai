@@ -3,7 +3,7 @@
  * rows so the HTML, markdown and JSON-LD renderers agree on every number.
  */
 import { EMPTY_MODELS_DEV_INDEX, deriveModelMeta } from "../../src/modelMeta";
-import { FIRST_PARTY_PROVIDERS, type Group, type Member, type Overrides } from "./group";
+import { FIRST_PARTY_PROVIDERS, type Group, type IntroPricing, type Member, type Overrides } from "./group";
 import { CHAT_MODES, IMAGE_MODES, primaryMetric, rowPrices, type Metric, type RowPrices } from "./pricing";
 import { hubProvider, isLabProvider, labFor, providerDocsUrl, providerName, type ProviderSupport } from "./providers";
 
@@ -45,6 +45,8 @@ export type ModelView = {
   /** When the model first appeared in LiteLLM's price file: YYYY-MM-DD, or YYYY-MM for older models. */
   addedDate: string | null;
   deprecation?: string;
+  /** Set while the headline price is an introductory one, from overrides.json. */
+  intro?: IntroPricing;
   capabilities: Capability[];
   inputModalities: string[];
   outputModalities: string[];
@@ -197,6 +199,8 @@ export function buildModelView(
   overrides: Overrides,
   support: ProviderSupport,
   addedDate: string | null,
+  /** Build date; an introductory price is dropped once it has ended. */
+  today?: string,
 ): ModelView {
   const mode = dominantMode(group.members);
   const lab = labFor(slug, group.members.map((m) => m.vendor));
@@ -279,6 +283,9 @@ export function buildModelView(
     if (url && !docs.some((d) => d.url === url)) docs.push({ name: p.name, url });
   }
 
+  const introEntry = overrides.introPricing?.[group.pageKey];
+  const intro = introEntry && headline && (!today || introEntry.until >= today) ? introEntry : undefined;
+
   const p = headline?.prices;
   const free =
     !!headline &&
@@ -301,6 +308,7 @@ export function buildModelView(
     maxOutput: headline?.maxOutput ?? rows.find((r) => r.maxOutput)?.maxOutput,
     addedDate,
     deprecation: headline?.deprecation,
+    intro,
     capabilities,
     inputModalities: strings(capRow.supported_modalities),
     outputModalities: strings(capRow.supported_output_modalities),

@@ -3,8 +3,8 @@
  * in the HTML; the only scripts are a copy button and analytics.
  */
 import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/modelPresentation";
-import type { PageCopy } from "./copy";
-import { escapeHtml as esc, int, longDate, tokensShort, usd } from "./format";
+import { headlinePrice, type PageCopy } from "./copy";
+import { escapeHtml as esc, int, longDate, shortDate, tokensShort, usd } from "./format";
 import { jsonLdScript } from "./jsonld";
 import type { OgImage } from "./og";
 import type { ModelView, RowView } from "./model-view";
@@ -38,11 +38,14 @@ h3{font-size:16px}
 .head{display:grid;gap:12px}
 .answer{font-size:17px;color:var(--fg);max-width:72ch}
 .meta{font-size:13px;color:var(--muted);display:flex;gap:6px 16px;flex-wrap:wrap}
-.facts{display:flex;flex-wrap:wrap;border:1px solid var(--rule);border-radius:10px;overflow:hidden}
-.fact{flex:1 1 160px;padding:14px 16px;display:grid;gap:2px;min-width:0;border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:0 -1px -1px 0}
-.fact dt{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
-.fact dd{font-size:19px;font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.fact dd small{font-size:12px;font-weight:400;color:var(--muted)}
+.idline{display:flex;gap:6px 10px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--fg2)}
+.idline .id{display:inline-flex;gap:8px;align-items:center;min-width:0}.idline code{font-size:13px}.idline .copy{padding:1px 8px}
+.stats{display:flex;flex-wrap:wrap;gap:10px}
+.stat{flex:1 1 140px;border:1px solid var(--rule);border-radius:10px;padding:12px 14px;display:grid;gap:2px;align-content:start;background:var(--bg);min-width:0}
+.stat.lead{flex:2 1 280px}.stat dd time{white-space:nowrap}
+.stat dt{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.stat dd{font-size:24px;line-height:1.25;font-weight:650;letter-spacing:-.01em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.stat dd small{font-size:13px;font-weight:400;letter-spacing:0;color:var(--muted)}
 section{display:grid;gap:14px;min-width:0}
 section>p,.note{max-width:75ch;color:var(--fg2)}
 .tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:10px}
@@ -77,12 +80,14 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:8px;paddin
 .links li a span{font-size:13px;color:var(--muted)}
 .src{font-size:13px;color:var(--muted);display:grid;gap:4px}
 .src ul{padding-left:18px}
+.intro{font-size:14px;color:var(--fg2)}
+.tag{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:999px;padding:1px 10px}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--bg3);color:var(--fg2)}
 .warnbox{border:1px solid var(--warn);border-radius:8px;padding:10px 14px;color:var(--fg);max-width:75ch}
 footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13px}
 footer div{max-width:1080px;margin:0 auto;padding:20px;display:flex;gap:8px 20px;flex-wrap:wrap}
 footer a{color:var(--muted)}
-@media (max-width:600px){main{padding:20px 16px 48px;gap:28px}.top-in{padding:10px 16px}th,td{padding:8px 9px}.grid2{grid-template-columns:1fr}}
+@media (max-width:600px){main{padding:20px 16px 48px;gap:28px}.stats{gap:8px}.stat{padding:10px 12px}.stat dd{font-size:21px}.top-in{padding:10px 16px}th,td{padding:8px 9px}.grid2{grid-template-columns:1fr}}
 `;
 
 const ANALYTICS = `<script>if(location.hostname==="models.litellm.ai"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister identify reset get_distinct_id set_config opt_in_capturing opt_out_capturing".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init(${JSON.stringify(POSTHOG_KEY)},{api_host:"https://us.i.posthog.com",defaults:"2026-05-30",person_profiles:"identified_only",cross_subdomain_cookie:true,capture_pageview:true,capture_pageleave:true,disable_session_recording:true,capture_heatmaps:false,disable_surveys:true,autocapture:{dom_event_allowlist:["click"],element_allowlist:["a","button"]}})}</script>`;
@@ -276,24 +281,57 @@ export type ModelPageContext = {
   hubs: Set<string>;
 };
 
+type Stat = { label: string; value: string; lead?: boolean; tag?: string };
+
+/** The numbers a reader came for, in one row under the title: price first, then limits. */
+function keyStats(v: ModelView): Stat[] {
+  const stats: Stat[] = [];
+  const price = headlinePrice(v);
+  const tag = v.intro ? "Intro price" : undefined;
+  const per1M = "<small>per 1M tokens</small>";
+  if (price) {
+    const lead = (label: string, value: string): Stat => ({ label, value, lead: true, tag });
+    switch (price.unit) {
+      case "free":
+        stats.push(lead("Price", "Free"));
+        break;
+      case "tokens":
+        stats.push(lead("Input / output", `${usd(price.input)} / ${usd(price.output)} ${per1M}`));
+        break;
+      case "input_tokens":
+        stats.push(lead("Input", `${usd(price.value)} ${per1M}`));
+        break;
+      case "image":
+        stats.push(lead("Price", `${usd(price.value)} <small>per image</small>`));
+        break;
+      case "image_tokens":
+        stats.push(lead("Image output", `${usd(price.value)} ${per1M}`));
+        break;
+      case "second":
+        stats.push(lead("Price", `${usd(price.value)} <small>per second of video</small>`));
+        break;
+      case "chars":
+        stats.push(lead("Price", `${usd(price.value)} <small>per 1M characters</small>`));
+        break;
+      case "minute":
+        stats.push(lead("Price", `${usd(price.value)} <small>per minute of audio</small>`));
+        break;
+      case "metric":
+        stats.push(lead("Price", `${usd(price.value)} <small>${esc(price.label)}</small>`));
+        break;
+    }
+  }
+  const cacheRead = v.headline?.prices.cacheRead;
+  if (cacheRead !== undefined && !v.free) stats.push({ label: "Cache read", value: `${usd(cacheRead)} <small>/ 1M</small>` });
+  if (v.context) stats.push({ label: "Context", value: `${tokensShort(v.context)} <small>tokens</small>` });
+  if (v.maxOutput) stats.push({ label: "Max output", value: `${tokensShort(v.maxOutput)} <small>tokens</small>` });
+  if (v.addedDate) stats.push({ label: "Added", value: `<time datetime="${v.addedDate}">${v.addedDate.length === 10 ? shortDate(v.addedDate) : longDate(v.addedDate)}</time>` });
+  return stats;
+}
+
 export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): string {
   const h = v.headline;
-  const facts: [string, string][] = [];
-  if (h) {
-    const p = h.prices;
-    if (v.free) facts.push(["Price", "Free"]);
-    if (p.perImage !== undefined) facts.push(["Per image", usd(p.perImage)]);
-    if (p.perSecond !== undefined) facts.push(["Per second", usd(p.perSecond)]);
-    if (p.perMinute !== undefined) facts.push(["Per minute", usd(p.perMinute)]);
-    if (p.per1MChars !== undefined) facts.push(["Per 1M characters", usd(p.per1MChars)]);
-    if (p.input !== undefined && !v.free) facts.push(["Input", `${usd(p.input)} <small>/ 1M tokens</small>`]);
-    if (p.output !== undefined && !v.free) facts.push(["Output", `${usd(p.output)} <small>/ 1M tokens</small>`]);
-    if (p.cacheRead !== undefined) facts.push(["Cache read", `${usd(p.cacheRead)} <small>/ 1M tokens</small>`]);
-  }
-  if (v.context) facts.push(["Context window", `${int(v.context)} <small>tokens</small>`]);
-  if (v.maxOutput) facts.push(["Max output", `${int(v.maxOutput)} <small>tokens</small>`]);
-  facts.push(["Providers", String(v.providers.length)]);
-  if (v.addedDate) facts.push(["Added to LiteLLM", longDate(v.addedDate)]);
+  const stats = keyStats(v);
 
   const cols = PRICE_COLS.filter((c) => v.rows.some((r) => c.get(r.prices) !== undefined)).slice(0, 7);
   const shown = v.rows.slice(0, 25);
@@ -308,8 +346,11 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
   parts.push(`<div class="head">
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(v.name)}</span></nav>
 <h1>${esc(copy.h1)}</h1>
+<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span></div>
+<dl class="stats">${stats.map((s) => `<div class="stat${s.lead ? " lead" : ""}"><dt><span>${s.label}</span>${s.tag ? `<span class="tag">${s.tag}</span>` : ""}</dt><dd>${s.value}</dd></div>`).join("")}</dl>
 <p class="answer">${esc(copy.answer)}</p>
-<div class="meta">${v.lab ? `<span>By ${esc(v.lab)}</span>` : ""}<span>Model ID <code>${esc(ms)}</code></span><span>Prices updated <time datetime="${ctx.lastChanged}">${longDate(ctx.lastChanged)}</time></span><span>Checked <time datetime="${ctx.buildDate}">${longDate(ctx.buildDate)}</time></span></div>
+${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.until)}, per <a href="${esc(v.intro.source)}">${esc(v.lab ?? h.providerName)}'s pricing page</a>.</p>` : ""}
+<div class="meta"><span>Prices updated <time datetime="${ctx.lastChanged}">${longDate(ctx.lastChanged)}</time></span><span>Checked <time datetime="${ctx.buildDate}">${longDate(ctx.buildDate)}</time></span></div>
 </div>`);
 
   if (v.deprecation) {
@@ -317,7 +358,6 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
     parts.push(`<div class="warnbox">${past ? "Deprecated" : "Scheduled for deprecation"}: ${esc(h?.providerName ?? "The provider")} lists ${longDate(v.deprecation)} as the deprecation date for <code>${esc(ms)}</code>.</div>`);
   }
 
-  parts.push(`<dl class="facts">${facts.map(([k, val]) => `<div class="fact"><dt>${k}</dt><dd>${val}</dd></div>`).join("")}</dl>`);
 
   parts.push(`<section id="pricing"><h2>${esc(v.name)} pricing by provider</h2>
 <p>${v.rows.length} ${v.rows.length === 1 ? "listing" : "listings"} across ${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}. Token prices are in US dollars per 1M tokens. The highlighted row is the price quoted above.</p>
@@ -381,7 +421,7 @@ ${codeBlock("curl", "Call the proxy", getLiteLLmProxyCurlSnippet(mode, v.slug))}
     .map((p) => providerLink(p.hub, p.name, ctx.hubs))
     .join(", ");
   parts.push(`<section class="src" id="sources"><h2>Sources</h2>
-<p>Prices come from LiteLLM's open-source <a href="${PRICE_FILE_URL}">model_prices_and_context_window.json</a>, which LiteLLM uses to calculate the cost of every request. Maintainers update it from each provider's published pricing, and this page is rebuilt within about 30 minutes of every change. ${v.sources.length ? "Provider pricing pages:" : ""}</p>
+<p>Prices come from LiteLLM's open-source <a href="${PRICE_FILE_URL}">model_prices_and_context_window.json</a>, which LiteLLM uses to calculate the cost of every request. Maintainers update it from each provider's published pricing, and this page is usually rebuilt within 20 minutes of every change. ${v.sources.length ? "Provider pricing pages:" : ""}</p>
 ${v.sources.length ? `<ul>${v.sources.map((s) => `<li><a href="${esc(s)}" rel="nofollow">${esc(s.replace(/^https?:\/\//, ""))}</a></li>`).join("")}</ul>` : ""}
 ${v.docs.length ? `<p>LiteLLM docs: ${v.docs.map((d) => `<a href="${esc(d.url)}">${esc(d.name)}</a>`).join(", ")}.</p>` : ""}
 <p>Provider pages: ${providerLinks}.</p>

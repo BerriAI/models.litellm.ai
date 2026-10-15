@@ -23,6 +23,7 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
   if (v.maxOutput) lines.push(`- Max output: ${int(v.maxOutput)} tokens`);
   if (v.addedDate) lines.push(`- Added to LiteLLM: ${longDate(v.addedDate)}`);
   if (v.deprecation) lines.push(`- Deprecation date: ${longDate(v.deprecation)}`);
+  if (v.intro) lines.push(`- Introductory price until: ${longDate(v.intro.until)} (source: ${v.intro.source})`);
   lines.push(`- Prices updated: ${longDate(lastChanged)}`, "");
 
   lines.push("## Pricing by provider", "", "Token prices in USD per 1M tokens.", "");
@@ -61,6 +62,6 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
 
   lines.push("## FAQ", "");
   for (const f of copy.faq) lines.push(`### ${f.q}`, "", f.a, "");
-  lines.push(`Source: LiteLLM model price file, ${PRICE_FILE_URL}. Maintainers update it from each provider's published pricing, and this page is rebuilt within about 30 minutes of every change.`, "");
+  lines.push(`Source: LiteLLM model price file, ${PRICE_FILE_URL}. Maintainers update it from each provider's published pricing, and this page is usually rebuilt within 20 minutes of every change.`, "");
   return lines.join("\n");
 }
