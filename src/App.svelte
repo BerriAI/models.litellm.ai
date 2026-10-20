@@ -215,6 +215,10 @@
     }
   }, 1000);
 
+  const setQueryDebounced = debounce((value: string) => {
+    query = value;
+  }, 300);
+
   const getIssueUrlForAdd = (query: string) => {
     const q = encodeURIComponent(query);
     const body = encodeURIComponent(
@@ -533,7 +537,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         <input
           id="query"
           bind:this={searchInput}
-          bind:value={query}
+          value={query}
+          on:input={(e) => setQueryDebounced(e.currentTarget.value)}
           on:focus={() => { searchFocused = true; }}
           on:blur={() => { searchFocused = false; }}
           type="text"
