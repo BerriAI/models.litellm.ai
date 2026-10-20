@@ -127,7 +127,8 @@ export const TOOL_CSS = `.ct{overflow-x:auto;border:1px solid var(--rule);border
 .cb-list li{display:grid;gap:1px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:14px}
 .cb-list li small{font-size:12px;color:var(--muted)}
 .cb-list li[aria-selected=true],.cb-list li:hover{background:var(--bg3)}
-.cb-list .cb-none{cursor:default;color:var(--muted)}.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}.ct tr.grp th{background:var(--bg3)}.ct .lnk{font-size:13px;padding:10px 12px}`;
+.cb-list .cb-none{cursor:default;color:var(--muted)}.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}.ct tr.grp th{background:var(--bg3)}.ct .lnk{font-size:13px;padding:10px 12px}
+@media (max-width:600px){.ct table{min-width:0}.ct th[scope=col]{min-width:140px}.ct tbody th[scope=row],.ct thead th:first-child{white-space:normal;overflow-wrap:anywhere;width:96px;min-width:96px}}`;
 
 /** Client side: reads /compare/models.json, renders columns, keeps ?models= in the URL. */
 export const TOOL_JS = `<script>(function(){
@@ -206,7 +207,7 @@ addEventListener("resize",place);addEventListener("scroll",place,true);
 root.addEventListener("click",function(e){var b=e.target.closest("[data-rm]");if(!b)return;picked.splice(+b.getAttribute("data-rm"),1);save();render()});
 fetch("/compare/models.json").then(function(r){return r.json()}).then(function(d){
   data=d.models;asOf=d.asOf||null;(d.pairs||[]).forEach(function(k){pairs[k]=1});
-  picked=picked.filter(function(s){return data[s]});
+  picked=picked.filter(function(s){return Object.prototype.hasOwnProperty.call(data,s)});
   save();render();
 }).catch(function(){root.innerHTML='<p class="note">Couldn\\'t load the model list. See the <a href="/compare">comparison pages</a>.</p>'});
 })()</script>`;

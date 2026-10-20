@@ -67,7 +67,7 @@ async function fetchJson<T>(file: string | undefined, url: string): Promise<T | 
   try {
     return JSON.parse(await loadText(file, url)) as T;
   } catch (err) {
-    console.warn(`seo: ${url} unavailable; its page is built noindex`, err);
+    console.warn(`seo: ${url} unavailable; its page is built without that list`, err);
     return null;
   }
 }
@@ -488,7 +488,7 @@ ${cheapestOnProvider(h.name, list)}
     );
     write(`compare/${pair.slug}.md`, compareMarkdown(view));
     if (index) compareEntries.push({ path, lastmod: BUILD_DATE });
-    if (!previous?.compare?.[pair.slug]) changed.push(abs(path));
+    if (index && !previous?.compare?.[pair.slug]) changed.push(abs(path));
   }
   const groupsByKind = (Object.keys(KIND_LABELS) as (keyof typeof KIND_LABELS)[]).map((kind) => ({
     label: KIND_LABELS[kind],
@@ -743,9 +743,9 @@ ${cheapestOnProvider(h.name, list)}
       };
       write(
         r.path === "/" ? "index.html" : `${id}.html`,
-        appShell(appHtml, { path: r.path, title: r.title, description: r.description, image: writeCard(OUT, "pages", id, r.card), body: r.page.body, jsonLd, noindex: !r.page.indexable }),
+        appShell(appHtml, { path: r.path, title: r.title, description: r.description, image: writeCard(OUT, "pages", id, r.card), body: r.page.body, jsonLd }),
       );
-      if (r.page.indexable && r.path !== "/") appEntries.push({ path: r.path, lastmod: r.page.lastmod });
+      if (r.path !== "/") appEntries.push({ path: r.path, lastmod: r.page.lastmod });
     }
   } else {
     console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");

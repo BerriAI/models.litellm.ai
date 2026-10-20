@@ -297,7 +297,15 @@ export function answerLine(p: Pair): string {
   let subject = a;
   let other = b;
   let price: string;
-  if (differs(input(a), input(b), 0.01)) {
+  const cheaper = lowerBlended(a, b);
+  if (
+    differs(input(a), input(b), 0.01) &&
+    !sameBlended(a, b) &&
+    input(cheaper) > input(cheaper === a ? b : a)
+  ) {
+    [subject, other] = cheaper === a ? [a, b] : [b, a];
+    price = `${subject.name} is cheaper at 3 input tokens per output token, though it costs ${pct(input(subject), input(other))}% more per input token than ${other.name} (${usd(input(subject))} vs ${usd(input(other))} per 1M)`;
+  } else if (differs(input(a), input(b), 0.01)) {
     [subject, other] = input(a) > input(b) ? [a, b] : [b, a];
     price = `${subject.name} costs ${pct(input(subject), input(other))}% more per input token than ${other.name} (${usd(input(subject))} vs ${usd(input(other))} per 1M)`;
   } else if (differs(output(a), output(b), 0.01)) {

@@ -22,6 +22,8 @@ export type Ranking = {
   largest?: boolean;
   /** Price-capped lists sorted by how many providers offer each model; `cap` is the price limit. */
   byProviders?: { cap: number; total: number };
+  /** The models the list is drawn from, when it is not the shared ranking pool. */
+  pool?: string;
 };
 
 /** 3 input tokens per output token: the usual chat ratio, and the one most price comparisons use. */
@@ -169,6 +171,7 @@ export function buildRankings(
     measure: "Price per 1M input tokens",
     method:
       "Sorted by input price at each model's headline price. Active embedding models only; free models are left out.",
+    pool: "active paid embedding models",
     items: embeddings,
   });
   // One per model family with at least three models on the list.
@@ -238,5 +241,5 @@ export function rankingAnswer(r: Ranking, date: string): string {
   }
   return r.largest
     ? `As of ${date}, among LiteLLM's ${POOL}, ${top.view.name} has the largest context window, at ${top.display}, from ${seller}.`
-    : `As of ${date}, among LiteLLM's ${POOL}, the cheapest of the ${r.subject} is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.${intro}`;
+    : `As of ${date}, ${r.pool ? `the cheapest of LiteLLM's ${r.pool}` : `among LiteLLM's ${POOL}, the cheapest of the ${r.subject}`} is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.${intro}`;
 }

@@ -53,8 +53,11 @@ const COST_MAP: CostMap = {
   }),
 };
 
-function views(overrides: Overrides = {}): ModelView[] {
-  const groups = groupCostMap(COST_MAP);
+function views(
+  overrides: Overrides = {},
+  costMap: CostMap = COST_MAP,
+): ModelView[] {
+  const groups = groupCostMap(costMap);
   const slugs = assignSlugs(groups);
   return groups.map((g) =>
     buildModelView(g, slugs.get(g.pageKey)!, overrides, {}, null, "2026-10-20"),
@@ -99,6 +102,31 @@ describe("rankings", () => {
     expect(r.items.map((x) => x.view.slug)).not.toContain("claude-mid-1");
     expect(rankingAnswer(r, "October 20, 2026")).toContain(
       "3 of LiteLLM's active models with a 32K-token context window or more, offered by at least two providers or by their own lab, cost under $1 per 1M tokens",
+    );
+  });
+
+  test("the embedding answer names the models it ranks, not the chat pool", () => {
+    const embed = (provider: string, input: number) => ({
+      litellm_provider: provider,
+      mode: "embedding",
+      input_cost_per_token: input / 1e6,
+      max_input_tokens: 8_192,
+    });
+    const r = buildRankings(
+      views(
+        {},
+        {
+          ...COST_MAP,
+          "deepinfra/acme/acme-embed-1": embed("deepinfra", 0.01),
+          "text-embed-2": embed("openai", 0.02),
+          "mistral/mistral-embed-3": embed("mistral", 0.1),
+        },
+      ),
+      {},
+    ).find((x) => x.slug === "cheapest-embedding-models")!;
+    expect(r.items[0].view.slug).toBe("acme-embed-1");
+    expect(rankingAnswer(r, "October 20, 2026")).toMatch(
+      /^As of October 20, 2026, the cheapest of LiteLLM's active paid embedding models is Acme Embed 1, at \$0\.01 per 1M tokens \(input\), from /,
     );
   });
 
