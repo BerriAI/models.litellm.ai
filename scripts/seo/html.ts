@@ -92,7 +92,7 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:12px;paddi
 th[scope=row]{font-size:14px;font-weight:500;color:var(--fg2);background:transparent;white-space:normal}
 th[scope=rowgroup]{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--bg2)}
 .calc{display:grid;gap:16px;border:1px solid var(--rule);border-radius:12px;padding:18px;max-width:780px;background:var(--bg);box-shadow:var(--shadow)}
-.calc-in{display:flex;flex-wrap:wrap;gap:12px}.calc-in label{display:grid;gap:6px;font-size:13px;font-weight:500;color:var(--fg2);flex:1 1 160px}
+.calc-in{display:flex;flex-wrap:wrap;gap:12px}.calc-intro{font-size:12px;font-weight:400;color:var(--muted)}.calc-in label{display:grid;gap:6px;font-size:13px;font-weight:500;color:var(--fg2);flex:1 1 160px}
 .calc-in input,.calc-in select,.ct input{font:inherit;font-size:14px;height:36px;color:var(--fg);background:var(--bg);border:1px solid var(--rule2);border-radius:8px;padding:0 10px;width:100%;transition:border-color .15s,box-shadow .15s}
 .calc-in input:focus,.calc-in select:focus,.ct input:focus{outline:2px solid transparent;outline-offset:2px;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
 .calc-out{display:flex;flex-wrap:wrap;gap:12px;padding-top:14px;border-top:1px solid var(--rule)}.calc-out div{flex:1 1 140px;display:grid;gap:2px}.calc-out dt{font-size:13px;font-weight:500;color:var(--muted)}.calc-out dd{font-size:24px;font-weight:650;letter-spacing:-.015em;font-variant-numeric:tabular-nums}
@@ -669,8 +669,8 @@ export function calculatorBody(models: CalcModel[], defaultSlug: string, table: 
   const first = models.find((m) => m.slug === defaultSlug) ?? models[0];
   const result = calcCost(first.input, first.output, d.input, d.output, d.requests);
   const list = Object.fromEntries(models.map((m) => [m.slug, m.intro ? [m.name, m.input, m.output, m.intro] : [m.name, m.input, m.output]]));
-  // A searchable picker (CALC_JS); the hidden field holds the model's slug, the visible box its name.
-  const select = `<label>Model<input type="hidden" name="model" value="${esc(first.slug)}"><input type="text" class="calc-pick" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="calc-list" autocomplete="off" spellcheck="false" value="${esc(first.name)}" aria-label="Model"></label>`;
+  // A searchable picker (CALCULATOR_PAGE_JS); the hidden field holds the model's slug, the visible box its name.
+  const select = `<label>Model<input type="hidden" name="model" value="${esc(first.slug)}"><input type="text" class="calc-pick" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="calc-list" autocomplete="off" spellcheck="false" value="${esc(first.name)}" aria-label="Model" aria-describedby="calc-intro"><small class="calc-intro" id="calc-intro" data-r="intro"${first.intro ? "" : " hidden"}>${first.intro ? `Introductory price until ${esc(first.intro)}` : ""}</small></label>`;
   const rows = table
     .map((m) => ({ m, r: calcCost(m.input, m.output, d.input, d.output, d.requests) }))
     .sort((a, b) => a.r.perMonth - b.r.perMonth || a.m.name.localeCompare(b.m.name));
