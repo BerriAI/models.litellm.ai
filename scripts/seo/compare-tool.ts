@@ -118,16 +118,17 @@ export function toolBody(): string {
 <noscript><p>This tool needs JavaScript. See the <a href="/compare">comparison pages</a> instead.</p></noscript></section>`;
 }
 
-export const TOOL_CSS = `.ct{overflow-x:auto;border:1px solid var(--rule);border-radius:10px}
-.ct table{min-width:640px}.ct th[scope=col]{vertical-align:top;text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg);background:var(--bg2);min-width:180px}
-.ct .pick{display:grid;gap:6px}.ct input{font:inherit;font-size:14px;width:100%;padding:6px 8px;border:1px solid var(--rule2);border-radius:6px;background:var(--bg);color:var(--fg)}
-.ct .rm{font:inherit;font-size:12px;border:0;background:none;color:var(--muted);cursor:pointer;padding:0;justify-self:start}
-.ct td.best{font-weight:650}
-.cb-list{position:fixed;z-index:50;max-height:340px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:10px;box-shadow:0 12px 32px rgba(8,11,38,.18)}
-.cb-list li{display:grid;gap:1px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:14px}
-.cb-list li small{font-size:12px;color:var(--muted)}
+export const TOOL_CSS = `.ct{overflow-x:auto;border:1px solid var(--rule);border-radius:12px;background:var(--bg);box-shadow:var(--shadow)}
+.ct table{min-width:640px}.ct th[scope=col]{vertical-align:top;font-size:15px;font-weight:600;color:var(--fg);background:var(--bg2);min-width:190px}
+.ct .pick{display:grid;gap:6px;justify-items:start}.ct .pick .note{font-size:13px;font-weight:400;color:var(--muted)}
+.ct .rm{height:24px;font-size:12px;padding:0 8px;color:var(--muted)}
+.ct td.best{font-weight:650;color:var(--fg)}.ct .lnk{font-size:13px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:6px 14px}
+.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}.ct tr.grp th{background:var(--bg3)}
+.cb-list{position:fixed;z-index:50;max-height:340px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:12px;box-shadow:0 12px 32px rgba(8,11,38,.18)}
+.cb-list li{display:grid;gap:1px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500}
+.cb-list li small{font-size:12px;font-weight:400;color:var(--muted)}
 .cb-list li[aria-selected=true],.cb-list li:hover{background:var(--bg3)}
-.cb-list .cb-none{cursor:default;color:var(--muted)}.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}.ct tr.grp th{background:var(--bg3)}.ct .lnk{font-size:13px;padding:10px 12px}
+.cb-list .cb-none{cursor:default;color:var(--muted);font-weight:400}
 @media (max-width:600px){.ct table{min-width:0}.ct th[scope=col]{min-width:140px}.ct tbody th[scope=row],.ct thead th:first-child{white-space:normal;overflow-wrap:anywhere;width:96px;min-width:96px}}`;
 
 /** Client side: reads /compare/models.json, renders columns, keeps ?models= in the URL. */
@@ -185,16 +186,21 @@ function render(){
 var list=document.createElement("ul");list.id="ct-list";list.className="cb-list";list.setAttribute("role","listbox");list.hidden=true;document.body.appendChild(list);
 var input=null,options=[],active=-1;
 function meta(m){return[m.lab,usd(m.in)+" / "+usd(m.out)+" per 1M",(m.ctx>=1e6?(m.ctx/1e6).toFixed(m.ctx%1e6?2:0).replace(/\.?0+$/,"")+"M":Math.round(m.ctx/1e3)+"K")+" context"].filter(Boolean).join(" · ")}
-function place(){if(!input)return;var r=input.getBoundingClientRect();list.style.left=Math.max(8,Math.min(r.left,innerWidth-Math.max(r.width,300)-8))+"px";list.style.top=(r.bottom+4)+"px";list.style.width=Math.max(r.width,300)+"px"}
+var coarse=typeof matchMedia!=="undefined"&&matchMedia("(pointer:coarse)").matches;
+function seen(){var v=typeof visualViewport!=="undefined"&&visualViewport;return v?v.offsetTop+v.height:innerHeight}
+function place(){if(!input)return;var r=input.getBoundingClientRect(),w=Math.max(r.width,300);list.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+"px";list.style.top=(r.bottom+4)+"px";list.style.width=w+"px";list.style.maxHeight=Math.max(96,Math.min(340,seen()-r.bottom-12))+"px"}
+function fit(){if(!input||!coarse)return;var r=input.getBoundingClientRect(),hd=document.querySelector(".top"),t=(hd?hd.getBoundingClientRect().bottom:0)+12;if(seen()-r.bottom<220&&r.top>t)scrollBy(0,r.top-t)}
+function rank(s,q){var n=data[s].n.toLowerCase();return n===q||s===q?0:n.indexOf(q)===0||s.indexOf(q)===0?1:2}
 function open(){if(!input)return;var q=input.value.trim().toLowerCase();
-  options=Object.keys(data).filter(function(s){return picked.indexOf(s)<0&&(!q||(data[s].n+" "+(data[s].lab||"")+" "+s).toLowerCase().indexOf(q)>=0)}).slice(0,40);
-  active=options.length?0:-1;
+  options=Object.keys(data).filter(function(s){return picked.indexOf(s)<0&&(!q||(data[s].n+" "+(data[s].lab||"")+" "+s).toLowerCase().indexOf(q)>=0)});
+  if(q)options.sort(function(a,b){return rank(a,q)-rank(b,q)});
+  active=options.length&&q?0:-1;
   list.innerHTML=options.length?options.map(function(s,i){return'<li role="option" id="ct-opt-'+i+'" data-i="'+i+'" aria-selected="'+(i===active)+'"><span>'+esc(data[s].n)+"</span><small>"+esc(meta(data[s]))+"</small></li>"}).join(""):'<li class="cb-none">No matching model</li>';
-  list.hidden=false;input.setAttribute("aria-expanded","true");input.setAttribute("aria-activedescendant",active>=0?"ct-opt-"+active:"");place()}
+  list.hidden=false;input.setAttribute("aria-expanded","true");if(active>=0)input.setAttribute("aria-activedescendant","ct-opt-"+active);else input.removeAttribute("aria-activedescendant");place()}
 function close(){list.hidden=true;if(input)input.setAttribute("aria-expanded","false")}
-function move(d){if(!options.length)return;active=(active+d+options.length)%options.length;[].forEach.call(list.children,function(li,i){li.setAttribute("aria-selected",i===active)});var el=list.children[active];if(el)el.scrollIntoView({block:"nearest"});input.setAttribute("aria-activedescendant","ct-opt-"+active)}
+function move(d){if(!options.length)return;active=active<0?(d>0?0:options.length-1):(active+d+options.length)%options.length;[].forEach.call(list.children,function(li,i){li.setAttribute("aria-selected",i===active)});var el=list.children[active];if(el)el.scrollIntoView({block:"nearest"});input.setAttribute("aria-activedescendant","ct-opt-"+active)}
 function pick(s){if(!s||picked.indexOf(s)>=0||picked.length>=MAX)return;close();picked.push(s);save();render();if(window.posthog&&posthog.capture)posthog.capture("compare_tool_added",{model:s,count:picked.length});var next=root.querySelector("[data-add]");if(next)next.focus()}
-root.addEventListener("focusin",function(e){if(e.target.matches("[data-add]")){input=e.target;open()}});
+root.addEventListener("focusin",function(e){if(e.target.matches("[data-add]")){input=e.target;fit();open()}});
 root.addEventListener("input",function(e){if(e.target.matches("[data-add]")){input=e.target;open()}});
 root.addEventListener("keydown",function(e){if(!e.target.matches("[data-add]"))return;
   if(e.key==="ArrowDown"){e.preventDefault();if(list.hidden)open();else move(1)}
@@ -203,7 +209,8 @@ root.addEventListener("keydown",function(e){if(!e.target.matches("[data-add]"))r
   else if(e.key==="Escape"){close()}});
 root.addEventListener("focusout",function(e){if(e.target.matches("[data-add]"))setTimeout(close,120)});
 list.addEventListener("mousedown",function(e){e.preventDefault();var li=e.target.closest("[data-i]");if(li)pick(options[+li.getAttribute("data-i")])});
-addEventListener("resize",place);addEventListener("scroll",place,true);
+function follow(){if(!list.hidden)place()}
+addEventListener("resize",follow);addEventListener("scroll",follow,true);if(typeof visualViewport!=="undefined")visualViewport.addEventListener("resize",function(){if(!list.hidden){fit();place()}});
 root.addEventListener("click",function(e){var b=e.target.closest("[data-rm]");if(!b)return;picked.splice(+b.getAttribute("data-rm"),1);save();render()});
 fetch("/compare/models.json").then(function(r){return r.json()}).then(function(d){
   data=d.models;asOf=d.asOf||null;(d.pairs||[]).forEach(function(k){pairs[k]=1});

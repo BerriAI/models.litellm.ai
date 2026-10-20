@@ -470,13 +470,16 @@ describe("calculator", () => {
     });
     const models = [m("intro-model", "December 31, 2026"), m("plain-model")];
     const html = calculatorBody(models, "intro-model", models, "2026-10-20");
-    expect(html).toContain(
-      ">INTRO-MODEL (introductory price until December 31, 2026)</option>",
+    const picker = JSON.parse(
+      html.match(
+        /<script type="application\/json" id="calc-models">(.*?)<\/script>/s,
+      )![1],
     );
+    expect(picker["intro-model"]).toContain("December 31, 2026");
+    expect(JSON.stringify(picker["plain-model"])).not.toContain("2026");
     expect(html).toContain(
       '<span class="note">introductory price until December 31, 2026</span>',
     );
-    expect(html).toContain(">PLAIN-MODEL</option>");
   });
 });
 
