@@ -15,7 +15,8 @@ import {
   type CostMap,
   type Overrides,
 } from "./group";
-import { modelBody } from "./html";
+import { fetchText as fetchWithRetry } from "./fetch";
+import { calculatorBody, modelBody } from "./html";
 import { modelMarkdown } from "./markdown";
 import { buildModelView, modelStatus } from "./model-view";
 
@@ -267,6 +268,21 @@ describe("model status", () => {
     ).toBe("active");
   });
 
+  test("a retired model's page stays up and links its successor", () => {
+    const old: CostMap = {
+      "old-model-1": chat("openai", 1, 2, { deprecation_date: "2026-01-01" }),
+    };
+    const v = view(old, "old-model-1");
+    const html = modelBody(v, pageCopy(v, "2026-10-20"), {
+      ...ctx,
+      successor: { name: "New Model 2", slug: "new-model-2" },
+    });
+    expect(html).toContain(
+      'Its successor is <a href="/models/new-model-2">New Model 2</a>.',
+    );
+    expect(html).not.toContain("http-equiv");
+  });
+
   test("a retired model's markdown copy says so and links its successor", () => {
     const old: CostMap = {
       "old-model-1": chat("openai", 1, 2, { deprecation_date: "2026-01-01" }),
@@ -303,19 +319,19 @@ describe("cookbook", () => {
     throw new Error(`404 ${url}`);
   };
 
-  test("lists every docs tutorial, newest first, without the tutorials index page", async () => {
+  test("lists every docs tutorial without the tutorials index page or its deploy-time date", async () => {
     expect(tutorialUrls(sitemap)).toEqual([
       "https://docs.litellm.ai/docs/tutorials/claude_code_gateway",
       "https://docs.litellm.ai/docs/tutorials/claude_mcp",
     ]);
     const list = await loadCookbook(fetchText, null);
     expect(list!.map((g) => [g.title, g.date])).toEqual([
-      ["Claude Code SSO", "2026-10-19"],
-      ["Use Claude Code with MCPs", "2026-09-01"],
+      ["Claude Code SSO", undefined],
+      ["Use Claude Code with MCPs", undefined],
     ]);
   });
 
-  test("the docs copy of a guide wins over the old index entry, which keeps its tags", async () => {
+  test("the docs copy of a guide wins over the old index entry, which keeps its date and tags", async () => {
     const index = [
       {
         title: "Claude Code with MCPs (old)",
@@ -333,7 +349,7 @@ describe("cookbook", () => {
     expect(list).toHaveLength(3);
     expect(list!.find((g) => g.url!.includes("claude_mcp"))).toMatchObject({
       title: "Use Claude Code with MCPs",
-      date: "2026-09-01",
+      date: "2026-01-15",
       tags: ["MCP"],
     });
   });
@@ -342,5 +358,76 @@ describe("cookbook", () => {
     expect(
       frontmatter(`---\ntitle: "A \\"quoted\\" title"\nsummary: plain\n---`),
     ).toEqual({ title: 'A "quoted" title', summary: "plain" });
+  });
+});
+
+describe("calculator", () => {
+  test("an introductory price is labelled with its end date", () => {
+    const m = (slug: string, intro?: string) => ({
+      slug,
+      name: slug.toUpperCase(),
+      input: 1,
+      output: 2,
+      providers: 1,
+      ...(intro ? { intro } : {}),
+    });
+    const models = [m("intro-model", "December 31, 2026"), m("plain-model")];
+    const html = calculatorBody(models, "intro-model", models, "2026-10-20");
+    expect(html).toContain(
+      ">INTRO-MODEL (introductory price until December 31, 2026)</option>",
+    );
+    expect(html).toContain(
+      '<span class="note">introductory price until December 31, 2026</span>',
+    );
+    expect(html).toContain(">PLAIN-MODEL</option>");
+  });
+});
+
+describe("build-time fetch", () => {
+  const responder = (replies: (number | Error)[]) => {
+    const calls: string[] = [];
+    const fetchFn = (async (url: string) => {
+      calls.push(url);
+      const reply = replies[calls.length - 1];
+      if (reply instanceof Error) throw reply;
+      return new Response(reply === 200 ? "ok" : "", { status: reply });
+    }) as typeof fetch;
+    return { calls, fetchFn };
+  };
+  const sleep = async () => {};
+
+  test("retries a network error, a timeout, a 429 or a 5xx, then returns the body", async () => {
+    const { calls, fetchFn } = responder([
+      new TypeError("fetch failed"),
+      503,
+      200,
+    ]);
+    expect(
+      await fetchWithRetry("https://example.com/a", { fetchFn, sleep }),
+    ).toBe("ok");
+    expect(calls).toHaveLength(3);
+    const throttled = responder([429, 200]);
+    expect(
+      await fetchWithRetry("https://example.com/a", {
+        fetchFn: throttled.fetchFn,
+        sleep,
+      }),
+    ).toBe("ok");
+  });
+
+  test("gives up after the last attempt, and at once on a 404", async () => {
+    const down = responder([500, 502, 503, 200]);
+    await expect(
+      fetchWithRetry("https://example.com/a", { fetchFn: down.fetchFn, sleep }),
+    ).rejects.toThrow("https://example.com/a responded 503");
+    expect(down.calls).toHaveLength(3);
+    const missing = responder([404, 200]);
+    await expect(
+      fetchWithRetry("https://example.com/a", {
+        fetchFn: missing.fetchFn,
+        sleep,
+      }),
+    ).rejects.toThrow("responded 404");
+    expect(missing.calls).toHaveLength(1);
   });
 });

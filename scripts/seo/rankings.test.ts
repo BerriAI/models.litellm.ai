@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
 import { rssFeed } from "./crawl";
-import { assignSlugs, groupCostMap, type CostMap } from "./group";
+import {
+  assignSlugs,
+  groupCostMap,
+  type CostMap,
+  type Overrides,
+} from "./group";
 import { buildModelView, type ModelView } from "./model-view";
 import {
   blended,
@@ -45,11 +50,11 @@ const COST_MAP: CostMap = {
   }),
 };
 
-function views(): ModelView[] {
+function views(overrides: Overrides = {}): ModelView[] {
   const groups = groupCostMap(COST_MAP);
   const slugs = assignSlugs(groups);
   return groups.map((g) =>
-    buildModelView(g, slugs.get(g.pageKey)!, {}, {}, null, "2026-10-20"),
+    buildModelView(g, slugs.get(g.pageKey)!, overrides, {}, null, "2026-10-20"),
   );
 }
 
@@ -89,6 +94,28 @@ describe("rankings", () => {
     expect(rankingAnswer(r, "October 20, 2026")).toContain(
       "3 active models on LiteLLM cost under $1 per 1M tokens",
     );
+  });
+
+  test("the answer says when the top model's price is introductory", () => {
+    const intro = buildRankings(
+      views({
+        introPricing: {
+          "acme-open-1": {
+            until: "2026-12-31",
+            source: "https://example.com/pricing",
+            providers: ["together_ai"],
+          },
+        },
+      }),
+      {},
+    ).find((r) => r.slug === "cheapest-chat-models")!;
+    expect(intro.items[0].view.slug).toBe("acme-open-1");
+    expect(rankingAnswer(intro, "October 20, 2026")).toContain(
+      "That price is introductory through December 31, 2026.",
+    );
+    expect(
+      rankingAnswer(get("cheapest-chat-models"), "October 20, 2026"),
+    ).not.toContain("introductory");
   });
 
   test("titles name the measure and the month, never a quality claim", () => {

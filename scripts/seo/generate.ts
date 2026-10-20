@@ -27,12 +27,13 @@ import { calculatorBody, type CalcModel } from "./html";
 import { CALC_JS } from "./calculator";
 import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type NewModelRow, type RankRow } from "./html";
 import { buildRankings, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
-import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, redirectPage, type IndexRow } from "./html";
+import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, type IndexRow } from "./html";
 import { toolBody, toolData, TOOL_JS } from "./compare-tool";
 import { benchRows, cheapestRow, comparable, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
 import { benchmarksFor, loadBenchmarks, type BenchmarkData } from "./benchmarks";
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
+import { fetchText } from "./fetch";
 import { cookbookPage, guardrailsPage, homePage, providersPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
@@ -53,12 +54,6 @@ function write(rel: string, content: string): void {
   const file = path.join(OUT, rel);
   mkdirSync(path.dirname(file), { recursive: true });
   writeFileSync(file, content);
-}
-
-async function fetchText(url: string, timeoutMs = 30_000): Promise<string> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
-  if (!res.ok) throw new Error(`${url} responded ${res.status}`);
-  return res.text();
 }
 
 async function loadText(file: string | undefined, url: string): Promise<string> {
@@ -227,7 +222,6 @@ async function main(): Promise<void> {
   /** Share images of changed pages; the refresh workflow loads them once so the CDN has them cached. */
   const changedImages: string[] = [];
   /** Retired models that now point at their successor. */
-  const redirects: { from: string; to: string }[] = [];
   const slugMap = catalogSlugs(groups, slugs);
 
   // Comparison pairs come first so each model page can link its comparisons.
@@ -257,14 +251,12 @@ async function main(): Promise<void> {
 
     const thin = !v.headline && !v.context;
     const related = relatedFor(v, byLab, byFamily).map((o) => ({ name: o.name, slug: o.slug, price: shortPrice(o.headline) }));
-    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet, comparisons: pairsByModel.get(v.slug), comparable: comparable(v) });
-    const image = writeCard(OUT, "models", v.slug, modelCard(v));
-    // A retired model with a newer model in its family sends readers there; search engines treat an
-    // instant refresh plus a canonical to the target as a permanent redirect.
     const successor = v.status === "retired" ? successorOf(v, views, families) : null;
+    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet, comparisons: pairsByModel.get(v.slug), comparable: comparable(v), successor });
+    const image = writeCard(OUT, "models", v.slug, modelCard(v));
     write(
       `models/${v.slug}.html`,
-      successor ? redirectPage(modelPath(successor.slug), `${v.name} has been retired`, `${v.name} is retired. Its successor is ${successor.name}.`) : layout({
+      layout({
         title: copy.title,
         description: copy.description,
         path: modelPath(v.slug),
@@ -281,7 +273,6 @@ async function main(): Promise<void> {
 
     // Retired models keep their page for reference but leave the sitemap.
     if (!thin && v.status !== "retired") modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });
-    if (successor) redirects.push({ from: modelPath(v.slug), to: modelPath(successor.slug) });
     // Compare with the previous build, not the date: a second build on the same day
     // must not report every page that changed earlier that day.
     if (!unchanged && !thin) {
@@ -425,11 +416,17 @@ ${cheapestOnProvider(h.name, list)}
     process.env.EPOCH_FILE ? new Uint8Array(readFileSync(process.env.EPOCH_FILE)) : new Uint8Array(await (await fetch(url, { signal: AbortSignal.timeout(30_000) })).arrayBuffer()),
   );
   const benchFor = (v: ModelView) =>
-    benchmarksFor(benchData, [v.slug, ...v.rows.map((r) => r.modelString.split("/").pop()!)], [v.name, ...v.alsoKnownAs]);
+    benchmarksFor(
+      benchData,
+      [v.slug, ...[v.headline, ...v.rows].flatMap((r) => (r ? [r.modelString.split("/").pop()!] : []))],
+      [v.name, ...v.alsoKnownAs],
+    );
   const benchDate = (pair: Pair) => {
     const dates = [benchFor(pair.a), benchFor(pair.b)].flatMap((x) => x?.scores.map((s) => s.date ?? "") ?? []).filter(Boolean).sort();
     return dates[dates.length - 1] ?? null;
   };
+  const introUntil = (v: ModelView) => (v.intro ? `introductory until ${longDate(v.intro.until)}` : null);
+  const priceFrom = (v: ModelView) => [esc(v.headline!.providerName), introUntil(v)].filter(Boolean).join(", ");
   const yesNo = (v: ModelView, label: string) => {
     const c = v.capabilities.find((x) => x.label === label)?.supported;
     return c === undefined ? "–" : c ? "Yes" : "No";
@@ -454,7 +451,7 @@ ${cheapestOnProvider(h.name, list)}
       ["Prompt caching", yesNo(a, "Prompt caching"), yesNo(b, "Prompt caching")],
       ["Reasoning", yesNo(a, "Reasoning"), yesNo(b, "Reasoning")],
       ["Providers on LiteLLM", String(a.providers.length), String(b.providers.length)],
-      ["Price shown is from", esc(a.headline!.providerName), esc(b.headline!.providerName)],
+      ["Price shown is from", priceFrom(a), priceFrom(b)],
       ["Added to LiteLLM", a.addedDate ? longDate(a.addedDate) : "–", b.addedDate ? longDate(b.addedDate) : "–"],
     ];
     const related = pairs
@@ -516,7 +513,6 @@ ${cheapestOnProvider(h.name, list)}
       image: writeCard(OUT, "pages", "compare", { kicker: "LiteLLM Model Catalog", title: "AI model comparisons", subtitle: "Prices, context windows and benchmarks side by side", stats: [{ value: int(pairs.length), label: "comparisons" }] }),
     }),
   );
-  write("compare/redirects.json", JSON.stringify(redirects));
   // The comparison tool and its data, rebuilt with every price change so it never goes stale.
   write("compare/models.json", JSON.stringify(toolData(views, benchFor, new Set(pairs.map((p) => p.slug)))));
   write(
@@ -542,7 +538,9 @@ ${cheapestOnProvider(h.name, list)}
       name: x.view.name,
       lab: x.view.lab,
       display: x.display,
-      price: x.view.headline ? `${usd(x.view.headline.prices.input ?? 0)} / ${(x.view.headline.prices.output ?? 0) > 0 ? usd(x.view.headline.prices.output!) : "–"}` : null,
+      price: x.view.headline
+        ? `${usd(x.view.headline.prices.input ?? 0)} / ${(x.view.headline.prices.output ?? 0) > 0 ? usd(x.view.headline.prices.output!) : "–"}${x.view.intro ? ` (${introUntil(x.view)})` : ""}`
+        : null,
       context: x.view.context,
       providers: x.view.providers.length,
       seller: x.view.headline?.providerName ?? "–",
@@ -648,7 +646,14 @@ ${cheapestOnProvider(h.name, list)}
   const calcModels: CalcModel[] = views
     .filter((v) => v.status === "active" && v.headline && leadsWithTokens(v.headline.mode, v.headline.prices, v.headline.metric) && (v.headline.prices.input ?? 0) > 0 && (v.headline.prices.output ?? 0) > 0)
     .sort((a, b) => b.providers.length - a.providers.length || a.name.localeCompare(b.name))
-    .map((v) => ({ slug: v.slug, name: v.name, input: v.headline!.prices.input!, output: v.headline!.prices.output!, providers: v.providers.length }));
+    .map((v) => ({
+      slug: v.slug,
+      name: v.name,
+      input: v.headline!.prices.input!,
+      output: v.headline!.prices.output!,
+      providers: v.providers.length,
+      ...(v.intro ? { intro: longDate(v.intro.until) } : {}),
+    }));
   const calcInPairs = new Set(pairs.flatMap((p) => [p.a.slug, p.b.slug]));
   const calcTable = calcModels.filter((m) => calcInPairs.has(m.slug));
   const calcDefault = (overrides.compare?.pairs?.[0]?.[1] && calcModels.find((m) => m.slug === overrides.compare!.pairs[0][1])?.slug) || calcModels[0]?.slug;
@@ -688,7 +693,7 @@ ${cheapestOnProvider(h.name, list)}
       fetchJson<Record<string, Guardrail>>(process.env.GUARDRAILS_FILE, GUARDRAILS_URL),
     ]);
     // A local COOKBOOK_FILE means an offline build: skip the docs crawl.
-    const guides = process.env.COOKBOOK_FILE ? cookbookIndex : await loadCookbook((u) => fetchText(u, 15_000), cookbookIndex);
+    const guides = process.env.COOKBOOK_FILE ? cookbookIndex : await loadCookbook((u) => fetchText(u, { timeoutMs: 15_000 }), cookbookIndex);
     if (guides) write("cookbook.json", JSON.stringify(guides));
     const homeDescription = `Compare pricing, context windows and features for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file.`;
     const providersDescription = `LiteLLM supports ${supported} AI providers, ${hubList.length} with model prices here. See the endpoints each supports: chat, embeddings, images, audio, batches and more.`;

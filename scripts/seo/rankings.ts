@@ -2,7 +2,7 @@
  * Ranking pages (/rankings/<slug>): models sorted by one fact the price file holds (price or context window),
  * never by quality. Each page states how it sorts and what it leaves out, so a reader can check it.
  */
-import { int, usd } from "./format";
+import { int, longDate, usd } from "./format";
 import { comparable, familyOf } from "./compare";
 import type { ModelView } from "./model-view";
 
@@ -222,10 +222,13 @@ export function rankingAnswer(r: Ranking, date: string): string {
   const top = r.items[0];
   if (!top) return "";
   const seller = top.view.headline!.providerName;
+  const intro = top.view.intro
+    ? ` That price is introductory through ${longDate(top.view.intro.until)}.`
+    : "";
   if (r.byProviders) {
-    return `As of ${date}, ${r.byProviders.total} active models on LiteLLM cost under $${r.byProviders.cap} per 1M tokens (blended). The most widely offered is ${top.view.name}, from ${top.view.providers.length} providers, at ${usd(blended(top.view))} per 1M tokens.`;
+    return `As of ${date}, ${r.byProviders.total} active models on LiteLLM cost under $${r.byProviders.cap} per 1M tokens (blended). The most widely offered is ${top.view.name}, from ${top.view.providers.length} providers, at ${usd(blended(top.view))} per 1M tokens.${intro}`;
   }
   return r.largest
     ? `As of ${date}, the largest context window among ${r.subject.replace("models by context window", "active models")} on LiteLLM is ${top.view.name}'s, at ${top.display}, from ${seller}.`
-    : `As of ${date}, the cheapest of the ${r.subject} on LiteLLM is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.`;
+    : `As of ${date}, the cheapest of the ${r.subject} on LiteLLM is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.${intro}`;
 }

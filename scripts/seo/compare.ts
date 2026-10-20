@@ -52,17 +52,21 @@ const RIVAL_POOL = 50;
 export const compareSlug = (x: string, y: string) => [x, y].sort().join("-vs-");
 export const comparePath = (slug: string) => `/compare/${slug}`;
 
-/** A model can be compared when it's sold normally and has the numbers the page leads with. */
-export function comparable(v: ModelView): boolean {
+/** A model has the numbers a comparison page leads with. */
+export function priced(v: ModelView): boolean {
   const p = v.headline?.prices;
   return (
-    v.status === "active" &&
     v.mode === "chat" &&
     !!v.context &&
     !!p &&
     (p.input ?? 0) > 0 &&
     (p.output ?? 0) > 0
   );
+}
+
+/** A model can be newly compared when it's sold normally and has the numbers the page leads with. */
+export function comparable(v: ModelView): boolean {
+  return v.status === "active" && priced(v);
 }
 
 export function familyOf(
@@ -80,7 +84,7 @@ const priceBand = (x: number) => (x < 0.5 ? 0 : x < 3 ? 1 : x < 10 ? 2 : 3);
 const contextBand = (c: number) => (c < 64_000 ? 0 : c <= 256_000 ? 1 : 2);
 const added = (v: ModelView) => v.addedDate ?? "";
 
-/** The newest active model in `v`'s family that is newer than `v`, for redirecting a retired model. */
+/** The newest active model in `v`'s family that is newer than `v`, linked from a retired model's page. */
 export function successorOf(
   v: ModelView,
   views: ModelView[],
@@ -203,10 +207,11 @@ export function selectPairs(
     b: ModelView,
     kind: PairKind,
     reviewed: boolean,
+    kept = false,
   ) => {
     const slug = compareSlug(a.slug, b.slug);
-    if (pairs.has(slug) || a === b || !comparable(a) || !comparable(b))
-      return false;
+    const fits = kept ? priced : comparable;
+    if (pairs.has(slug) || a === b || !fits(a) || !fits(b)) return false;
     const [first, second] = a.slug < b.slug ? [a, b] : [b, a];
     pairs.set(slug, { slug, a: first, b: second, kind, reviewed });
     published[slug] = { firstSeen: previous[slug]?.firstSeen ?? today, kind };
@@ -223,7 +228,7 @@ export function selectPairs(
       add(c.a, c.b, previous[compareSlug(c.a.slug, c.b.slug)].kind, false);
   for (const [slug, p] of Object.entries(previous)) {
     const models = modelsOf(slug, bySlug);
-    if (models) add(models[0], models[1], p.kind, false);
+    if (models) add(models[0], models[1], p.kind, false, true);
   }
   // This week's quota counts everything first published in the last 7 days: earlier builds' pairs (even ones
   // since dropped) from the previous manifest, plus reviewed pairs this build publishes for the first time.
@@ -371,10 +376,12 @@ export function negligible(p: Pair): boolean {
 }
 
 /**
- * Indexable unless it's an automatic pair that says nothing new: reviewed pairs and successor pairs always are
- * ("X vs X.5" is searched even when prices match); automatic pairs need 3+ providers on each side and a real difference.
+ * Indexable unless a model in it is retired or it's an automatic pair that says nothing new: reviewed pairs and
+ * successor pairs always are ("X vs X.5" is searched even when prices match); automatic pairs need 3+ providers
+ * on each side and a real difference.
  */
 export function indexable(p: Pair): boolean {
+  if (p.a.status === "retired" || p.b.status === "retired") return false;
   if (p.reviewed || p.kind === "successor") return true;
   return (
     p.a.providers.length >= 3 && p.b.providers.length >= 3 && !negligible(p)
@@ -393,7 +400,14 @@ export type CompareCopy = {
 
 export function compareCopy(p: Pair, buildDate: string): CompareCopy {
   const { a, b } = p;
-  const answer = answerLine(p);
+  const intro = [a, b]
+    .filter((v) => v.intro)
+    .map(
+      (v) =>
+        ` ${v.name}'s price is introductory through ${longDate(v.intro!.until)}.`,
+    )
+    .join("");
+  const answer = answerLine(p) + intro;
   const cheaper =
     input(a) === input(b)
       ? output(a) <= output(b)

@@ -5,7 +5,7 @@
     title: string;
     description: string;
     url: string;
-    date: string;
+    date?: string;
     version: string;
     tags: string[];
   }
@@ -50,7 +50,7 @@
         guides = [data];
       }
 
-      guides = guides.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      guides = guides.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
       loading = false;
     } catch (err) {
@@ -206,7 +206,7 @@
               <p class="guide-description">{guide.description}</p>
             </div>
             <div class="guide-footer">
-              <span class="guide-date" title={formatDate(guide.date)}>{getRelativeDate(guide.date)}</span>
+              {#if guide.date}<span class="guide-date" title={formatDate(guide.date)}>{getRelativeDate(guide.date)}</span>{/if}
               <div class="guide-tags-preview">
                 {#each guide.tags.slice(0, 2) as tag}
                   <span class="tag-small">{tag}</span>

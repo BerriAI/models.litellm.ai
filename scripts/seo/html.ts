@@ -297,6 +297,8 @@ export type ModelPageContext = {
   hubs: Set<string>;
   /** Comparison pages this model is on. */
   comparisons?: { slug: string; other: string }[];
+  /** A retired model's newer family member, linked from the retired notice. */
+  successor?: { name: string; slug: string } | null;
   /** Whether the model can be opened in the comparison tool. */
   comparable?: boolean;
 };
@@ -374,7 +376,7 @@ ${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.u
 </div>`);
 
   if (v.status === "retired") {
-    parts.push(`<div class="warnbox"><strong>Retired.</strong> ${v.deprecation ? `${esc(h?.providerName ?? "The provider")} retired <code>${esc(ms)}</code> on ${longDate(v.deprecation)}. ` : ""}Prices below are the last listed and kept for reference.</div>`);
+    parts.push(`<div class="warnbox"><strong>Retired.</strong> ${v.deprecation ? `${esc(h?.providerName ?? "The provider")} retired <code>${esc(ms)}</code> on ${longDate(v.deprecation)}. ` : ""}Prices below are the last listed and kept for reference.${ctx.successor ? ` Its successor is <a href="${modelPath(ctx.successor.slug)}">${esc(ctx.successor.name)}</a>.` : ""}</div>`);
   } else if (v.deprecation) {
     const past = v.deprecation <= ctx.buildDate.slice(0, 10);
     parts.push(`<div class="warnbox">${past ? "Deprecated" : "Scheduled for deprecation"}: ${esc(h?.providerName ?? "The provider")} lists ${longDate(v.deprecation)} as the deprecation date for <code>${esc(ms)}</code>.</div>`);
@@ -522,7 +524,7 @@ export function compareBody(c: CompareView): string {
   const benchCats = [...new Set(c.bench.map((r) => r.category))];
   const external = c.bench.some((r) => !r.epoch);
   const bench = c.bench.length
-    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>From the <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a> (CC BY 4.0)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. ${external ? "Some results were run by Epoch and others collected by Epoch from each benchmark's own leaderboard, linked in the first column. " : ""}Each model's best reported reasoning setting is shown in brackets. Higher is better. Only benchmarks with a score for both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${benchCats
+    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>From the <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. ${external ? "Some results were run by Epoch and others collected by Epoch from each benchmark's own leaderboard, linked in the first column. " : ""}Each model's best reported reasoning setting is shown in brackets. Higher is better. Only benchmarks with a score for both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${benchCats
         .map(
           (cat) =>
             `<tr><th scope="rowgroup" colspan="3">${esc(cat)}</th></tr>${c.bench
@@ -574,23 +576,6 @@ ${groups
   .filter((g) => g.items.length)
   .map((g) => `<section><h2>${esc(g.label)}</h2><ul class="links">${g.items.map((i) => `<li><a href="/compare/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`)
   .join("\n")}`;
-}
-
-/** A static redirect: instant refresh plus a canonical to the target, which search engines treat as permanent. */
-export function redirectPage(to: string, title: string, message: string): string {
-  const url = abs(to);
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${esc(title)}</title>
-<link rel="canonical" href="${esc(url)}">
-<meta name="robots" content="noindex,follow">
-<meta http-equiv="refresh" content="0; url=${esc(to)}">
-</head>
-<body><p>${esc(message)} <a href="${esc(to)}">Continue to ${esc(url)}</a>.</p></body>
-</html>
-`;
 }
 
 // ---- Rankings and the new-models log --------------------------------------------------------------------
@@ -670,14 +655,17 @@ export function calcSection(v: ModelView): string {
 ${calcForm("model", v.slug, result)}</section>`;
 }
 
-export type CalcModel = { slug: string; name: string; input: number; output: number; providers: number };
+/** `intro` is the written-out last day of an introductory price. */
+export type CalcModel = { slug: string; name: string; input: number; output: number; providers: number; intro?: string };
+
+const calcLabel = (m: CalcModel) => (m.intro ? `${m.name} (introductory price until ${m.intro})` : m.name);
 
 export function calculatorBody(models: CalcModel[], defaultSlug: string, table: CalcModel[], buildDate: string): string {
   const d = CALC_DEFAULTS;
   const first = models.find((m) => m.slug === defaultSlug) ?? models[0];
   const result = calcCost(first.input, first.output, d.input, d.output, d.requests);
   const list = Object.fromEntries(models.map((m) => [m.slug, [m.name, m.input, m.output]]));
-  const select = `<label>Model<select name="model">${models.map((m) => `<option value="${esc(m.slug)}"${m.slug === first.slug ? " selected" : ""}>${esc(m.name)}</option>`).join("")}</select></label>`;
+  const select = `<label>Model<select name="model">${models.map((m) => `<option value="${esc(m.slug)}"${m.slug === first.slug ? " selected" : ""}>${esc(calcLabel(m))}</option>`).join("")}</select></label>`;
   const rows = table
     .map((m) => ({ m, r: calcCost(m.input, m.output, d.input, d.output, d.requests) }))
     .sort((a, b) => a.r.perMonth - b.r.perMonth || a.m.name.localeCompare(b.m.name));
@@ -688,6 +676,6 @@ export function calculatorBody(models: CalcModel[], defaultSlug: string, table: 
 <script type="application/json" id="calc-models">${JSON.stringify(list).replace(/</g, "\\u003c")}</script>
 <p class="note">Uses each model's headline price: its own lab's API where it sells it, otherwise its cheapest provider. Cached input, batch discounts and long-context tiers aren't included; each model's page lists them.</p></section>
 <section id="examples"><h2>What ${int(d.requests)} requests a day cost</h2><p>Each request with ${int(d.input)} input and ${int(d.output)} output tokens, for the models on our <a href="/compare">comparison pages</a>, cheapest first.</p><div class="tbl" data-track="calculator-table"><table><thead><tr><th>Model</th><th class="n">Per request</th><th class="n">Per day</th><th class="n">Per month</th></tr></thead><tbody>${rows
-    .map(({ m, r }) => `<tr><td><a href="${modelPath(m.slug)}">${esc(m.name)}</a></td><td class="n">${calcMoney(r.perRequest)}</td><td class="n">${calcMoney(r.perDay)}</td><td class="n">${calcMoney(r.perMonth)}</td></tr>`)
+    .map(({ m, r }) => `<tr><td><a href="${modelPath(m.slug)}">${esc(m.name)}</a>${m.intro ? ` <span class="note">introductory price until ${esc(m.intro)}</span>` : ""}</td><td class="n">${calcMoney(r.perRequest)}</td><td class="n">${calcMoney(r.perDay)}</td><td class="n">${calcMoney(r.perMonth)}</td></tr>`)
     .join("")}</tbody></table></div></section>`;
 }

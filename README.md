@@ -52,7 +52,7 @@ npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home
 
 Benchmark scores come from [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks) (CC BY 4.0, credited on every page), downloaded at build time by `scripts/seo/benchmarks.ts`. The page shows the Capabilities Index and a fixed list of benchmarks in three groups (coding and agents, reasoning and knowledge, math; see `BENCHMARKS`): Epoch's own runs, plus external results Epoch collects from each benchmark's leaderboard, linked to that source. Each file's score column and scale come from Epoch's `benchmark_metadata.csv`. Scores match a model only when Epoch's model id (before the `_<setting>` suffix) equals one of the page's ids; anything else is left out. A comparison shows only benchmarks both models have, at each model's best reported setting. Some benchmarks (Terminal-Bench, SWE-bench Verified) have few recent models in Epoch's data; they appear once Epoch records them. If the download fails, pages are built without scores. `EPOCH_FILE` reads the zip from disk.
 
-A retired model with a newer active model in its family becomes a redirect to it (an instant refresh plus a canonical, which search engines treat as permanent); the list is in `/compare/redirects.json`.
+A retired model's page stays up with its last listed prices and a notice that links to the newest active model in its family. A comparison already published keeps its page when one of its models is deprecated or retired; a pair with a retired model is built with noindex.
 
 ## Calculator and tracking
 

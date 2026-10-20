@@ -7,6 +7,7 @@
 import { comparable, cheapestRow, compareSlug } from "./compare";
 import type { ModelBenchmarks } from "./benchmarks";
 import type { ModelView } from "./model-view";
+import { longDate } from "./format";
 
 export type ToolModel = {
   n: string;
@@ -22,6 +23,8 @@ export type ToolModel = {
   p: number;
   /** Provider the headline price is from. */
   by: string;
+  /** Last day of an introductory headline price, written out. */
+  iu?: string;
   /** Cheapest provider and its input price. */
   cheap?: [string, number];
   add?: string;
@@ -41,8 +44,9 @@ export function toolData(
   views: ModelView[],
   benchFor: (v: ModelView) => ModelBenchmarks | null,
   pairSlugs: Set<string>,
-): { models: Record<string, ToolModel>; pairs: string[] } {
+): { models: Record<string, ToolModel>; pairs: string[]; asOf: string | null } {
   const models: Record<string, ToolModel> = {};
+  const benchDates: string[] = [];
   for (const v of views
     .filter(comparable)
     .sort(
@@ -57,6 +61,11 @@ export function toolData(
     }
     const cheap = cheapestRow(v);
     const bench = benchFor(v);
+    benchDates.push(
+      ...[bench?.eci?.date, ...(bench?.scores ?? []).map((s) => s.date)].filter(
+        (d): d is string => !!d,
+      ),
+    );
     const b: Record<string, string> = {};
     if (bench?.eci) b["Epoch Capabilities Index"] = bench.eci.score.toFixed(1);
     for (const s of bench?.scores ?? [])
@@ -74,6 +83,7 @@ export function toolData(
       f,
       p: v.providers.length,
       by: v.headline!.providerName,
+      ...(v.intro ? { iu: longDate(v.intro.until) } : {}),
       ...(cheap
         ? {
             cheap: [cheap.providerName, cheap.prices.input!] as [
@@ -86,11 +96,13 @@ export function toolData(
       ...(Object.keys(b).length ? { b } : {}),
     };
   }
+  const latest = benchDates.sort().at(-1);
   return {
     models,
     pairs: [...pairSlugs].filter((s) =>
       s.split("-vs-").every((x) => models[x]),
     ),
+    asOf: latest ? longDate(latest) : null,
   };
 }
 
@@ -118,7 +130,7 @@ export const TOOL_CSS = `.ct{overflow-x:auto;border:1px solid var(--rule);border
 /** Client side: reads /compare/models.json, renders columns, keeps ?models= in the URL. */
 export const TOOL_JS = `<script>(function(){
 var root=document.getElementById("ct");if(!root)return;
-var MAX=4,data=null,pairs={};
+var MAX=4,data=null,pairs={},asOf=null;
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
 var usd=function(n){return n==null?"–":n>=0.1?"$"+n.toFixed(2):"$"+Number(n.toPrecision(3))};
 var tok=function(n){return n==null?"–":n.toLocaleString("en-US")};
@@ -131,7 +143,7 @@ function rows(){
    ["Output, per 1M tokens",function(m){return usd(m.out)},function(m){return m.out},"low"],
    ["Cache read, per 1M tokens",function(m){return usd(m.cr)},function(m){return m.cr},"low"],
    ["Cache write, per 1M tokens",function(m){return usd(m.cw)},function(m){return m.cw},"low"],
-   ["Price shown is from",function(m){return esc(m.by)}],
+   ["Price shown is from",function(m){return esc(m.by)+(m.iu?", introductory until "+esc(m.iu):"")}],
    ["Cheapest provider",function(m){return m.cheap?esc(m.cheap[0])+" at "+usd(m.cheap[1])+" input":"–"}],
    ["Limits",null],
    ["Context window",function(m){return tok(m.ctx)+" tokens"},function(m){return m.ctx},"high"],
@@ -140,10 +152,10 @@ function rows(){
    ["Image input",function(m){return yn(m.f.vision)}],["Tool calling",function(m){return yn(m.f.tools)}],["Structured output (JSON)",function(m){return yn(m.f.json)}],["Prompt caching",function(m){return yn(m.f.cache)}],["Reasoning",function(m){return yn(m.f.reason)}],
    ["Availability",null],
    ["Providers on LiteLLM",function(m){return m.p},function(m){return m.p},"high"],
-   ["Added to LiteLLM",function(m){return m.add||"–"}]];
+   ["Added to LiteLLM",function(m){return m.add?esc(m.add):"–"}]];
   var names={};picked.forEach(function(s){var b=(data[s]||{}).b||{};Object.keys(b).forEach(function(k){names[k]=1})});
   var bn=Object.keys(names);
-  if(bn.length){R.push(["Benchmarks (Epoch AI)",null]);bn.forEach(function(k){R.push([k,function(m){return m.b&&m.b[k]?m.b[k]:"–"}])})}
+  if(bn.length){R.push(["Benchmarks (Epoch AI)",null]);bn.forEach(function(k){R.push([k,function(m){return m.b&&m.b[k]?esc(m.b[k]):"–"}])})}
   return R;
 }
 function render(){
@@ -164,7 +176,7 @@ function render(){
   });
   var links="";
   for(var a=0;a<picked.length;a++)for(var b=a+1;b<picked.length;b++){var k=[picked[a],picked[b]].sort().join("-vs-");if(pairs[k])links+='<a href="'+"/compare/"+k+'">'+esc(data[picked[a]].n)+" vs "+esc(data[picked[b]].n)+": full comparison</a> "}
-  root.innerHTML="<table><thead>"+head+"</thead><tbody>"+body+"</tbody></table>"+(links?'<p class="lnk">'+links+"</p>":"")+'<p class="lnk note">Bold marks the lowest price, or the largest context window, max output and provider count. Prices are each model\\'s headline price per 1M tokens.</p>';
+  root.innerHTML="<table><thead>"+head+"</thead><tbody>"+body+"</tbody></table>"+(links?'<p class="lnk">'+links+"</p>":"")+'<p class="lnk note">Bold marks the lowest price, or the largest context window, max output and provider count. Prices are each model\\'s headline price per 1M tokens.</p>'+(ms.some(function(m){return m.b})?'<p class="lnk note">Benchmark scores are from the <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a>, licensed <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>'+(asOf?", data as of "+esc(asOf):"")+".</p>":"");
 }
 // Searchable dropdown (combobox). The list lives on <body> with fixed position, so the table's scroll box can't clip it.
 var list=document.createElement("ul");list.id="ct-list";list.className="cb-list";list.setAttribute("role","listbox");list.hidden=true;document.body.appendChild(list);
@@ -191,7 +203,7 @@ list.addEventListener("mousedown",function(e){e.preventDefault();var li=e.target
 addEventListener("resize",place);addEventListener("scroll",place,true);
 root.addEventListener("click",function(e){var b=e.target.closest("[data-rm]");if(!b)return;picked.splice(+b.getAttribute("data-rm"),1);save();render()});
 fetch("/compare/models.json").then(function(r){return r.json()}).then(function(d){
-  data=d.models;(d.pairs||[]).forEach(function(k){pairs[k]=1});
+  data=d.models;asOf=d.asOf||null;(d.pairs||[]).forEach(function(k){pairs[k]=1});
   picked=picked.filter(function(s){return data[s]});
   save();render();
 }).catch(function(){root.innerHTML='<p class="note">Couldn\\'t load the model list. See the <a href="/compare">comparison pages</a>.</p>'});

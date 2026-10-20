@@ -1,5 +1,6 @@
-import { toolData } from "./compare-tool";
+import { TOOL_JS, toolData } from "./compare-tool";
 import { strToU8, zipSync } from "fflate";
+import { runInNewContext } from "node:vm";
 import { describe, expect, test } from "vitest";
 import middleware from "../../middleware";
 import {
@@ -214,6 +215,41 @@ describe("pair selection", () => {
     });
   });
 
+  test("a published pair keeps its page once a model in it is deprecated, but no new pair starts with it", () => {
+    const vs = views({
+      ...COST_MAP,
+      "claude-opus-5": chat("anthropic", 5, 25, 1_000_000, {
+        deprecation_date: "2027-01-01",
+      }),
+    });
+    expect(bySlug(vs, "claude-opus-5").status).toBe("deprecated");
+    const slug = "claude-opus-5-vs-claude-opus-5-5";
+    const prev = {
+      [slug]: { firstSeen: "2026-09-25", kind: "successor" as const },
+    };
+    const kept = selectPairs(vs, { families }, prev, "2026-10-20");
+    expect(kept.pairs.map((p) => p.slug)).toContain(slug);
+    expect(kept.published[slug]).toEqual(prev[slug]);
+    expect(
+      selectPairs(vs, { families }, {}, "2026-10-20").pairs.map((p) => p.slug),
+    ).not.toContain(slug);
+  });
+
+  test("a published pair with a retired model stays up but is not indexed", () => {
+    const slug = "gemini-2.0-flash-vs-gemini-3.8-flash";
+    const prev = {
+      [slug]: { firstSeen: "2026-03-01", kind: "successor" as const },
+    };
+    const kept = selectPairs(
+      views(),
+      { families },
+      prev,
+      "2026-10-20",
+    ).pairs.find((p) => p.slug === slug);
+    expect(kept?.a.status).toBe("retired");
+    expect(indexable(kept!)).toBe(false);
+  });
+
   test("a retired model points at its family's newest active model", () => {
     const vs = views();
     expect(
@@ -229,6 +265,27 @@ describe("comparison copy", () => {
     expect(answerLine(pair(vs, "claude-opus-5-5", "gpt-6-astra"))).toBe(
       "GPT-6 Astra costs 150% more per input token than Claude Opus 5.5 ($10.00 vs $4.00 per 1M) and has a 922K-token context window versus 1M.",
     );
+  });
+
+  test("the answer says when a model's price is introductory, and until when", () => {
+    const vs = views(COST_MAP, {
+      introPricing: {
+        "gpt-6-astra": {
+          until: "2026-12-31",
+          source: "https://example.com/pricing",
+        },
+      },
+    });
+    expect(
+      compareCopy(pair(vs, "claude-opus-5-5", "gpt-6-astra"), "2026-10-20")
+        .answer,
+    ).toContain(
+      "GPT-6 Astra's price is introductory through December 31, 2026.",
+    );
+    expect(
+      compareCopy(pair(views(), "claude-opus-5-5", "gpt-6-astra"), "2026-10-20")
+        .answer,
+    ).not.toContain("introductory");
   });
 
   test("context windows that round to the same short form are written out", () => {
@@ -366,6 +423,15 @@ describe("Epoch AI benchmarks", () => {
     ).toBeNull();
   });
 
+  test("the page's own id wins over a higher-scoring snapshot listed on the same page", () => {
+    const gpqa = (ids: string[]) =>
+      benchmarksFor(data, ids, ["Claude Opus 5.5"])!.scores.find(
+        (x) => x.benchmark === "GPQA Diamond",
+      )!.score;
+    expect(gpqa(["claude-opus-5-5", "claude-opus-5-5-preview"])).toBe(0.906);
+    expect(gpqa(["claude-opus-5-5-preview", "claude-opus-5-5"])).toBe(0.99);
+  });
+
   test("comparison rows only show benchmarks both models have", () => {
     const rows = benchRows(
       benchmarksFor(data, ["claude-opus-5-5"], ["Claude Opus 5.5"]),
@@ -398,8 +464,11 @@ describe("Epoch AI benchmarks", () => {
       hubs: new Set(),
     };
     expect(compareBody(view)).toContain("data as of September 25, 2026");
+    expect(compareBody(view)).toContain(
+      '<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>',
+    );
     expect(compareMarkdown(view)).toContain(
-      "CC BY 4.0, data as of September 25, 2026",
+      "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/), data as of September 25, 2026",
     );
   });
 
@@ -437,5 +506,85 @@ describe("comparison tool data", () => {
     // Retired models can't be picked.
     expect(models["gemini-2.0-flash"]).toBeUndefined();
     expect(pairs).toEqual(["claude-opus-5-5-vs-gpt-6-astra"]);
+  });
+});
+
+describe("comparison tool page", () => {
+  const element = () => ({
+    innerHTML: "",
+    hidden: false,
+    children: [],
+    setAttribute() {},
+    addEventListener() {},
+    appendChild() {},
+  });
+  async function renderTool(data: unknown, picked: string[]): Promise<string> {
+    const root = element();
+    runInNewContext(TOOL_JS.replace(/^<script>|<\/script>$/g, ""), {
+      document: {
+        getElementById: (id: string) => (id === "ct" ? root : null),
+        createElement: element,
+        body: element(),
+      },
+      location: {
+        search: `?models=${picked.join(",")}`,
+        pathname: "/compare/custom",
+      },
+      history: { replaceState() {} },
+      URLSearchParams,
+      addEventListener() {},
+      setTimeout,
+      fetch: async () => ({ json: async () => data }),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return root.innerHTML;
+  }
+
+  test("benchmark text is escaped and credited to Epoch AI under CC BY 4.0 with its date", async () => {
+    const vs = views(COST_MAP, {
+      introPricing: {
+        "gpt-6-astra": {
+          until: "2026-12-31",
+          source: "https://example.com/pricing",
+        },
+      },
+    });
+    const benched = toolData(
+      vs,
+      (v) =>
+        v.slug === "gpt-6-astra"
+          ? {
+              scores: [
+                {
+                  benchmark: "GPQA Diamond",
+                  url: "https://epoch.ai/benchmarks",
+                  category: "Reasoning and knowledge",
+                  epoch: true,
+                  score: 0.958,
+                  setting: '<img src=x onerror="alert(1)">',
+                  date: "2026-09-10",
+                },
+              ],
+            }
+          : null,
+      new Set(),
+    );
+    expect(benched.asOf).toBe("September 10, 2026");
+    expect(benched.models["gpt-6-astra"].iu).toBe("December 31, 2026");
+    const html = await renderTool(benched, ["claude-opus-5-5", "gpt-6-astra"]);
+    expect(html).not.toContain("<img");
+    expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");
+    expect(html).toContain("OpenAI, introductory until December 31, 2026");
+    expect(html).toContain(
+      'href="https://creativecommons.org/licenses/by/4.0/"',
+    );
+    expect(html).toContain("data as of September 10, 2026");
+
+    const plain = await renderTool(
+      toolData(vs, () => null, new Set()),
+      ["claude-opus-5-5"],
+    );
+    expect(plain).toContain("Claude Opus 5.5");
+    expect(plain).not.toContain("Epoch AI");
   });
 });

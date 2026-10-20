@@ -108,7 +108,7 @@ export function compareMarkdown(c: CompareView): string {
     lines.push("## Benchmark scores", "", `| Benchmark | ${pipe(a.name)} | ${pipe(b.name)} |`, "|---|---|---|");
     for (const r of c.bench) lines.push(`| ${pipe(r.name)} (${r.category}) | ${r.a} | ${r.b} |`);
     const asOf = c.benchDate ? `, data as of ${longDate(c.benchDate)}` : "";
-    lines.push("", `From the Epoch AI Benchmarking Hub (https://epoch.ai/benchmarks), CC BY 4.0${asOf}: Epoch's own runs and results it collects from each benchmark's leaderboard. Higher is better.`, "");
+    lines.push("", `From the Epoch AI Benchmarking Hub (https://epoch.ai/benchmarks), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)${asOf}: Epoch's own runs and results it collects from each benchmark's leaderboard. Higher is better.`, "");
   }
   if (copy.pickA.length || copy.pickB.length) {
     lines.push("## When to pick which", "");
