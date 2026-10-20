@@ -34,22 +34,7 @@ export function calcMoney(n: number): string {
   return `$${Number(n.toPrecision(4))}`;
 }
 
-/**
- * The page script. Model pages: prices come from the page's JSON-LD offers ("Input price", "Output price").
- * /calculator: from the model list embedded in the page, picked with a searchable dropdown, and the inputs are mirrored
- * to the URL so a result can be shared. Usage is reported to PostHog once per page when it's loaded.
- */
-export const CALC_JS = `<script>(function(){
-var fmt=function(n){return n>=100?"$"+Math.round(n).toLocaleString("en-US"):n>=0.1?"$"+n.toFixed(2):n===0?"$0":"$"+Number(n.toPrecision(4))};
-document.querySelectorAll("[data-calc]").forEach(function(box){
-  var get=function(n){return box.querySelector('[name="'+n+'"]')};
-  var prices=null,list=null,used=false;
-  var listEl=box.getAttribute("data-calc-list");
-  if(listEl){try{list=JSON.parse(document.getElementById(listEl).textContent)}catch(e){}}
-  else{document.querySelectorAll('script[type="application/ld+json"]').forEach(function(s){try{var g=JSON.parse(s.textContent)["@graph"]||[];g.forEach(function(n){(n.offers||[]).forEach(function(o){if(!prices)prices={};if(o.name==="Input price")prices.i=o.price;if(o.name==="Output price")prices.o=o.price})})}catch(e){}})}
-  var q=new URLSearchParams(location.search);
-  if(list){["model","in","out","req"].forEach(function(k){var el=get(k);if(el&&q.get(k)&&(k!=="model"||Object.prototype.hasOwnProperty.call(list,q.get(k))))el.value=q.get(k)})}
-  var pickEl=box.querySelector(".calc-pick");
+const PICKER_JS = `  var pickEl=box.querySelector(".calc-pick");
   if(list&&pickEl){
     var ul=document.createElement("ul");ul.id="calc-list";ul.className="cb-list";ul.setAttribute("role","listbox");ul.setAttribute("aria-label","Models");ul.hidden=true;document.body.appendChild(ul);
     var opts=[],act=-1,keys=Object.keys(list),blurTimer;
@@ -76,7 +61,19 @@ document.querySelectorAll("[data-calc]").forEach(function(box){
     pickEl.addEventListener("blur",function(){blurTimer=setTimeout(function(){hide();pickEl.value=current()},120)});
     ul.addEventListener("mousedown",function(e){e.preventDefault();var li=e.target.closest("[data-i]");if(li){choose(opts[+li.getAttribute("data-i")]);pickEl.blur()}});
     var follow=function(){if(!ul.hidden)place()};addEventListener("resize",follow);addEventListener("scroll",follow,true);if(typeof visualViewport!=="undefined")visualViewport.addEventListener("resize",function(){if(!ul.hidden){fit();place()}});
-  }
+  }`;
+
+const calcScript = (picker: string): string => `<script>(function(){
+var fmt=function(n){return n>=100?"$"+Math.round(n).toLocaleString("en-US"):n>=0.1?"$"+n.toFixed(2):n===0?"$0":"$"+Number(n.toPrecision(4))};
+document.querySelectorAll("[data-calc]").forEach(function(box){
+  var get=function(n){return box.querySelector('[name="'+n+'"]')};
+  var prices=null,list=null,used=false;
+  var listEl=box.getAttribute("data-calc-list");
+  if(listEl){try{list=JSON.parse(document.getElementById(listEl).textContent)}catch(e){}}
+  else{document.querySelectorAll('script[type="application/ld+json"]').forEach(function(s){try{var g=JSON.parse(s.textContent)["@graph"]||[];g.forEach(function(n){(n.offers||[]).forEach(function(o){if(!prices)prices={};if(o.name==="Input price")prices.i=o.price;if(o.name==="Output price")prices.o=o.price})})}catch(e){}})}
+  var q=new URLSearchParams(location.search);
+  if(list){["model","in","out","req"].forEach(function(k){var el=get(k);if(el&&q.get(k)&&(k!=="model"||Object.prototype.hasOwnProperty.call(list,q.get(k))))el.value=q.get(k)})}
+${picker}
   function run(){
     var p=list?(function(m){return m&&{i:m[1],o:m[2]}})(list[get("model").value]):prices;
     if(!p||p.i==null||p.o==null)return;
@@ -90,3 +87,11 @@ document.querySelectorAll("[data-calc]").forEach(function(box){
   run();
 });
 })()</script>`;
+
+/**
+ * The page scripts. Model pages (CALC_JS): prices come from the page's JSON-LD offers ("Input price", "Output price").
+ * /calculator (CALCULATOR_PAGE_JS): from the model list embedded in the page, picked with a searchable dropdown, and the
+ * inputs are mirrored to the URL so a result can be shared. Usage is reported to PostHog once per page when it's loaded.
+ */
+export const CALC_JS = calcScript("");
+export const CALCULATOR_PAGE_JS = calcScript(PICKER_JS);

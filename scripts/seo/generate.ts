@@ -24,7 +24,7 @@ import { llmsTxt, robotsTxt, rssFeed, sitemapIndex, urlset, type SitemapEntry } 
 import { escapeHtml as esc, int, longDate, monthYear, shortDate, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
 import { calculatorBody, type CalcModel } from "./html";
-import { CALC_JS } from "./calculator";
+import { CALC_JS, CALCULATOR_PAGE_JS } from "./calculator";
 import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type NewModelRow, type RankRow } from "./html";
 import { buildRankings, indexableRanking, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
 import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, type IndexRow } from "./html";
@@ -672,7 +672,7 @@ ${cheapestOnProvider(h.name, list)}
         jsonLd: { "@context": "https://schema.org", "@graph": [...siteNodes(), { ...webPage("/calculator", title, description, BUILD_DATE), "@type": ["WebPage", "WebApplication"], applicationCategory: "FinanceApplication", operatingSystem: "Any", offers: { "@type": "Offer", price: 0, priceCurrency: "USD" } }, breadcrumb([{ name: "Home", path: "/" }, { name: "Calculator", path: "/calculator" }])] },
         image: writeCard(OUT, "pages", "calculator", { kicker: "LiteLLM Model Catalog", title: "LLM API pricing calculator", subtitle: "Cost per request, day and month", stats: [{ value: int(calcModels.length), label: "models" }] }),
         track: { kind: "calculator", id: "calculator" },
-        script: CALC_JS,
+        script: CALCULATOR_PAGE_JS,
       }),
     );
   }
