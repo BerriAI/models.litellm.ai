@@ -63,6 +63,13 @@ describe("calculator model picker", () => {
     expect(picked()).toBe("gpt-5");
   });
 
+  test("spaces around the search still match, as in the comparison picker", () => {
+    const box = open();
+    type(box, " gpt-5 ");
+    key(box, "Enter");
+    expect(picked()).toBe("gpt-5");
+  });
+
   test("Enter on a freshly opened list keeps the current model", () => {
     const box = open();
     key(box, "Enter");

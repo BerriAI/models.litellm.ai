@@ -64,7 +64,7 @@ const PICKER_JS = `  var pickEl=box.querySelector(".calc-pick");
     var fit=function(){if(!coarse)return;var r=pickEl.getBoundingClientRect(),hd=document.querySelector(".top"),t=(hd?hd.getBoundingClientRect().bottom:0)+12;if(seen()-r.bottom<220&&r.top>t)scrollBy(0,r.top-t)};
     var h=function(t){return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")};
     var rank=function(s,q){var n=list[s][0].toLowerCase();return n===q||s===q?0:n.indexOf(q)===0||s.indexOf(q)===0?1:2};
-    var show=function(q){q=(q||"").toLowerCase();opts=keys.filter(function(s){return !q||(list[s][0]+" "+s).toLowerCase().indexOf(q)>=0});if(q)opts.sort(function(a,b){return rank(a,q)-rank(b,q)});act=opts.length&&q?0:-1;
+    var show=function(q){q=(q||"").trim().toLowerCase();opts=keys.filter(function(s){return !q||(list[s][0]+" "+s).toLowerCase().indexOf(q)>=0});if(q)opts.sort(function(a,b){return rank(a,q)-rank(b,q)});act=opts.length&&q?0:-1;
       ul.innerHTML=opts.length?opts.map(function(s,i){return'<li role="option" id="calc-opt-'+i+'" data-i="'+i+'" aria-selected="'+(i===act)+'"><span>'+h(list[s][0])+"</span><small>"+fmt(list[s][1])+" / "+fmt(list[s][2])+" per 1M tokens"+(list[s][3]?", introductory price until "+h(list[s][3]):"")+"</small></li>"}).join(""):'<li class="cb-none" role="option" aria-disabled="true">No matching model</li>';
       ul.hidden=false;pickEl.setAttribute("aria-expanded","true");if(act>=0)pickEl.setAttribute("aria-activedescendant","calc-opt-"+act);else pickEl.removeAttribute("aria-activedescendant");place()};
     var hide=function(){ul.hidden=true;pickEl.setAttribute("aria-expanded","false");pickEl.removeAttribute("aria-activedescendant")};
