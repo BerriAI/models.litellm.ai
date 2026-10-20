@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import middleware, { NOT_FOUND_PATH } from "../../middleware";
+import middleware, {
+  config as middlewareConfig,
+  NOT_FOUND_PATH,
+} from "../../middleware";
+import vercel from "../../vercel.json";
 import { cookbookPage, guardrailsPage, providersPage } from "./app-pages";
 import { toolData } from "./compare-tool";
 import { rangeMismatch } from "./consistency";
@@ -199,6 +203,22 @@ describe("/404", () => {
       expect(
         new URL(ask(route)!.headers.get("x-middleware-rewrite")!).pathname,
       ).toBe(`${route}.md`);
+  });
+
+  test("tells caches that every page served as markdown to agents varies by Accept", () => {
+    const varies = vercel.headers
+      .filter((rule) =>
+        rule.headers.some((h) => h.key === "Vary" && h.value === "Accept"),
+      )
+      .map((rule) => new RegExp(`^${rule.source}$`));
+    const sections = middlewareConfig.matcher.filter((m) =>
+      m.endsWith("/:path*"),
+    );
+    expect(sections.length).toBeGreaterThan(0);
+    for (const section of sections)
+      expect(
+        varies.some((rx) => rx.test(section.replace("/:path*", "/a-page"))),
+      ).toBe(true);
   });
 
   test("serves the compare tools as HTML to agents, and comparisons as markdown", () => {
