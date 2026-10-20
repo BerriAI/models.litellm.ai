@@ -16,6 +16,7 @@ import {
   type Overrides,
 } from "./group";
 import { modelBody } from "./html";
+import { modelMarkdown } from "./markdown";
 import { buildModelView, modelStatus } from "./model-view";
 
 const chat = (
@@ -153,6 +154,24 @@ describe("/404", () => {
       "/models/gpt-5.md",
     );
   });
+
+  test("serves the compare tools as HTML to agents, and comparisons as markdown", () => {
+    const ask = (route: string) =>
+      middleware(
+        new Request(`https://models.litellm.ai${route}`, {
+          headers: { accept: "text/markdown" },
+        }),
+      );
+    expect(ask("/compare")).toBeUndefined();
+    expect(ask("/compare/custom")).toBeUndefined();
+    expect(
+      new URL(
+        ask("/compare/claude-opus-5-5-vs-gpt-6-astra")!.headers.get(
+          "x-middleware-rewrite",
+        )!,
+      ).pathname,
+    ).toBe("/compare/claude-opus-5-5-vs-gpt-6-astra.md");
+  });
 });
 
 describe("introductory price", () => {
@@ -246,6 +265,29 @@ describe("model status", () => {
     expect(
       view(old, "old-model-1", { status: { "old-model-1": "active" } }).status,
     ).toBe("active");
+  });
+
+  test("a retired model's markdown copy says so and links its successor", () => {
+    const old: CostMap = {
+      "old-model-1": chat("openai", 1, 2, { deprecation_date: "2026-01-01" }),
+    };
+    const v = view(old, "old-model-1");
+    const copy = pageCopy(v, "2026-10-20");
+    expect(modelMarkdown(v, copy, "2026-10-20")).toContain(
+      "- Status: retired.",
+    );
+    expect(
+      modelMarkdown(v, copy, "2026-10-20", {
+        name: "New Model 2",
+        slug: "new-model-2",
+      }),
+    ).toContain(
+      "Its successor is New Model 2: https://models.litellm.ai/models/new-model-2",
+    );
+    const live = view({ "new-model-2": chat("openai", 1, 2) }, "new-model-2");
+    expect(
+      modelMarkdown(live, pageCopy(live, "2026-10-20"), "2026-10-20"),
+    ).not.toContain("retired");
   });
 });
 

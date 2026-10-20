@@ -16,7 +16,12 @@ import type { CompareView, NewModelRow, RankRow } from "./html";
 const cell = (n: number | undefined) => (n === undefined ? "–" : usd(n));
 const pipe = (s: string) => s.replace(/\|/g, "\\|");
 
-export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string): string {
+export function modelMarkdown(
+  v: ModelView,
+  copy: PageCopy,
+  lastChanged: string,
+  successor: { name: string; slug: string } | null = null,
+): string {
   const h = v.headline;
   const lines: string[] = [];
   lines.push(`# ${copy.h1}`, "", copy.answer, "");
@@ -27,6 +32,10 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
   if (v.maxOutput) lines.push(`- Max output: ${int(v.maxOutput)} tokens`);
   if (v.addedDate) lines.push(`- Added to LiteLLM: ${longDate(v.addedDate)}`);
   if (v.deprecation) lines.push(`- Deprecation date: ${longDate(v.deprecation)}`);
+  if (v.status === "retired") {
+    const next = successor ? ` Its successor is ${successor.name}: ${abs(modelPath(successor.slug))}` : "";
+    lines.push(`- Status: retired. Prices below are the last listed and kept for reference.${next}`);
+  }
   if (v.intro) lines.push(`- Introductory price until: ${longDate(v.intro.until)} (source: ${v.intro.source})`);
   lines.push(`- Prices updated: ${longDate(lastChanged)}`, "");
 

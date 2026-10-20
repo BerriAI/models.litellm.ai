@@ -277,7 +277,7 @@ async function main(): Promise<void> {
         script: body.includes("data-calc") ? CALC_JS : undefined,
       }),
     );
-    write(`models/${v.slug}.md`, modelMarkdown(v, copy, lastChanged));
+    write(`models/${v.slug}.md`, modelMarkdown(v, copy, lastChanged, successor));
 
     // Retired models keep their page for reference but leave the sitemap.
     if (!thin && v.status !== "retired") modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });

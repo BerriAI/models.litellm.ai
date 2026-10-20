@@ -191,6 +191,29 @@ describe("pair selection", () => {
     });
   });
 
+  test("a published automatic pair stays after the build stops proposing it", () => {
+    const vs = views();
+    const prev = {
+      "claude-opus-5-5-vs-gpt-6-astra": {
+        firstSeen: "2026-09-25",
+        kind: "new" as const,
+      },
+    };
+    const { pairs, published } = selectPairs(
+      vs,
+      { families },
+      prev,
+      "2027-03-01",
+    );
+    expect(pairs.map((p) => p.slug)).toContain(
+      "claude-opus-5-5-vs-gpt-6-astra",
+    );
+    expect(published["claude-opus-5-5-vs-gpt-6-astra"]).toEqual({
+      firstSeen: "2026-09-25",
+      kind: "new",
+    });
+  });
+
   test("a retired model points at its family's newest active model", () => {
     const vs = views();
     expect(

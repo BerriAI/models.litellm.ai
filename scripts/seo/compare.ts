@@ -167,6 +167,23 @@ export function autoCandidates(
 
 export type Published = Record<string, { firstSeen: string; kind: PairKind }>;
 
+/** The two models behind a comparison slug, trying each "-vs-" since a model slug may contain one. */
+function modelsOf(
+  slug: string,
+  bySlug: Map<string, ModelView>,
+): [ModelView, ModelView] | null {
+  for (
+    let i = slug.indexOf("-vs-");
+    i !== -1;
+    i = slug.indexOf("-vs-", i + 1)
+  ) {
+    const a = bySlug.get(slug.slice(0, i));
+    const b = bySlug.get(slug.slice(i + 4));
+    if (a && b) return [a, b];
+  }
+  return null;
+}
+
 /**
  * Reviewed pairs, then automatic pairs already published, then new automatic pairs up to this week's cap.
  * Returns the pairs to build and the record to store in the manifest.
@@ -204,6 +221,10 @@ export function selectPairs(
   for (const c of candidates)
     if (previous[compareSlug(c.a.slug, c.b.slug)])
       add(c.a, c.b, previous[compareSlug(c.a.slug, c.b.slug)].kind, false);
+  for (const [slug, p] of Object.entries(previous)) {
+    const models = modelsOf(slug, bySlug);
+    if (models) add(models[0], models[1], p.kind, false);
+  }
   // This week's quota counts everything first published in the last 7 days: earlier builds' pairs (even ones
   // since dropped) from the previous manifest, plus reviewed pairs this build publishes for the first time.
   const recentBefore = Object.values(previous).filter(
