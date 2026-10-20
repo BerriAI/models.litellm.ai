@@ -12,6 +12,7 @@ import {
   WEEKLY_CAP,
   answerLine,
   benchRows,
+  compareCopy,
   compareSlug,
   contextPair,
   indexable,
@@ -26,6 +27,8 @@ import {
   type CostMap,
   type Overrides,
 } from "./group";
+import { compareBody, type CompareView } from "./html";
+import { compareMarkdown } from "./markdown";
 import { buildModelView, type ModelView } from "./model-view";
 
 const chat = (
@@ -350,6 +353,31 @@ describe("Epoch AI benchmarks", () => {
       ["FrontierCode", "Coding and agents", "54.6% (medium)", "53.3% (max)"],
       ["GPQA Diamond", "Reasoning and knowledge", "90.6% (max)", "95.8% (max)"],
     ]);
+  });
+
+  test("the page and its markdown copy both credit Epoch with the data date", () => {
+    const vs = views();
+    const p = pair(vs, "claude-opus-5-5", "gpt-6-astra");
+    const view: CompareView = {
+      slug: p.slug,
+      a: p.a,
+      b: p.b,
+      copy: compareCopy(p, "2026-10-20"),
+      rows: [],
+      bench: benchRows(
+        benchmarksFor(data, ["claude-opus-5-5"], ["Claude Opus 5.5"]),
+        benchmarksFor(data, ["gpt-6-astra"], ["GPT-6 Astra"]),
+      ),
+      benchDate: "2026-09-25",
+      cheapest: [],
+      related: [],
+      buildDate: "2026-10-20",
+      hubs: new Set(),
+    };
+    expect(compareBody(view)).toContain("data as of September 25, 2026");
+    expect(compareMarkdown(view)).toContain(
+      "CC BY 4.0, data as of September 25, 2026",
+    );
   });
 
   test("dated snapshots match their undated model; quoted CSV fields parse", () => {
