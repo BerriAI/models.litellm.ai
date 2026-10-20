@@ -23,7 +23,7 @@ const CSS = `
 html{font-family:Geist,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body{background:var(--mesh) no-repeat,var(--bg);color:var(--fg);line-height:1.6;font-size:15px}
 a{color:var(--accent);text-decoration:none;text-underline-offset:3px}a:hover{text-decoration:underline}
-:focus-visible{outline:2px solid transparent;outline-offset:2px;box-shadow:0 0 0 3px var(--ring);border-radius:6px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 code,pre{font-family:"Geist Mono",ui-monospace,Menlo,monospace;font-size:.86em}
 code{background:var(--bg3);padding:1px 6px;border-radius:5px;overflow-wrap:anywhere}
 .top{border-bottom:1px solid var(--rule);background:var(--nav);backdrop-filter:blur(12px);position:sticky;top:0;z-index:10}
@@ -86,7 +86,7 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:12px;paddi
 .links li a:hover{border-color:var(--rule2);text-decoration:none;background:var(--bg2)}
 .links li a span{font-size:13px;font-weight:400;color:var(--muted)}
 .src{font-size:13px;color:var(--muted);display:grid;gap:4px}
-.src ul{padding-left:18px}
+.src ul{padding-left:18px}.src a{overflow-wrap:anywhere}
 .intro{font-size:14px;color:var(--fg2)}
 .tag{display:inline-flex;align-items:center;font-size:12px;font-weight:500;color:var(--accent);background:var(--bg3);border-radius:999px;padding:2px 10px;white-space:nowrap}
 th[scope=row]{font-size:14px;font-weight:500;color:var(--fg2);background:transparent;white-space:normal}
