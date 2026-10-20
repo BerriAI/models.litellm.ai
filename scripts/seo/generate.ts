@@ -28,7 +28,8 @@ import { CALC_JS } from "./calculator";
 import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type NewModelRow, type RankRow } from "./html";
 import { buildRankings, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
 import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, redirectPage, type IndexRow } from "./html";
-import { benchRows, cheapestRow, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
+import { toolBody, toolData, TOOL_JS } from "./compare-tool";
+import { benchRows, cheapestRow, comparable, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
 import { benchmarksFor, loadBenchmarks, type BenchmarkData } from "./benchmarks";
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
@@ -256,7 +257,7 @@ async function main(): Promise<void> {
 
     const thin = !v.headline && !v.context;
     const related = relatedFor(v, byLab, byFamily).map((o) => ({ name: o.name, slug: o.slug, price: shortPrice(o.headline) }));
-    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet, comparisons: pairsByModel.get(v.slug) });
+    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet, comparisons: pairsByModel.get(v.slug), comparable: comparable(v) });
     const image = writeCard(OUT, "models", v.slug, modelCard(v));
     // A retired model with a newer model in its family sends readers there; search engines treat an
     // instant refresh plus a canonical to the target as a permanent redirect.
@@ -516,6 +517,20 @@ ${cheapestOnProvider(h.name, list)}
     }),
   );
   write("compare/redirects.json", JSON.stringify(redirects));
+  // The comparison tool and its data, rebuilt with every price change so it never goes stale.
+  write("compare/models.json", JSON.stringify(toolData(views, benchFor, new Set(pairs.map((p) => p.slug)))));
+  write(
+    "compare/custom.html",
+    layout({
+      title: "Compare AI Models Side by Side | LiteLLM",
+      description: "Pick up to four AI models and compare their prices, context windows, features and benchmark scores, from LiteLLM's price file.",
+      path: "/compare/custom",
+      body: toolBody(),
+      noindex: true,
+      track: { kind: "compare-tool", id: "custom" },
+      script: TOOL_JS,
+    }),
+  );
 
   // Rankings: lists sorted by one fact (price or context window), never by quality.
   const rankings = buildRankings(views, families);

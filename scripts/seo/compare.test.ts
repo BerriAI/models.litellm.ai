@@ -1,3 +1,4 @@
+import { toolData } from "./compare-tool";
 import { strToU8, zipSync } from "fflate";
 import { describe, expect, test } from "vitest";
 import middleware from "../../middleware";
@@ -361,5 +362,29 @@ describe("Epoch AI benchmarks", () => {
       setting: null,
     });
     expect(parseCsv('a,b\n"x, ""y""",2\n')).toEqual([{ a: 'x, "y"', b: "2" }]);
+  });
+});
+
+describe("comparison tool data", () => {
+  test("lists every comparable model with its numbers, and only real pairs", () => {
+    const vs = views();
+    const { models, pairs } = toolData(
+      vs,
+      () => null,
+      new Set(["claude-opus-5-5-vs-gpt-6-astra", "gone-model-vs-gpt-6-astra"]),
+    );
+    expect(models["claude-opus-5-5"]).toMatchObject({
+      n: "Claude Opus 5.5",
+      in: 4,
+      out: 20,
+      ctx: 1_000_000,
+      p: 2,
+      by: "Anthropic",
+      f: { tools: 1 },
+    });
+    expect(models["gpt-6-astra"].f.tools).toBe(0);
+    // Retired models can't be picked.
+    expect(models["gemini-2.0-flash"]).toBeUndefined();
+    expect(pairs).toEqual(["claude-opus-5-5-vs-gpt-6-astra"]);
   });
 });

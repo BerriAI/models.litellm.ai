@@ -4,6 +4,7 @@
  */
 import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/modelPresentation";
 import { headlinePrice, type PageCopy } from "./copy";
+import { TOOL_CSS } from "./compare-tool";
 import { CALC_DEFAULTS, DAYS_PER_MONTH, calcCost, calcMoney } from "./calculator";
 import { leadsWithTokens } from "./pricing";
 import { escapeHtml as esc, int, longDate, shortDate, tokensShort, usd } from "./format";
@@ -89,6 +90,8 @@ th[scope=row]{text-transform:none;letter-spacing:0;font-size:14px;font-weight:50
 .calc-in{display:flex;flex-wrap:wrap;gap:12px}.calc-in label{display:grid;gap:4px;font-size:13px;color:var(--muted);flex:1 1 160px}
 .calc-in input,.calc-in select{font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--rule2);border-radius:6px;padding:6px 8px;width:100%}
 .calc-out{display:flex;flex-wrap:wrap;gap:10px}.calc-out div{flex:1 1 140px;display:grid;gap:2px}.calc-out dt{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.calc-out dd{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+${TOOL_CSS}
+.cmp{font-size:13px;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:1px 10px}.cmp:hover{text-decoration:none;background:var(--bg3)}
 .jump{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}.jump span{color:var(--muted)}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--bg3);color:var(--fg2)}
 .warnbox{border:1px solid var(--warn);border-radius:8px;padding:10px 14px;color:var(--fg);max-width:75ch}
@@ -294,6 +297,8 @@ export type ModelPageContext = {
   hubs: Set<string>;
   /** Comparison pages this model is on. */
   comparisons?: { slug: string; other: string }[];
+  /** Whether the model can be opened in the comparison tool. */
+  comparable?: boolean;
 };
 
 type Stat = { label: string; value: string; lead?: boolean; tag?: string };
@@ -361,7 +366,7 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
   parts.push(`<div class="head">
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(v.name)}</span></nav>
 <h1>${esc(copy.h1)}</h1>
-<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span></div>
+<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span>${ctx.comparable ? `<a class="cmp" href="/compare/custom?models=${encodeURIComponent(v.slug)}" data-track="compare-button">Compare</a>` : ""}</div>
 <dl class="stats">${stats.map((s) => `<div class="stat${s.lead ? " lead" : ""}"><dt><span>${s.label}</span>${s.tag ? `<span class="tag">${s.tag}</span>` : ""}</dt><dd>${s.value}</dd></div>`).join("")}</dl>
 <p class="answer">${esc(copy.answer)}</p>
 ${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.until)}, per <a href="${esc(v.intro.source)}">${esc(v.lab ?? h.providerName)}'s pricing page</a>.</p>` : ""}
@@ -564,7 +569,7 @@ response = completion(model="${sa}", messages=messages, fallbacks=["${sb}"])`;
 export function compareHubBody(groups: { label: string; items: { slug: string; title: string; note: string }[] }[], count: number, buildDate: string): string {
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Compare</span></nav>
 <h1>AI model comparisons</h1>
-<p class="answer">As of ${longDate(buildDate)}, ${int(count)} side-by-side comparisons of AI models: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file. New models get compared when they're added.</p></div>
+<p class="answer">As of ${longDate(buildDate)}, ${int(count)} side-by-side comparisons of AI models: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file. New models get compared when they're added. To compare any models you choose, <a href="/compare/custom">build your own comparison</a>.</p></div>
 ${groups
   .filter((g) => g.items.length)
   .map((g) => `<section><h2>${esc(g.label)}</h2><ul class="links">${g.items.map((i) => `<li><a href="/compare/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`)

@@ -22,6 +22,7 @@ The generator writes:
 | `/models/<model-id>` | One page per model, grouping every provider's listing of it, with prices, context window, features, code samples, FAQ and JSON-LD |
 | `/compare/<a>-vs-<b>` | Two models side by side: answer line, prices, features, cheapest provider for each, Epoch AI benchmark scores, "when to pick" from real differences, code, FAQ; markdown copy at `.md`. Model slugs in alphabetical order; the reverse order redirects |
 | `/compare` | Every comparison, grouped by kind |
+| `/compare/custom?models=a,b,c` | Pick up to four models and compare them side by side; every model page's "Compare" button opens it with that model first. Reads `/compare/models.json`, rebuilt with every price change. Noindex; it links the reviewed pair pages when the picked pair has one |
 | `/rankings/<slug>`, `/rankings` | Models sorted by one fact: blended price (3 input : 1 output), context window, or provider count for the price-capped lists. Never by quality; each page states its method |
 | `/calculator` | Cost per request, day and month for any token-priced model, with shareable links (`?model=&in=&out=&req=`) and a static table of the default workload for the compared models |
 | `/new-models/<yyyy-mm>`, `/new-models`, `/new-models.xml` | Models added to the price file each month, from each model's date added, plus an RSS feed of the latest 50 |
