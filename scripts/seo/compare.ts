@@ -421,7 +421,14 @@ export function compareCopy(p: Pair, buildDate: string): CompareCopy {
   };
 }
 
-export type BenchRow = { name: string; url: string; a: string; b: string };
+export type BenchRow = {
+  name: string;
+  url: string;
+  category: string;
+  epoch: boolean;
+  a: string;
+  b: string;
+};
 
 const pctText = (s: number) => `${(s * 100).toFixed(1)}%`;
 
@@ -436,6 +443,8 @@ export function benchRows(
     rows.push({
       name: "Epoch Capabilities Index",
       url: "https://epoch.ai/eci",
+      category: "Overall",
+      epoch: true,
       a: x.eci.score.toFixed(1),
       b: y.eci.score.toFixed(1),
     });
@@ -444,7 +453,14 @@ export function benchRows(
     if (!t) continue;
     const label = (sc: typeof s) =>
       `${pctText(sc.score)}${sc.setting ? ` (${sc.setting})` : ""}`;
-    rows.push({ name: s.benchmark, url: s.url, a: label(s), b: label(t) });
+    rows.push({
+      name: s.benchmark,
+      url: s.url,
+      category: s.category,
+      epoch: s.epoch,
+      a: label(s),
+      b: label(t),
+    });
   }
   return rows;
 }

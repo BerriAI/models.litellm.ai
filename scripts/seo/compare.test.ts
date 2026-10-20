@@ -274,6 +274,35 @@ describe("Epoch AI benchmarks", () => {
         ["gpt-6-astra_max", "0.7", "2026-09-10"],
       ]),
     ),
+    "benchmark_metadata.csv": strToU8(
+      csv([
+        ["benchmark", "source_file", "score_column", "scale"],
+        [
+          "GPQA diamond",
+          "gpqa_diamond.csv",
+          "Best score (across scorers)",
+          "1.0",
+        ],
+        [
+          "SWE-Bench verified",
+          "swe_bench_verified.csv",
+          "Best score (across scorers)",
+          "1.0",
+        ],
+        ["FrontierCode", "frontiercode_external.csv", "Main score", "1.0"],
+      ]),
+    ),
+    "frontiercode_external.csv": strToU8(
+      csv([
+        ["Model version", "Main score", "Source"],
+        [
+          "claude-opus-5-5_medium",
+          "0.546",
+          "https://cognition.com/frontiercode",
+        ],
+        ["gpt-6-astra_max", "0.533", "https://cognition.com/frontiercode"],
+      ]),
+    ),
     "epoch_capabilities_index/eci_scores.csv": strToU8(
       csv([
         ["Model", "eci", "date"],
@@ -285,22 +314,25 @@ describe("Epoch AI benchmarks", () => {
   const data = parseBenchmarkZip(zip);
 
   test("matches model ids exactly, keeps each model's best setting, and ignores near-misses", () => {
+    const opus = benchmarksFor(data, ["claude-opus-5-5"], ["Claude Opus 5.5"])!;
+    expect(opus.eci).toEqual({ score: 166.82, date: "2026-09-22" });
+    // Coding and agents first, then reasoning; external results are marked as such.
     expect(
-      benchmarksFor(data, ["claude-opus-5-5"], ["Claude Opus 5.5"]),
-    ).toEqual({
-      eci: { score: 166.82, date: "2026-09-22" },
-      scores: [
-        {
-          benchmark: "GPQA Diamond",
-          url: "https://epoch.ai/benchmarks/gpqa-diamond",
-          score: 0.906,
-          setting: "max",
-          date: "2026-09-25",
-        },
-      ],
-    });
+      opus.scores.map((x) => [
+        x.benchmark,
+        x.category,
+        x.epoch,
+        x.score,
+        x.setting,
+      ]),
+    ).toEqual([
+      ["FrontierCode", "Coding and agents", false, 0.546, "medium"],
+      ["GPQA Diamond", "Reasoning and knowledge", true, 0.906, "max"],
+    ]);
     expect(
-      benchmarksFor(data, ["gpt-6-astra"], ["GPT-6 Astra"])!.scores[0],
+      benchmarksFor(data, ["gpt-6-astra"], ["GPT-6 Astra"])!.scores.find(
+        (x) => x.benchmark === "GPQA Diamond",
+      ),
     ).toMatchObject({ score: 0.958, setting: "max" });
     expect(
       benchmarksFor(data, ["claude-opus-5"], ["Claude Opus 5"]),
@@ -312,9 +344,10 @@ describe("Epoch AI benchmarks", () => {
       benchmarksFor(data, ["claude-opus-5-5"], ["Claude Opus 5.5"]),
       benchmarksFor(data, ["gpt-6-astra"], ["GPT-6 Astra"]),
     );
-    expect(rows.map((r) => [r.name, r.a, r.b])).toEqual([
-      ["Epoch Capabilities Index", "166.8", "166.4"],
-      ["GPQA Diamond", "90.6% (max)", "95.8% (max)"],
+    expect(rows.map((r) => [r.name, r.category, r.a, r.b])).toEqual([
+      ["Epoch Capabilities Index", "Overall", "166.8", "166.4"],
+      ["FrontierCode", "Coding and agents", "54.6% (medium)", "53.3% (max)"],
+      ["GPQA Diamond", "Reasoning and knowledge", "90.6% (max)", "95.8% (max)"],
     ]);
   });
 

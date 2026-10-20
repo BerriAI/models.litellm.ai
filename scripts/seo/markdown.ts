@@ -97,8 +97,8 @@ export function compareMarkdown(c: CompareView): string {
   }
   if (c.bench.length) {
     lines.push("## Benchmark scores", "", `| Benchmark | ${pipe(a.name)} | ${pipe(b.name)} |`, "|---|---|---|");
-    for (const r of c.bench) lines.push(`| ${pipe(r.name)} | ${r.a} | ${r.b} |`);
-    lines.push("", "Run by Epoch AI (https://epoch.ai/benchmarks), CC BY 4.0. Higher is better.", "");
+    for (const r of c.bench) lines.push(`| ${pipe(r.name)} (${r.category}) | ${r.a} | ${r.b} |`);
+    lines.push("", "From the Epoch AI Benchmarking Hub (https://epoch.ai/benchmarks), CC BY 4.0: Epoch's own runs and results it collects from each benchmark's leaderboard. Higher is better.", "");
   }
   if (copy.pickA.length || copy.pickB.length) {
     lines.push("## When to pick which", "");

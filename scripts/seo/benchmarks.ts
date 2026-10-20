@@ -1,8 +1,8 @@
 /**
- * Benchmark scores from Epoch AI's Benchmarking Hub (CC BY 4.0, credit required):
- * https://epoch.ai/benchmarks. Only Epoch's own evaluation runs and its
- * Capabilities Index are used; the hub's `*_external.csv` files carry third-party
- * licenses and are skipped.
+ * Benchmark scores from Epoch AI's Benchmarking Hub (https://epoch.ai/benchmarks), licensed CC BY 4.0 with
+ * credit required. That covers Epoch's own evaluation runs, its Capabilities Index, and the external results it
+ * collects (`*_external.csv`), which are credited to their original source as well; Epoch notes that a few
+ * external datasets keep their own permissive license (Aider Polyglot: Apache 2.0).
  *
  * Matching is exact, never fuzzy: an Epoch model version (`gpt-6-astra_max`) is
  * our model id plus a reasoning setting, so the id before `_` must equal one of a
@@ -14,39 +14,122 @@ import { unzipSync, strFromU8 } from "fflate";
 export const EPOCH_DATA_URL = "https://epoch.ai/data/benchmark_data.zip";
 export const EPOCH_HUB_URL = "https://epoch.ai/benchmarks";
 
-/** Epoch's own runs shown on comparison pages, in display order. */
-export const BENCHMARKS: { file: string; name: string; url: string }[] = [
+export type BenchmarkCategory =
+  | "Coding and agents"
+  | "Reasoning and knowledge"
+  | "Math";
+
+/**
+ * Benchmarks shown on comparison pages, grouped and in display order. `epoch` marks Epoch's own runs; the rest are
+ * external results Epoch collects, linked to their source. The score column and scale come from Epoch's
+ * benchmark_metadata.csv; every one here is on a 0 to 1 scale.
+ */
+export const BENCHMARKS: {
+  file: string;
+  name: string;
+  category: BenchmarkCategory;
+  url: string;
+  epoch?: boolean;
+}[] = [
   {
-    file: "gpqa_diamond.csv",
-    name: "GPQA Diamond",
-    url: "https://epoch.ai/benchmarks/gpqa-diamond",
+    file: "frontiercode_external.csv",
+    name: "FrontierCode",
+    category: "Coding and agents",
+    url: "https://cognition.com/frontiercode",
+  },
+  {
+    file: "frontierswe_external.csv",
+    name: "FrontierSWE",
+    category: "Coding and agents",
+    url: "https://www.frontierswe.com/",
+  },
+  {
+    file: "deepswe_external.csv",
+    name: "DeepSWE",
+    category: "Coding and agents",
+    url: "https://deepswe.datacurve.ai/",
   },
   {
     file: "swe_bench_verified.csv",
     name: "SWE-bench Verified",
+    category: "Coding and agents",
     url: "https://epoch.ai/benchmarks/swe-bench-verified",
+    epoch: true,
+  },
+  {
+    file: "terminalbench_external.csv",
+    name: "Terminal-Bench",
+    category: "Coding and agents",
+    url: "https://www.tbench.ai/leaderboard",
+  },
+  {
+    file: "apex_agents_external.csv",
+    name: "APEX-Agents",
+    category: "Coding and agents",
+    url: "https://epoch.ai/benchmarks",
+  },
+  {
+    file: "osworld_2_external.csv",
+    name: "OSWorld 2.0",
+    category: "Coding and agents",
+    url: "https://osworld-v2.xlang.ai/",
+  },
+  {
+    file: "gpqa_diamond.csv",
+    name: "GPQA Diamond",
+    category: "Reasoning and knowledge",
+    url: "https://epoch.ai/benchmarks/gpqa-diamond",
+    epoch: true,
+  },
+  {
+    file: "hle_external.csv",
+    name: "Humanity's Last Exam",
+    category: "Reasoning and knowledge",
+    url: "https://lastexam.ai/",
+  },
+  {
+    file: "arc_agi_2_external.csv",
+    name: "ARC-AGI-2",
+    category: "Reasoning and knowledge",
+    url: "https://arcprize.org/leaderboard",
+  },
+  {
+    file: "simpleqa_verified.csv",
+    name: "SimpleQA Verified",
+    category: "Reasoning and knowledge",
+    url: "https://epoch.ai/benchmarks/simple-qa-verified",
+    epoch: true,
   },
   // Tiers 1-3 v2 supersedes the original FrontierMath run (benchmark_metadata.csv `superseded_by`).
   {
     file: "frontiermath_tiers_1_3_v2.csv",
     name: "FrontierMath (tiers 1-3)",
+    category: "Math",
     url: "https://epoch.ai/benchmarks/frontiermath-tiers-1-3-v2",
+    epoch: true,
   },
   {
-    file: "simpleqa_verified.csv",
-    name: "SimpleQA Verified",
-    url: "https://epoch.ai/benchmarks/simple-qa-verified",
+    file: "frontiermath_tier_4_v2.csv",
+    name: "FrontierMath (tier 4)",
+    category: "Math",
+    url: "https://epoch.ai/benchmarks/frontiermath-tier-4-v2",
+    epoch: true,
   },
   {
     file: "otis_mock_aime_2024_2025.csv",
     name: "OTIS Mock AIME 2024-2025",
+    category: "Math",
     url: "https://epoch.ai/benchmarks",
+    epoch: true,
   },
 ];
 
 export type Score = {
   benchmark: string;
   url: string;
+  category: BenchmarkCategory;
+  /** True for Epoch's own runs; false for external results Epoch collects. */
+  epoch: boolean;
   /** 0 to 1. */
   score: number;
   /** Reasoning setting Epoch ran it at, e.g. "high"; null when Epoch doesn't say. */
@@ -128,17 +211,32 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
     );
     return key ? strFromU8(files[key]) : null;
   };
+  // Each file's score column and scale, from Epoch's own metadata; a benchmark without them is skipped.
+  const meta = new Map(
+    parseCsv(read("benchmark_metadata.csv") ?? "")
+      .filter((m) => m.source_file)
+      .map((m) => [
+        m.source_file,
+        { column: m.score_column, scale: Number(m.scale) || 1 },
+      ]),
+  );
   const runs = new Map<string, Map<string, Score>>();
   for (const b of BENCHMARKS) {
     const csv = read(b.file);
-    if (!csv) continue;
+    const m = meta.get(b.file);
+    if (!csv || !m?.column) continue;
     for (const row of parseCsv(csv)) {
-      const value = Number(
-        row["Best score (across scorers)"] || row.mean_score,
-      );
-      if (!row["Model version"] || !Number.isFinite(value)) continue;
+      const raw = (row[m.column] ?? "").trim();
+      const value = Number(raw) / m.scale;
+      if (!row["Model version"] || !raw || !Number.isFinite(value)) continue;
       const { id, setting } = splitVersion(row["Model version"]);
-      const date = (row["Started at"] || "").slice(0, 10) || null;
+      const date =
+        (
+          row["Started at"] ||
+          row["Date of evaluation"] ||
+          row["Date added"] ||
+          ""
+        ).slice(0, 10) || null;
       const byBench = runs.get(id) ?? new Map<string, Score>();
       const prev = byBench.get(b.name);
       // A model is often run at several reasoning settings: keep its best, and say which setting that was.
@@ -146,6 +244,8 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
         byBench.set(b.name, {
           benchmark: b.name,
           url: b.url,
+          category: b.category,
+          epoch: !!b.epoch,
           score: value,
           setting,
           date,

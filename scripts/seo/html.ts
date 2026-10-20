@@ -514,9 +514,17 @@ export function compareBody(c: CompareView): string {
   const buy = `<section id="providers"><h2>Cheapest provider for each</h2><ul>${c.cheapest
     .map(({ model, row }) => (row ? `<li><a href="${modelPath(model.slug)}">${esc(model.name)}</a>: ${row.hub && c.hubs.has(row.hub) ? `<a href="${providerPath(row.hub)}">${esc(row.providerName)}</a>` : esc(row.providerName)} at ${usd(row.prices.input!)} input and ${row.prices.output !== undefined ? usd(row.prices.output) : "–"} output per 1M tokens (<code>${esc(row.modelString)}</code>)</li>` : ""))
     .join("")}</ul></section>`;
+  const benchCats = [...new Set(c.bench.map((r) => r.category))];
+  const external = c.bench.some((r) => !r.epoch);
   const bench = c.bench.length
-    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>Run by Epoch AI at each model's best reported reasoning setting (shown in brackets)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. Higher is better. Source: <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a>, CC BY 4.0. Only benchmarks Epoch ran on both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${c.bench
-        .map((r) => `<tr><th scope="row"><a href="${esc(r.url)}">${esc(r.name)}</a></th><td>${esc(r.a)}</td><td>${esc(r.b)}</td></tr>`)
+    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>From the <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a> (CC BY 4.0)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. ${external ? "Some results were run by Epoch and others collected by Epoch from each benchmark's own leaderboard, linked in the first column. " : ""}Each model's best reported reasoning setting is shown in brackets. Higher is better. Only benchmarks with a score for both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${benchCats
+        .map(
+          (cat) =>
+            `<tr><th scope="rowgroup" colspan="3">${esc(cat)}</th></tr>${c.bench
+              .filter((r) => r.category === cat)
+              .map((r) => `<tr><th scope="row"><a href="${esc(r.url)}">${esc(r.name)}</a></th><td>${esc(r.a)}</td><td>${esc(r.b)}</td></tr>`)
+              .join("")}`,
+        )
         .join("")}</tbody></table></div></section>`
     : "";
   const picks = copy.pickA.length || copy.pickB.length
