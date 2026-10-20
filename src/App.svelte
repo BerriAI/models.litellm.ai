@@ -84,7 +84,7 @@
   let sortColumn: string = "released";
   let sortDirection: "asc" | "desc" = "desc";
   let userSorted = false;
-  $: sortApplied = userSorted || !query;
+  $: sortApplied = userSorted || !searchQuery;
 
   // Copy toast
   let copiedModel = "";
@@ -200,13 +200,15 @@
       });
   });
 
-  const debounce = (callback: Function, wait = 500) => {
+  const debounce = <A extends unknown[]>(callback: (...args: A) => void, wait = 500) => {
     let timeout: ReturnType<typeof setTimeout>;
 
-    return (...args: any[]) => {
+    const debounced = (...args: A) => {
       clearTimeout(timeout);
       timeout = setTimeout(() => callback(...args), wait);
     };
+    debounced.cancel = () => clearTimeout(timeout);
+    return debounced;
   };
 
   const trackSearchDebounced = debounce((query: string, provider: string, resultsCount: number) => {
@@ -252,6 +254,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   let sha: string | null = null;
   let query = "";
+  /** `query` as last applied to the results; trails typing so each keystroke does not re-render the table. */
+  let searchQuery = "";
   let lines: string[] = [];
   let index: Fuse<Item>;
   let results: ResultItem[] = [];
@@ -262,9 +266,21 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   /** Cost-map key -> static model page slug, written by scripts/seo/generate.ts at build time. */
   let modelPages: Record<string, string> = {};
 
+  const SEARCH_DEBOUNCE_MS = 300;
+  const applySearchQueryDebounced = debounce((q: string) => {
+    searchQuery = q;
+  }, SEARCH_DEBOUNCE_MS);
+
+  $: if (query) {
+    applySearchQueryDebounced(query);
+  } else {
+    applySearchQueryDebounced.cancel();
+    searchQuery = "";
+  }
+
   $: {
     if (index) {
-      filterResults(query, selectedProvider, maxInputTokens, maxOutputTokens);
+      filterResults(searchQuery, selectedProvider, maxInputTokens, maxOutputTokens);
     }
   }
 
@@ -338,7 +354,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function applySorting() {
-    if (!sortColumn || (query && !userSorted)) return;
+    if (!sortColumn || (searchQuery && !userSorted)) return;
     const sorted = [...results].sort((a, b) => {
       if (sortColumn === "released") {
         return compareReleaseDates(a.item.release_date, b.item.release_date, sortDirection);
@@ -437,12 +453,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       });
 
       if (query) {
-        const filteredIndex = new Fuse(filteredResults, {
-          threshold: 0.3,
-          keys: SEARCH_KEYS,
-        });
+        const unfiltered = filteredResults.length === allItems.length;
+        const searchIndex = unfiltered
+          ? index
+          : new Fuse(filteredResults, {
+              threshold: 0.3,
+              keys: SEARCH_KEYS,
+            });
 
-        const searchResults = filteredIndex.search(query);
+        const searchResults = searchIndex.search(query);
         filteredResults = searchResults.map((result) => result.item);
       }
 
@@ -617,10 +636,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div>
   {:else}
-    {#if query != "" && results.length < 12}
+    {#if searchQuery != "" && results.length < 12}
       <div class="add-model-section">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        <a href={getIssueUrlForAdd(query)}>Can't find your model? Request it on GitHub</a>
+        <a href={getIssueUrlForAdd(searchQuery)}>Can't find your model? Request it on GitHub</a>
       </div>
     {/if}
 
