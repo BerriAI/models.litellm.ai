@@ -234,9 +234,9 @@ export function rankingAnswer(r: Ranking, date: string): string {
     ? ` That price is introductory through ${longDate(top.view.intro.until)}.`
     : "";
   if (r.byProviders) {
-    return `As of ${date}, among ${POOL} on LiteLLM, ${r.byProviders.total} cost under $${r.byProviders.cap} per 1M tokens (blended). The most widely offered is ${top.view.name}, from ${top.view.providers.length} providers, at ${usd(blended(top.view))} per 1M tokens.${intro}`;
+    return `As of ${date}, ${r.byProviders.total} of LiteLLM's ${POOL}, cost under $${r.byProviders.cap} per 1M tokens (blended). The most widely offered is ${top.view.name}, from ${top.view.providers.length} providers, at ${usd(blended(top.view))} per 1M tokens.${intro}`;
   }
   return r.largest
-    ? `As of ${date}, among ${POOL} on LiteLLM, ${top.view.name} has the largest context window, at ${top.display}, from ${seller}.`
-    : `As of ${date}, among ${POOL} on LiteLLM, the cheapest of the ${r.subject} is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.${intro}`;
+    ? `As of ${date}, among LiteLLM's ${POOL}, ${top.view.name} has the largest context window, at ${top.display}, from ${seller}.`
+    : `As of ${date}, among LiteLLM's ${POOL}, the cheapest of the ${r.subject} is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.${intro}`;
 }

@@ -89,7 +89,7 @@ describe("rankings", () => {
     expect(r.items[0].view.slug).toBe("gemini-big-1");
     expect(r.items[0].display).toBe("2,000,000 tokens");
     expect(rankingAnswer(r, "October 20, 2026")).toBe(
-      "As of October 20, 2026, among active models with a 32K-token context window or more, offered by at least two providers or by their own lab on LiteLLM, Gemini Big 1 has the largest context window, at 2,000,000 tokens, from Google AI Studio.",
+      "As of October 20, 2026, among LiteLLM's active models with a 32K-token context window or more, offered by at least two providers or by their own lab, Gemini Big 1 has the largest context window, at 2,000,000 tokens, from Google AI Studio.",
     );
   });
 
@@ -98,7 +98,7 @@ describe("rankings", () => {
     expect(r.items[0].view.slug).toBe("acme-open-1");
     expect(r.items.map((x) => x.view.slug)).not.toContain("claude-mid-1");
     expect(rankingAnswer(r, "October 20, 2026")).toContain(
-      "offered by at least two providers or by their own lab on LiteLLM, 3 cost under $1 per 1M tokens",
+      "3 of LiteLLM's active models with a 32K-token context window or more, offered by at least two providers or by their own lab, cost under $1 per 1M tokens",
     );
   });
 
