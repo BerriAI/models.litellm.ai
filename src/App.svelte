@@ -214,7 +214,7 @@
     if (query) {
       trackSearch(query, provider, resultsCount);
     }
-  }, 1000);
+  }, 500);
 
   const setQueryDebounced = debounce((value: string) => {
     query = value;
@@ -633,7 +633,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     {#if query != "" && results.length < 12}
       <div class="add-model-section">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        <a href={getIssueUrlForAdd(query)}>Can't find your model? Request it on GitHub</a>
+        <a href={getIssueUrlForAdd(searchText)}>Can't find your model? Request it on GitHub</a>
       </div>
     {/if}
 
