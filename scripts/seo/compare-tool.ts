@@ -42,6 +42,10 @@ const FEATURES: [string, string][] = [
   ["Reasoning", "reason"],
 ];
 
+export function onCompareTool(v: ModelView): boolean {
+  return v.status !== "retired" && priced(v);
+}
+
 export function toolData(
   views: ModelView[],
   benchFor: (v: ModelView) => ModelBenchmarks | null,
@@ -50,7 +54,7 @@ export function toolData(
   const models: Record<string, ToolModel> = {};
   const benches: (ModelBenchmarks | null)[] = [];
   for (const v of views
-    .filter((v) => v.status !== "retired" && priced(v))
+    .filter(onCompareTool)
     .sort(
       (a, b) =>
         b.providers.length - a.providers.length || a.name.localeCompare(b.name),

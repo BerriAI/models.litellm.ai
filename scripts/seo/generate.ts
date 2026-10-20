@@ -4,7 +4,9 @@
  *
  * Inputs are fetched at build time (the same files the catalog app loads in
  * the browser). The previous build's manifest supplies per-model change dates
- * and price history, so sitemap lastmod values only move when data changes.
+ * and price history, so model and provider sitemap lastmod values only move
+ * when data changes. Comparison, ranking, new-model and calculator sitemaps use
+ * the build date.
  *
  * Env:
  *   SITE_URL               public origin (default https://models.litellm.ai)
@@ -29,7 +31,7 @@ import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type
 import { buildRankings, indexableRanking, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
 import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, type IndexRow } from "./html";
 import { toolBody, toolData, TOOL_JS } from "./compare-tool";
-import { benchRows, cheaperNote, cheapestRow, comparable, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
+import { benchRows, cheaperNote, cheapestRow, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
 import { benchmarksFor, latestBenchmarkDate, loadBenchmarks, type BenchmarkData } from "./benchmarks";
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
@@ -252,7 +254,7 @@ async function main(): Promise<void> {
     const thin = !v.headline && !v.context;
     const related = relatedFor(v, byLab, byFamily).map((o) => ({ name: o.name, slug: o.slug, price: shortPrice(o.headline) }));
     const successor = v.status === "retired" ? successorOf(v, views, families) : null;
-    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet, comparisons: pairsByModel.get(v.slug), comparable: comparable(v), successor });
+    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet, comparisons: pairsByModel.get(v.slug), successor });
     const image = writeCard(OUT, "models", v.slug, modelCard(v));
     write(
       `models/${v.slug}.html`,

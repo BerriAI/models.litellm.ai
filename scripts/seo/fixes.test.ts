@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 import middleware, { NOT_FOUND_PATH } from "../../middleware";
 import { cookbookPage, guardrailsPage, providersPage } from "./app-pages";
+import { toolData } from "./compare-tool";
 import { rangeMismatch } from "./consistency";
 import {
   DOCS_SITEMAP_URL,
@@ -180,6 +181,24 @@ describe("/404", () => {
     expect(new URL(md!.headers.get("x-middleware-rewrite")!).pathname).toBe(
       "/models/gpt-5.md",
     );
+  });
+
+  test("serves ranking and new-models pages as markdown, and their indexes as HTML", () => {
+    const ask = (route: string) =>
+      middleware(
+        new Request(`https://models.litellm.ai${route}`, {
+          headers: { accept: "text/markdown" },
+        }),
+      );
+    for (const route of ["/rankings", "/rankings/", "/new-models", "/models"])
+      expect(ask(route)).toBeUndefined();
+    for (const route of [
+      "/rankings/cheapest-chat-models",
+      "/new-models/2023-10",
+    ])
+      expect(
+        new URL(ask(route)!.headers.get("x-middleware-rewrite")!).pathname,
+      ).toBe(`${route}.md`);
   });
 
   test("serves the compare tools as HTML to agents, and comparisons as markdown", () => {
@@ -436,6 +455,22 @@ describe("model page calculator", () => {
     const retired = view(costMap, "claude-sonnet-3-7");
     expect(retired.status).toBe("retired");
     expect(calcSection(retired)).not.toContain("/calculator");
+  });
+
+  test("shows the Compare button on every model the comparison tool lists", () => {
+    const tool = toolData(
+      [view(costMap, "claude-sonnet-4-5"), view(costMap, "claude-sonnet-3-7")],
+      () => null,
+      new Set(),
+    );
+    for (const key of ["claude-sonnet-4-5", "claude-sonnet-3-7"]) {
+      const v = view(costMap, key);
+      const html = modelBody(v, pageCopy(v, "2026-10-20"), ctx);
+      expect(html.includes(`href="/compare/custom?models=${v.slug}"`)).toBe(
+        v.slug in tool.models,
+      );
+    }
+    expect(Object.keys(tool.models)).toEqual(["claude-sonnet-4-5"]);
   });
 
   test("links /calculator only for models the calculator lists", () => {

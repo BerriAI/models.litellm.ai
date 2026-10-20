@@ -4,7 +4,7 @@
  */
 import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/modelPresentation";
 import { headlinePrice, type PageCopy } from "./copy";
-import { TOOL_CSS } from "./compare-tool";
+import { onCompareTool, TOOL_CSS } from "./compare-tool";
 import { CALC_DEFAULTS, DAYS_PER_MONTH, calcCost, calcMoney, onCalculator } from "./calculator";
 import { leadsWithTokens } from "./pricing";
 import { escapeHtml as esc, int, longDate, shortDate, tokensShort, usd } from "./format";
@@ -299,8 +299,6 @@ export type ModelPageContext = {
   comparisons?: { slug: string; other: string }[];
   /** A retired model's newer family member, linked from the retired notice. */
   successor?: { name: string; slug: string } | null;
-  /** Whether the model can be opened in the comparison tool. */
-  comparable?: boolean;
 };
 
 type Stat = { label: string; value: string; lead?: boolean; tag?: string };
@@ -368,7 +366,7 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
   parts.push(`<div class="head">
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(v.name)}</span></nav>
 <h1>${esc(copy.h1)}</h1>
-<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span>${ctx.comparable ? `<a class="cmp" href="/compare/custom?models=${encodeURIComponent(v.slug)}" data-track="compare-button">Compare</a>` : ""}</div>
+<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span>${onCompareTool(v) ? `<a class="cmp" href="/compare/custom?models=${encodeURIComponent(v.slug)}" data-track="compare-button">Compare</a>` : ""}</div>
 <dl class="stats">${stats.map((s) => `<div class="stat${s.lead ? " lead" : ""}"><dt><span>${s.label}</span>${s.tag ? `<span class="tag">${s.tag}</span>` : ""}</dt><dd>${s.value}</dd></div>`).join("")}</dl>
 <p class="answer">${esc(copy.answer)}</p>
 ${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.until)}, per <a href="${esc(v.intro.source)}">${esc(v.lab ?? h.providerName)}'s pricing page</a>.</p>` : ""}
