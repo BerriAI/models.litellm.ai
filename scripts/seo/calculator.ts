@@ -61,9 +61,12 @@ document.querySelectorAll("[data-calc]").forEach(function(box){
     var hide=function(){ul.hidden=true;pickEl.setAttribute("aria-expanded","false");pickEl.removeAttribute("aria-activedescendant")};
     var choose=function(s){if(!s)return;get("model").value=s;pickEl.value=list[s][0];hide();box.dispatchEvent(new Event("input",{bubbles:true}))};
     var mv=function(d){if(!opts.length)return;act=act<0?(d>0?0:opts.length-1):(act+d+opts.length)%opts.length;[].forEach.call(ul.children,function(li,i){li.setAttribute("aria-selected",i===act)});var el=ul.children[act];if(el)el.scrollIntoView({block:"nearest"});pickEl.setAttribute("aria-activedescendant","calc-opt-"+act)};
-    pickEl.addEventListener("focus",function(){pickEl.placeholder=list[get("model").value][0];pickEl.value="";show("")});
+    var open=function(){pickEl.placeholder=list[get("model").value][0];pickEl.value="";show("")};
+    pickEl.addEventListener("focus",open);
+    pickEl.addEventListener("click",function(){if(ul.hidden)open()});
+    document.addEventListener("touchstart",function(e){if(!ul.hidden&&e.target!==pickEl&&!ul.contains(e.target))pickEl.blur()},{passive:true});
     pickEl.addEventListener("input",function(e){e.stopPropagation();show(pickEl.value)});
-    pickEl.addEventListener("keydown",function(e){if(e.key==="ArrowDown"){e.preventDefault();if(ul.hidden)show(pickEl.value);else mv(1)}else if(e.key==="ArrowUp"){e.preventDefault();mv(-1)}else if(e.key==="Enter"){e.preventDefault();if(!ul.hidden&&act>=0)choose(opts[act])}else if(e.key==="Escape"){hide();pickEl.value=list[get("model").value][0]}});
+    pickEl.addEventListener("keydown",function(e){if(e.key==="ArrowDown"){e.preventDefault();if(ul.hidden)show(pickEl.value);else mv(1)}else if(e.key==="ArrowUp"){e.preventDefault();if(ul.hidden)show(pickEl.value);else mv(-1)}else if(e.key==="Enter"){e.preventDefault();if(!ul.hidden&&act>=0)choose(opts[act])}else if(e.key==="Escape"){hide();pickEl.value=list[get("model").value][0]}});
     pickEl.addEventListener("blur",function(){setTimeout(function(){hide();pickEl.value=list[get("model").value][0]},120)});
     ul.addEventListener("mousedown",function(e){e.preventDefault();var li=e.target.closest("[data-i]");if(li)choose(opts[+li.getAttribute("data-i")])});
     addEventListener("resize",place);addEventListener("scroll",place,true);
