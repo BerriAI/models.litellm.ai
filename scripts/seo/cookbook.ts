@@ -11,7 +11,7 @@ const TUTORIAL = /^https:\/\/docs\.litellm\.ai\/docs\/tutorials\/[^/?#]+$/;
 
 type Fetch = (url: string) => Promise<string>;
 
-/** title, summary and last_updated from a docs page's markdown copy (`<page>.md`). */
+/** title and summary from a docs page's markdown copy (`<page>.md`). */
 export function frontmatter(md: string): Record<string, string> {
   const block = /^---\n([\s\S]*?)\n---/.exec(md)?.[1] ?? "";
   const out: Record<string, string> = {};
@@ -44,8 +44,9 @@ async function inBatches<T, R>(
 }
 
 /**
- * Docs tutorials first, then index guides the docs don't cover, newest first. The docs page's own title,
- * summary and date win over the index's copy of the same URL; the index's tags are kept.
+ * Docs tutorials first, then index guides the docs don't cover, newest first. The docs page's own title and
+ * summary win over the index's copy of the same URL; the index's date and tags are kept. Docs pages carry no
+ * date: their last_updated comes from a shallow clone at deploy time, so it reads as the deploy date.
  * Returns null only when neither source loads.
  */
 export async function loadCookbook(
@@ -63,7 +64,6 @@ export async function loadCookbook(
               title: fm.title,
               description: fm.summary,
               url,
-              date: fm.last_updated?.slice(0, 10),
               tags: [] as string[],
             }
           : null;

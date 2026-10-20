@@ -24,7 +24,7 @@ export default function middleware(request: Request): Response | undefined {
     return Response.redirect(page.toString(), 301);
   }
   if (!(request.headers.get("accept") ?? "").includes("text/markdown")) return undefined;
-  if (page.pathname === "/models" || page.pathname === "/compare" || /\.(md|json|xml|txt)$/.test(page.pathname)) return undefined;
+  if (page.pathname === "/models" || (page.pathname.startsWith("/compare") && !pair) || /\.(md|json|xml|txt)$/.test(page.pathname)) return undefined;
   page.pathname = `${page.pathname.replace(/\/$/, "")}.md`;
   return new Response(null, { headers: { "x-middleware-rewrite": page.toString() } });
 }

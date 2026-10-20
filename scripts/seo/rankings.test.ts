@@ -1,10 +1,16 @@
 import { describe, expect, test } from "vitest";
 import { rssFeed } from "./crawl";
-import { assignSlugs, groupCostMap, type CostMap } from "./group";
+import {
+  assignSlugs,
+  groupCostMap,
+  type CostMap,
+  type Overrides,
+} from "./group";
 import { buildModelView, type ModelView } from "./model-view";
 import {
   blended,
   buildRankings,
+  indexableRanking,
   rankingAnswer,
   rankingTitle,
 } from "./rankings";
@@ -45,11 +51,11 @@ const COST_MAP: CostMap = {
   }),
 };
 
-function views(): ModelView[] {
+function views(overrides: Overrides = {}): ModelView[] {
   const groups = groupCostMap(COST_MAP);
   const slugs = assignSlugs(groups);
   return groups.map((g) =>
-    buildModelView(g, slugs.get(g.pageKey)!, {}, {}, null, "2026-10-20"),
+    buildModelView(g, slugs.get(g.pageKey)!, overrides, {}, null, "2026-10-20"),
   );
 }
 
@@ -89,6 +95,51 @@ describe("rankings", () => {
     expect(rankingAnswer(r, "October 20, 2026")).toContain(
       "3 active models on LiteLLM cost under $1 per 1M tokens",
     );
+  });
+
+  test("the answer says when the top model's price is introductory", () => {
+    const intro = buildRankings(
+      views({
+        introPricing: {
+          "acme-open-1": {
+            until: "2026-12-31",
+            source: "https://example.com/pricing",
+            providers: ["together_ai"],
+          },
+        },
+      }),
+      {},
+    ).find((r) => r.slug === "cheapest-chat-models")!;
+    expect(intro.items[0].view.slug).toBe("acme-open-1");
+    expect(rankingAnswer(intro, "October 20, 2026")).toContain(
+      "That price is introductory through December 31, 2026.",
+    );
+    expect(
+      rankingAnswer(get("cheapest-chat-models"), "October 20, 2026"),
+    ).not.toContain("introductory");
+  });
+
+  test("a published family list keeps its page with fewer than three models, but is not indexed", () => {
+    const families = { mixed: "^(gpt-cheap|mistral-cheap|acme-open)-1$" };
+    const slug = "cheapest-mixed";
+    const fresh = buildRankings(views(), families).find((r) => r.slug === slug);
+    expect(fresh && indexableRanking(fresh)).toBe(true);
+    const fewer = views().filter((v) => v.slug !== "acme-open-1");
+    expect(buildRankings(fewer, families).map((r) => r.slug)).not.toContain(
+      slug,
+    );
+    const kept = buildRankings(fewer, families, new Set([slug])).find(
+      (r) => r.slug === slug,
+    );
+    expect(kept?.items.map((x) => x.view.slug)).toEqual([
+      "gpt-cheap-1",
+      "mistral-cheap-1",
+    ]);
+    expect(indexableRanking(kept!)).toBe(false);
+    const none = fewer.filter((v) => !new RegExp(families.mixed).test(v.slug));
+    expect(
+      buildRankings(none, families, new Set([slug])).map((r) => r.slug),
+    ).not.toContain(slug);
   });
 
   test("titles name the measure and the month, never a quality claim", () => {

@@ -65,12 +65,6 @@ for (const [rel, urlPath] of pages) {
     continue;
   }
   const html = readFileSync(path.join(OUT, rel), "utf8");
-  // Retired models that point at their successor: check the target exists, nothing else applies.
-  const refresh = /<meta http-equiv="refresh" content="0; url=([^"]+)">/.exec(html);
-  if (refresh) {
-    if (!fileFor(refresh[1])) errors.push(`${rel}: redirects to missing page ${refresh[1]}`);
-    continue;
-  }
   const title = /<title>([^<]*)<\/title>/.exec(html)?.[1] ?? "";
   const description = /<meta name="description" content="([^"]*)"/.exec(html)?.[1] ?? "";
   const canonical = /<link rel="canonical" href="([^"]*)"/.exec(html)?.[1] ?? "";

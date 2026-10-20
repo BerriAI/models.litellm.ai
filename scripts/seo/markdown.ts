@@ -16,7 +16,12 @@ import type { CompareView, NewModelRow, RankRow } from "./html";
 const cell = (n: number | undefined) => (n === undefined ? "–" : usd(n));
 const pipe = (s: string) => s.replace(/\|/g, "\\|");
 
-export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string): string {
+export function modelMarkdown(
+  v: ModelView,
+  copy: PageCopy,
+  lastChanged: string,
+  successor: { name: string; slug: string } | null = null,
+): string {
   const h = v.headline;
   const lines: string[] = [];
   lines.push(`# ${copy.h1}`, "", copy.answer, "");
@@ -27,6 +32,10 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
   if (v.maxOutput) lines.push(`- Max output: ${int(v.maxOutput)} tokens`);
   if (v.addedDate) lines.push(`- Added to LiteLLM: ${longDate(v.addedDate)}`);
   if (v.deprecation) lines.push(`- Deprecation date: ${longDate(v.deprecation)}`);
+  if (v.status === "retired") {
+    const next = successor ? ` Its successor is ${successor.name}: ${abs(modelPath(successor.slug))}` : "";
+    lines.push(`- Status: retired. Prices below are the last listed and kept for reference.${next}`);
+  }
   if (v.intro) lines.push(`- Introductory price until: ${longDate(v.intro.until)} (source: ${v.intro.source})`);
   lines.push(`- Prices updated: ${longDate(lastChanged)}`, "");
 
@@ -69,7 +78,7 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
     lines.push(
       "## Cost calculator",
       "",
-      `${d.requests.toLocaleString("en-US")} requests a day with ${d.input.toLocaleString("en-US")} input and ${d.output.toLocaleString("en-US")} output tokens each, at ${h.providerName}'s price: ${calcMoney(r.perRequest)} per request, ${calcMoney(r.perDay)} per day, ${calcMoney(r.perMonth)} per month (30 days). Try other numbers at ${abs(`/calculator?model=${v.slug}`)}`,
+      `${d.requests.toLocaleString("en-US")} requests a day with ${d.input.toLocaleString("en-US")} input and ${d.output.toLocaleString("en-US")} output tokens each, at ${h.providerName}'s price: ${calcMoney(r.perRequest)} per request, ${calcMoney(r.perDay)} per day, ${calcMoney(r.perMonth)} per month (30 days).${v.status === "retired" ? "" : ` Try other numbers at ${abs(`/calculator?model=${v.slug}`)}`}`,
       "",
     );
   }
@@ -98,7 +107,8 @@ export function compareMarkdown(c: CompareView): string {
   if (c.bench.length) {
     lines.push("## Benchmark scores", "", `| Benchmark | ${pipe(a.name)} | ${pipe(b.name)} |`, "|---|---|---|");
     for (const r of c.bench) lines.push(`| ${pipe(r.name)} (${r.category}) | ${r.a} | ${r.b} |`);
-    lines.push("", "From the Epoch AI Benchmarking Hub (https://epoch.ai/benchmarks), CC BY 4.0: Epoch's own runs and results it collects from each benchmark's leaderboard. Higher is better.", "");
+    const asOf = c.benchDate ? `, data as of ${longDate(c.benchDate)}` : "";
+    lines.push("", `From the Epoch AI Benchmarking Hub (https://epoch.ai/benchmarks), CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)${asOf}: Epoch's own runs and results it collects from each benchmark's leaderboard. Higher is better.`, "");
   }
   if (copy.pickA.length || copy.pickB.length) {
     lines.push("## When to pick which", "");

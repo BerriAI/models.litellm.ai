@@ -19,6 +19,8 @@ export type Manifest = {
   models: Record<string, ManifestModel>;
   /** Comparison pages and when each was first published; caps how many new ones each week releases. */
   compare?: Record<string, { firstSeen: string; kind: string }>;
+  /** Ranking pages already published; each keeps its page while any model is left on it. */
+  rankings?: string[];
 };
 
 const isJson = (res: Response) => res.headers.get("content-type")?.includes("application/json") ?? false;

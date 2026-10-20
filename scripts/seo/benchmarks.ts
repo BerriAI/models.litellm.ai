@@ -264,8 +264,10 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
 }
 
 /**
- * Scores for one model page. `ids` are the page's model ids (its slug and the bare id of each listing);
- * `names` its display names. Returns null when Epoch has nothing for it.
+ * Scores for one model page. `ids` are the page's model ids, most specific first (its slug, the headline
+ * listing's bare id, then each other listing's); each benchmark takes the first id Epoch has a score for, so
+ * an older or newer snapshot sharing the page never stands in for the model itself. `names` are its display
+ * names. Returns null when Epoch has nothing for it.
  */
 export function benchmarksFor(
   data: BenchmarkData | null,
@@ -276,8 +278,7 @@ export function benchmarksFor(
   const scores = new Map<string, Score>();
   for (const id of new Set(ids.map(normalizeId))) {
     for (const [name, s] of data.runs.get(id) ?? []) {
-      const prev = scores.get(name);
-      if (!prev || s.score > prev.score) scores.set(name, s);
+      if (!scores.has(name)) scores.set(name, s);
     }
   }
   const eci = names.map((n) => data.eci.get(n.toLowerCase())).find(Boolean);

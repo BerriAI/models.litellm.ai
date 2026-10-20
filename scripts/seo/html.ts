@@ -63,7 +63,7 @@ th.n{text-align:right}
 td .q{display:block;font-size:12px;color:var(--muted)}
 td code{white-space:nowrap}
 td.p{min-width:150px}td.p a{white-space:nowrap}td.pr{white-space:nowrap;font-variant-numeric:tabular-nums}
-tr.hl td{background:var(--bg3)}
+tr.hl td,tbody tr.hl:hover td{background:var(--bg3)}
 caption{caption-side:bottom;text-align:left;font-size:12px;line-height:1.5;color:var(--muted);padding:10px 14px;border-top:1px solid var(--rule)}
 .flag{color:var(--warn);font-weight:600}
 details summary{cursor:pointer;color:var(--accent);font-size:14px;font-weight:500;padding:6px 0}
@@ -105,7 +105,8 @@ ${TOOL_CSS}
 footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13px}
 footer div{max-width:1080px;margin:0 auto;padding:24px 20px;display:flex;gap:8px 20px;flex-wrap:wrap}
 footer a{color:var(--muted)}footer a:hover{color:var(--fg)}
-@media (max-width:600px){main{padding:20px 16px 56px;gap:32px}.stats{gap:8px}.stat{padding:12px 14px}.stat dd{font-size:21px}.top-in{padding:10px 16px}.top nav{margin-left:-6px;max-width:calc(100% + 6px)}.top nav a{padding:4px 6px}th,td{padding:9px 10px}.grid2{grid-template-columns:1fr}.calc{padding:14px}.calc-in input,.calc-in select,.ct input{font-size:16px}}
+@media (max-width:600px){main{padding:20px 16px 56px;gap:32px}.stats{gap:8px}.stat{padding:12px 14px}.stat dd{font-size:21px}.top-in{padding:10px 16px}.top nav{margin-left:-6px;max-width:calc(100% + 6px)}.top nav a{padding:4px 6px}th,td{padding:9px 10px}.grid2{grid-template-columns:1fr}.calc{padding:14px}}
+@media (pointer:coarse){.calc-in input,.calc-in select,.ct input{font-size:16px}}
 `;
 
 const ANALYTICS = `<script>if(location.hostname==="models.litellm.ai"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister identify reset get_distinct_id set_config opt_in_capturing opt_out_capturing".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init(${JSON.stringify(POSTHOG_KEY)},{api_host:"https://us.i.posthog.com",defaults:"2026-05-30",person_profiles:"identified_only",cross_subdomain_cookie:true,capture_pageview:true,capture_pageleave:true,disable_session_recording:true,capture_heatmaps:false,disable_surveys:true,autocapture:{dom_event_allowlist:["click"],element_allowlist:["a","button"]}})}</script>`;
@@ -226,7 +227,7 @@ function priceTable(v: ModelView, rows: RowView[], cols: Col[], hubs: Set<string
         .join("");
       const flag = r.outlier ? ` <span class="flag" title="Differs from other providers by more than 8x; check the provider's pricing page">†</span>` : "";
       const q = r.qualifier ? `<span class="q">${esc(r.qualifier)}</span>` : "";
-      return `<tr${r === v.headline ? ' class="hl"' : ""}><td class="p">${providerLink(r.hub, r.providerName, hubs)}${flag}${q}</td><td><code>${esc(r.modelString)}</code></td>${cells}<td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`;
+      return `<tr${r === v.headline ? ' class="hl"' : ""}${r.fineTuned ? " data-fine-tuned" : ""}><td class="p">${providerLink(r.hub, r.providerName, hubs)}${flag}${q}</td><td><code>${esc(r.modelString)}</code></td>${cells}<td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`;
     })
     .join("");
   return `<div class="tbl"><table><caption>${esc(caption)}</caption><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
@@ -304,6 +305,8 @@ export type ModelPageContext = {
   hubs: Set<string>;
   /** Comparison pages this model is on. */
   comparisons?: { slug: string; other: string }[];
+  /** A retired model's newer family member, linked from the retired notice. */
+  successor?: { name: string; slug: string } | null;
   /** Whether the model can be opened in the comparison tool. */
   comparable?: boolean;
 };
@@ -381,7 +384,7 @@ ${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.u
 </div>`);
 
   if (v.status === "retired") {
-    parts.push(`<div class="warnbox"><strong>Retired.</strong> ${v.deprecation ? `${esc(h?.providerName ?? "The provider")} retired <code>${esc(ms)}</code> on ${longDate(v.deprecation)}. ` : ""}Prices below are the last listed and kept for reference.</div>`);
+    parts.push(`<div class="warnbox"><strong>Retired.</strong> ${v.deprecation ? `${esc(h?.providerName ?? "The provider")} retired <code>${esc(ms)}</code> on ${longDate(v.deprecation)}. ` : ""}Prices below are the last listed and kept for reference.${ctx.successor ? ` Its successor is <a href="${modelPath(ctx.successor.slug)}">${esc(ctx.successor.name)}</a>.` : ""}</div>`);
   } else if (v.deprecation) {
     const past = v.deprecation <= ctx.buildDate.slice(0, 10);
     parts.push(`<div class="warnbox">${past ? "Deprecated" : "Scheduled for deprecation"}: ${esc(h?.providerName ?? "The provider")} lists ${longDate(v.deprecation)} as the deprecation date for <code>${esc(ms)}</code>.</div>`);
@@ -529,7 +532,7 @@ export function compareBody(c: CompareView): string {
   const benchCats = [...new Set(c.bench.map((r) => r.category))];
   const external = c.bench.some((r) => !r.epoch);
   const bench = c.bench.length
-    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>From the <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a> (CC BY 4.0)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. ${external ? "Some results were run by Epoch and others collected by Epoch from each benchmark's own leaderboard, linked in the first column. " : ""}Each model's best reported reasoning setting is shown in brackets. Higher is better. Only benchmarks with a score for both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${benchCats
+    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>From the <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. ${external ? "Some results were run by Epoch and others collected by Epoch from each benchmark's own leaderboard, linked in the first column. " : ""}Each model's best reported reasoning setting is shown in brackets. Higher is better. Only benchmarks with a score for both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${benchCats
         .map(
           (cat) =>
             `<tr><th scope="rowgroup" colspan="3">${esc(cat)}</th></tr>${c.bench
@@ -581,23 +584,6 @@ ${groups
   .filter((g) => g.items.length)
   .map((g) => `<section><h2>${esc(g.label)}</h2><ul class="links">${g.items.map((i) => `<li><a href="/compare/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`)
   .join("\n")}`;
-}
-
-/** A static redirect: instant refresh plus a canonical to the target, which search engines treat as permanent. */
-export function redirectPage(to: string, title: string, message: string): string {
-  const url = abs(to);
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>${esc(title)}</title>
-<link rel="canonical" href="${esc(url)}">
-<meta name="robots" content="noindex,follow">
-<meta http-equiv="refresh" content="0; url=${esc(to)}">
-</head>
-<body><p>${esc(message)} <a href="${esc(to)}">Continue to ${esc(url)}</a>.</p></body>
-</html>
-`;
 }
 
 // ---- Rankings and the new-models log --------------------------------------------------------------------
@@ -673,17 +659,18 @@ export function calcSection(v: ModelView): string {
   const d = CALC_DEFAULTS;
   const result = calcCost(h.prices.input, h.prices.output, d.input, d.output, d.requests);
   return `<section id="calculator"><h2>${esc(v.name)} cost calculator</h2>
-<p>At ${esc(h.providerName)}'s price (${usd(h.prices.input)} input, ${usd(h.prices.output)} output per 1M tokens), ${int(d.requests)} requests a day with ${int(d.input)} input and ${int(d.output)} output tokens each cost ${calcMoney(result.perDay)} a day, about ${calcMoney(result.perMonth)} a month. Change the numbers for your workload, or <a href="/calculator?model=${encodeURIComponent(v.slug)}">compare it with other models</a>.</p>
+<p>At ${esc(h.providerName)}'s price (${usd(h.prices.input)} input, ${usd(h.prices.output)} output per 1M tokens), ${int(d.requests)} requests a day with ${int(d.input)} input and ${int(d.output)} output tokens each cost ${calcMoney(result.perDay)} a day, about ${calcMoney(result.perMonth)} a month. Change the numbers for your workload${v.status === "retired" ? "." : `, or <a href="/calculator?model=${encodeURIComponent(v.slug)}">compare it with other models</a>.`}</p>
 ${calcForm("model", v.slug, result)}</section>`;
 }
 
-export type CalcModel = { slug: string; name: string; input: number; output: number; providers: number };
+/** `intro` is the written-out last day of an introductory price. */
+export type CalcModel = { slug: string; name: string; input: number; output: number; providers: number; intro?: string };
 
 export function calculatorBody(models: CalcModel[], defaultSlug: string, table: CalcModel[], buildDate: string): string {
   const d = CALC_DEFAULTS;
   const first = models.find((m) => m.slug === defaultSlug) ?? models[0];
   const result = calcCost(first.input, first.output, d.input, d.output, d.requests);
-  const list = Object.fromEntries(models.map((m) => [m.slug, [m.name, m.input, m.output]]));
+  const list = Object.fromEntries(models.map((m) => [m.slug, m.intro ? [m.name, m.input, m.output, m.intro] : [m.name, m.input, m.output]]));
   // A searchable picker (CALC_JS); the hidden field holds the model's slug, the visible box its name.
   const select = `<label>Model<input type="hidden" name="model" value="${esc(first.slug)}"><input type="text" class="calc-pick" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="calc-list" autocomplete="off" spellcheck="false" value="${esc(first.name)}" aria-label="Model"></label>`;
   const rows = table
@@ -696,6 +683,6 @@ export function calculatorBody(models: CalcModel[], defaultSlug: string, table: 
 <script type="application/json" id="calc-models">${JSON.stringify(list).replace(/</g, "\\u003c")}</script>
 <p class="note">Uses each model's headline price: its own lab's API where it sells it, otherwise its cheapest provider. Cached input, batch discounts and long-context tiers aren't included; each model's page lists them.</p></section>
 <section id="examples"><h2>What ${int(d.requests)} requests a day cost</h2><p>Each request with ${int(d.input)} input and ${int(d.output)} output tokens, for the models on our <a href="/compare">comparison pages</a>, cheapest first.</p><div class="tbl" data-track="calculator-table"><table><thead><tr><th>Model</th><th class="n">Per request</th><th class="n">Per day</th><th class="n">Per month</th></tr></thead><tbody>${rows
-    .map(({ m, r }) => `<tr><td><a href="${modelPath(m.slug)}">${esc(m.name)}</a></td><td class="n">${calcMoney(r.perRequest)}</td><td class="n">${calcMoney(r.perDay)}</td><td class="n">${calcMoney(r.perMonth)}</td></tr>`)
+    .map(({ m, r }) => `<tr><td><a href="${modelPath(m.slug)}">${esc(m.name)}</a>${m.intro ? ` <span class="note">introductory price until ${esc(m.intro)}</span>` : ""}</td><td class="n">${calcMoney(r.perRequest)}</td><td class="n">${calcMoney(r.perDay)}</td><td class="n">${calcMoney(r.perMonth)}</td></tr>`)
     .join("")}</tbody></table></div></section>`;
 }
