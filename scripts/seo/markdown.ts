@@ -9,6 +9,8 @@ import { int, longDate, tokensShort, usd } from "./format";
 import type { ModelView } from "./model-view";
 import { PRICE_FILE_URL, abs, modelPath } from "./site";
 import { comparePath } from "./compare";
+import { CALC_DEFAULTS, calcCost, calcMoney } from "./calculator";
+import { leadsWithTokens } from "./pricing";
 import type { CompareView, NewModelRow, RankRow } from "./html";
 
 const cell = (n: number | undefined) => (n === undefined ? "–" : usd(n));
@@ -60,6 +62,16 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
 
   if (h) {
     lines.push("## Use it with LiteLLM", "", "```python", getLiteLLmSdkSnippet(h.mode, h.modelString), "```", "");
+  }
+  if (h && leadsWithTokens(h.mode, h.prices, h.metric) && h.prices.input !== undefined && h.prices.output !== undefined && !v.free) {
+    const d = CALC_DEFAULTS;
+    const r = calcCost(h.prices.input, h.prices.output, d.input, d.output, d.requests);
+    lines.push(
+      "## Cost calculator",
+      "",
+      `${d.requests.toLocaleString("en-US")} requests a day with ${d.input.toLocaleString("en-US")} input and ${d.output.toLocaleString("en-US")} output tokens each, at ${h.providerName}'s price: ${calcMoney(r.perRequest)} per request, ${calcMoney(r.perDay)} per day, ${calcMoney(r.perMonth)} per month (30 days). Try other numbers at ${abs(`/calculator?model=${v.slug}`)}`,
+      "",
+    );
   }
 
   lines.push("## FAQ", "");

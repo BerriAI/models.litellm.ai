@@ -55,6 +55,7 @@ export function llmsTxt(
     "## Overview",
     "",
     `- [All models](${SITE_URL}/models): every model with its headline price, grouped by lab`,
+    `- [Pricing calculator](${SITE_URL}/calculator): cost per request, day and month for any model, with shareable links like ${SITE_URL}/calculator?model=gpt-5&in=1000&out=500&req=10000`,
     `- [Rankings](${SITE_URL}/rankings): models sorted by price or context window (never by quality)`,
     `- [New models](${SITE_URL}/new-models): models added to LiteLLM, by month, with an RSS feed at ${SITE_URL}/new-models.xml`,
     ...(limit ? [`- [Full model list](${SITE_URL}/llms-full.txt): all ${models.length.toLocaleString("en-US")} models with prices, as plain text`] : []),

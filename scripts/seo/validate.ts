@@ -50,6 +50,7 @@ const pages: [string, string][] = [
     "compare.html",
     "rankings.html",
     "new-models.html",
+    "calculator.html",
   ].map((rel): [string, string] => [
     rel,
     `/${rel.replace(/\.html$/, "")}`,

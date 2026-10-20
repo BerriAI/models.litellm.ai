@@ -56,7 +56,7 @@ export function homePage(
     lastmod,
     indexable: true,
     body: `<h1>AI model pricing, context windows and providers</h1>
-<p>Prices, context windows and features for ${int(models)} AI models across ${int(hubs.length)} providers, from LiteLLM's open-source price file, as of ${longDate(lastmod)}. <a href="/models">Browse every model</a>, <a href="/compare">compare models side by side</a>, see <a href="/rankings">rankings by price</a> or the <a href="/new-models">latest new models</a>.</p>
+<p>Prices, context windows and features for ${int(models)} AI models across ${int(hubs.length)} providers, from LiteLLM's open-source price file, as of ${longDate(lastmod)}. <a href="/models">Browse every model</a>, <a href="/compare">compare models side by side</a>, see <a href="/rankings">rankings by price</a> the <a href="/new-models">latest new models</a>, or use the <a href="/calculator">pricing calculator</a>.</p>
 <h2>Recently added models</h2>
 <ul>${recent.map((m) => `<li><a href="${modelPath(m.slug)}">${esc(m.name)}</a>${m.price ? `: ${esc(m.price)}` : ""}</li>`).join("")}</ul>
 <h2>Pricing by provider</h2>

@@ -23,6 +23,8 @@ import { pageCopy } from "./copy";
 import { llmsTxt, robotsTxt, rssFeed, sitemapIndex, urlset, type SitemapEntry } from "./crawl";
 import { escapeHtml as esc, int, longDate, monthYear, shortDate, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
+import { calculatorBody, type CalcModel } from "./html";
+import { CALC_JS } from "./calculator";
 import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type NewModelRow, type RankRow } from "./html";
 import { buildRankings, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
 import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, redirectPage, type IndexRow } from "./html";
@@ -270,6 +272,8 @@ async function main(): Promise<void> {
         markdownPath: `${modelPath(v.slug)}.md`,
         noindex: thin,
         image,
+        track: { kind: "model", id: v.slug },
+        script: body.includes("data-calc") ? CALC_JS : undefined,
       }),
     );
     write(`models/${v.slug}.md`, modelMarkdown(v, copy, lastChanged));
@@ -356,7 +360,7 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
       jsonLd: listGraph("/models", indexTitle, indexDescription, latestChange, [{ name: "Models", path: "/models" }], rows.map((r) => ({ name: r.name, path: modelPath(r.slug) }))),
       body: `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Models</span></nav>
 <h1>AI model API pricing</h1>
-<p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM tracks prices for ${int(rows.length)} models across ${hubList.length} providers. Each model page lists every provider's price, the context window, and the code to call it through LiteLLM. <a href="/compare">Compare models side by side</a>, see <a href="/rankings">rankings by price and context window</a>, or the <a href="/new-models">newest models</a>.</p></div>
+<p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM tracks prices for ${int(rows.length)} models across ${hubList.length} providers. Each model page lists every provider's price, the context window, and the code to call it through LiteLLM. <a href="/compare">Compare models side by side</a>, see <a href="/rankings">rankings by price and context window</a>, the <a href="/new-models">newest models</a>, or estimate costs in the <a href="/calculator">pricing calculator</a>.</p></div>
 <section><h2>Browse by provider</h2><ul class="links">${hubList
         .map((h) => `<li><a href="${providerPath(h.hub)}">${esc(h.name)}<span>${h.list.length} models</span></a></li>`)
         .join("")}</ul></section>
@@ -482,6 +486,7 @@ ${cheapestOnProvider(h.name, list)}
         markdownPath: `${path}.md`,
         noindex: !index,
         image: writeCard(OUT, "compare", pair.slug, compareCard(a, b)),
+        track: { kind: "compare", id: pair.slug },
       }),
     );
     write(`compare/${pair.slug}.md`, compareMarkdown(view));
@@ -624,6 +629,32 @@ ${cheapestOnProvider(h.name, list)}
     ),
   );
 
+  // Cost calculator for every model priced per input and output token.
+  const calcModels: CalcModel[] = views
+    .filter((v) => v.status === "active" && v.headline && leadsWithTokens(v.headline.mode, v.headline.prices, v.headline.metric) && (v.headline.prices.input ?? 0) > 0 && (v.headline.prices.output ?? 0) > 0)
+    .sort((a, b) => b.providers.length - a.providers.length || a.name.localeCompare(b.name))
+    .map((v) => ({ slug: v.slug, name: v.name, input: v.headline!.prices.input!, output: v.headline!.prices.output!, providers: v.providers.length }));
+  const calcInPairs = new Set(pairs.flatMap((p) => [p.a.slug, p.b.slug]));
+  const calcTable = calcModels.filter((m) => calcInPairs.has(m.slug));
+  const calcDefault = (overrides.compare?.pairs?.[0]?.[1] && calcModels.find((m) => m.slug === overrides.compare!.pairs[0][1])?.slug) || calcModels[0]?.slug;
+  if (calcModels.length) {
+    const title = `LLM API Pricing Calculator: Costs for ${int(calcModels.length)} AI Models | LiteLLM`;
+    const description = `Estimate the cost of ${int(calcModels.length)} AI models for your workload: per request, per day and per month, at prices from LiteLLM's price file.`;
+    write(
+      "calculator.html",
+      layout({
+        title,
+        description,
+        path: "/calculator",
+        body: calculatorBody(calcModels, calcDefault!, calcTable, BUILD_DATE),
+        jsonLd: { "@context": "https://schema.org", "@graph": [...siteNodes(), { ...webPage("/calculator", title, description, BUILD_DATE), "@type": ["WebPage", "WebApplication"], applicationCategory: "FinanceApplication", operatingSystem: "Any", offers: { "@type": "Offer", price: 0, priceCurrency: "USD" } }, breadcrumb([{ name: "Home", path: "/" }, { name: "Calculator", path: "/calculator" }])] },
+        image: writeCard(OUT, "pages", "calculator", { kicker: "LiteLLM Model Catalog", title: "LLM API pricing calculator", subtitle: "Cost per request, day and month", stats: [{ value: int(calcModels.length), label: "models" }] }),
+        track: { kind: "calculator", id: "calculator" },
+        script: CALC_JS,
+      }),
+    );
+  }
+
   write("404.html", layout({ title: "Page not found | LiteLLM", description: "This page doesn't exist.", path: "/404", body: notFoundBody(), noindex: true }));
 
 
@@ -708,6 +739,7 @@ ${cheapestOnProvider(h.name, list)}
     { path: "/compare", lastmod: BUILD_DATE },
     { path: "/rankings", lastmod: BUILD_DATE },
     { path: "/new-models", lastmod: BUILD_DATE },
+    { path: "/calculator", lastmod: BUILD_DATE },
     ...appEntries,
   ];
   write("sitemaps/pages.xml", urlset(pageEntries));

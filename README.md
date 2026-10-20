@@ -23,6 +23,7 @@ The generator writes:
 | `/compare/<a>-vs-<b>` | Two models side by side: answer line, prices, features, cheapest provider for each, Epoch AI benchmark scores, "when to pick" from real differences, code, FAQ; markdown copy at `.md`. Model slugs in alphabetical order; the reverse order redirects |
 | `/compare` | Every comparison, grouped by kind |
 | `/rankings/<slug>`, `/rankings` | Models sorted by one fact: blended price (3 input : 1 output), context window, or provider count for the price-capped lists. Never by quality; each page states its method |
+| `/calculator` | Cost per request, day and month for any token-priced model, with shareable links (`?model=&in=&out=&req=`) and a static table of the default workload for the compared models |
 | `/new-models/<yyyy-mm>`, `/new-models`, `/new-models.xml` | Models added to the price file each month, from each model's date added, plus an RSS feed of the latest 50 |
 | `/models/<model-id>.md` | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts` |
 | `/models` | Every active model, grouped by lab with a jump menu, newest first within each lab |
@@ -51,6 +52,12 @@ npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home
 Benchmark scores come from [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks) (CC BY 4.0, credited on every page), downloaded at build time by `scripts/seo/benchmarks.ts`. Only Epoch's own runs and its Capabilities Index are used, never the hub's third-party `*_external.csv` files. Scores match a model only when Epoch's model id (before the `_<setting>` suffix) equals one of the page's ids; anything else is left out. A comparison shows only benchmarks both models have, at each model's best reported setting. If the download fails, pages are built without scores. `EPOCH_FILE` reads the zip from disk.
 
 A retired model with a newer active model in its family becomes a redirect to it (an instant refresh plus a canonical, which search engines treat as permanent); the list is in `/compare/redirects.json`.
+
+## Calculator and tracking
+
+Every model priced per input and output token has a cost calculator (`scripts/seo/calculator.ts`). The build fills in the default workload (1,000 input and 500 output tokens, 10,000 requests a day), so crawlers and the markdown copy see a number; the page script reads the prices from the page's JSON-LD and recomputes as the reader types. Both use the same arithmetic and money format, which a test keeps in step.
+
+Code snippets, calculators, comparison and ranking tables carry `data-track` attributes, and each page's `<main>` carries its kind and id. With PostHog loaded (it already is, on models.litellm.ai), copying a snippet sends `snippet_copied` and the first change to a calculator sends `calculator_used`, both with the page kind and id.
 
 ## Rankings and new models
 
