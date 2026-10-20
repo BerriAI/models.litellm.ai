@@ -15,9 +15,15 @@ export type ModelFilters = {
   minOutputTokens: number | null;
 };
 
-export type ModelIndex<T extends SearchableModel> = {
+type FilteredModels<T extends SearchableModel> = {
+  readonly key: string;
   readonly items: readonly T[];
-  readonly fuse: Fuse<T>;
+  fuse: Fuse<T> | null;
+};
+
+export type ModelIndex<T extends SearchableModel> = {
+  readonly all: FilteredModels<T>;
+  lastFiltered: FilteredModels<T> | null;
 };
 
 export const SEARCH_KEYS = [
@@ -63,10 +69,47 @@ export function passesFilters(
   );
 }
 
+const NO_FILTERS: ModelFilters = {
+  provider: "",
+  minInputTokens: null,
+  minOutputTokens: null,
+};
+
+function filtersKey(filters: ModelFilters): string {
+  return JSON.stringify([
+    filters.provider,
+    filters.minInputTokens,
+    filters.minOutputTokens,
+  ]);
+}
+
 export function indexModels<T extends SearchableModel>(
   items: readonly T[],
 ): ModelIndex<T> {
-  return { items, fuse: new Fuse(items, SEARCH_OPTIONS) };
+  return {
+    all: {
+      key: filtersKey(NO_FILTERS),
+      items,
+      fuse: new Fuse(items, SEARCH_OPTIONS),
+    },
+    lastFiltered: null,
+  };
+}
+
+function filteredModels<T extends SearchableModel>(
+  index: ModelIndex<T>,
+  filters: ModelFilters,
+): FilteredModels<T> {
+  const key = filtersKey(filters);
+  if (key === index.all.key) return index.all;
+  if (index.lastFiltered?.key !== key) {
+    index.lastFiltered = {
+      key,
+      items: index.all.items.filter((item) => passesFilters(item, filters)),
+      fuse: null,
+    };
+  }
+  return index.lastFiltered;
 }
 
 export function searchModels<T extends SearchableModel>(
@@ -74,8 +117,8 @@ export function searchModels<T extends SearchableModel>(
   query: string,
   filters: ModelFilters,
 ): T[] {
-  const matches = query
-    ? index.fuse.search(query).map((result) => result.item)
-    : index.items;
-  return matches.filter((item) => passesFilters(item, filters));
+  const filtered = filteredModels(index, filters);
+  if (!query) return [...filtered.items];
+  filtered.fuse ??= new Fuse(filtered.items, SEARCH_OPTIONS);
+  return filtered.fuse.search(query).map((result) => result.item);
 }

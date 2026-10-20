@@ -181,6 +181,26 @@ describe("searchModels with a query", () => {
     },
   );
 
+  it("matches a fresh index as the filters change between searches", () => {
+    const steps: [string, ModelFilters][] = [
+      ["orbit", { ...noFilters, provider: "delta" }],
+      ["orbit", { ...noFilters, provider: "alpha" }],
+      ["orbit", { ...noFilters, provider: "alpha", minInputTokens: 100000 }],
+      ["orbit", noFilters],
+      ["", { ...noFilters, provider: "delta" }],
+      ["orbit", { ...noFilters, provider: "delta" }],
+    ];
+    const switching = indexModels(models);
+    for (const [query, filters] of steps) {
+      const expected = query
+        ? freshIndexSearch(query, filters)
+        : models.filter((item) => passesFilters(item, filters));
+      expect(names(searchModels(switching, query, filters))).toEqual(
+        names(expected),
+      );
+    }
+  });
+
   it("keeps tied models in catalog order after a filter removes one of them", () => {
     const scores = new Map(
       new Fuse(models, { ...SEARCH_OPTIONS, includeScore: true })

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { afterUpdate, onMount } from "svelte";
   import { fly } from "svelte/transition";
 
   import { getProviderInitial, getProviderLogo } from "./providers";
@@ -42,7 +42,7 @@
     type ModelsDevIndex,
   } from "./modelMeta";
   import { indexModels, searchModels, tokenLimitValue, type ModelIndex } from "./modelSearch";
-  import { nearViewport } from "./nearViewport";
+  import { longestPerColumn, rowOffsets, rowsInView } from "./rowWindow";
 
   type Item = {
     name: string;
@@ -94,6 +94,9 @@
     }
     if (e.key === "Escape" && document.activeElement === searchInput) {
       searchInput?.blur();
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+      renderAllRows = true;
     }
   }
 
@@ -253,18 +256,87 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   /** Cost-map key -> static model page slug, written by scripts/seo/generate.ts at build time. */
   let modelPages: Record<string, string> = {};
 
-  const ROW_BATCH_SIZE = 50;
-  let shownBatchCount = 1;
-  $: resultBatches = inBatches(results, ROW_BATCH_SIZE);
-  $: results, (shownBatchCount = 1);
+  const CELL_COLUMN_COUNT = 6;
+  let rowHeights = new Map<string, number>();
+  let typicalRowHeight = 64;
+  let rowsTop: HTMLElement | null = null;
+  let viewTop = 0;
+  let viewBottom = window.innerHeight;
+  let measuredWidth = window.innerWidth;
+  let renderAllRows = false;
+  let viewFrame = 0;
 
-  function inBatches<T>(list: T[], size: number): T[][] {
-    return Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size));
+  $: results, (renderAllRows = false);
+  $: offsets = rowOffsets(
+    results.map(({ item }) => rowHeights.get(item.name) ?? typicalRowHeight),
+  );
+  $: shownRange = renderAllRows
+    ? { start: 0, end: results.length }
+    : rowsInView(offsets, viewTop, viewBottom);
+  $: shownStart = shownRange.start;
+  $: shownEnd = shownRange.end;
+  $: shownResults = results.slice(shownStart, shownEnd);
+  $: rowsAbovePx = offsets[shownStart];
+  $: rowsBelowPx = offsets[results.length] - offsets[shownEnd];
+  $: sizerCells = longestPerColumn(
+    results.map(({ item }) => cellTexts(item)),
+    CELL_COLUMN_COUNT,
+  );
+
+  const cellTextCache = new WeakMap<Item, string[]>();
+
+  function cellTexts(item: Item): string[] {
+    const cached = cellTextCache.get(item);
+    if (cached) return cached;
+    const cells = [
+      formatReleaseMonth(item.release_date),
+      formatContext(item.max_input_tokens),
+      tableInputCell(item),
+      tableOutputCell(item),
+      tableCacheReadCell(item),
+      tableCacheWriteCell(item),
+    ];
+    cellTextCache.set(item, cells);
+    return cells;
   }
 
-  function showMoreRows() {
-    shownBatchCount += 1;
+  function scheduleViewUpdate() {
+    if (viewFrame) return;
+    viewFrame = requestAnimationFrame(updateView);
   }
+
+  function updateView() {
+    viewFrame = 0;
+    if (window.innerWidth !== measuredWidth) {
+      measuredWidth = window.innerWidth;
+      rowHeights = new Map();
+    }
+    if (!rowsTop) return;
+    const top = rowsTop.getBoundingClientRect().top;
+    viewTop = -top - window.innerHeight;
+    viewBottom = 2 * window.innerHeight - top;
+  }
+
+  const rowHeightObserver = new ResizeObserver((entries) => {
+    let changed = false;
+    for (const entry of entries) {
+      const name = (entry.target as HTMLElement).dataset.name;
+      const height =
+        entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height;
+      if (!name || !height || rowHeights.get(name) === height) continue;
+      rowHeights.set(name, height);
+      if (!expandedRows.has(name)) typicalRowHeight = height;
+      changed = true;
+    }
+    if (changed) rowHeights = rowHeights;
+  });
+
+  function measureRowHeight(node: HTMLElement) {
+    rowHeightObserver.observe(node);
+    return { destroy: () => rowHeightObserver.unobserve(node) };
+  }
+
+  afterUpdate(scheduleViewUpdate);
 
   $: if (modelIndex) results = filterResults(modelIndex, query, selectedProvider, maxInputTokens, maxOutputTokens);
 
@@ -418,7 +490,12 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window
+  on:keydown={handleKeydown}
+  on:scroll={scheduleViewUpdate}
+  on:resize={scheduleViewUpdate}
+  on:beforeprint={() => (renderAllRows = true)}
+/>
 
 <main class="container">
   <!-- Hero Section -->
@@ -617,241 +694,260 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             </th>
           </tr>
         </thead>
-        <tbody>
-          {#each resultBatches as batch, batchIndex}
-            {#if batchIndex < shownBatchCount}
-              {#each batch as { item } (item.name)}
-                {@const name = item.name}
-                {@const mode = item.mode}
-                {@const litellm_provider = item.litellm_provider}
-                {@const max_input_tokens = item.max_input_tokens}
-                {@const max_output_tokens = item.max_output_tokens}
-                <tr
-                  class="model-row"
-                  class:expanded={expandedRows.has(name)}
-                  on:click={() => toggleRow(name)}
-                >
-                  <td class="model-name">
-                    <div class="model-info">
-                      <svg class="expand-icon" class:expanded={expandedRows.has(name)} width="14" height="14" viewBox="0 0 16 16" fill="none">
-                        <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                      </svg>
-                      <div class="provider-avatar">
-                        {#if getProviderLogo(litellm_provider)}
-                          <img 
-                            src={getProviderLogo(litellm_provider)} 
-                            alt={litellm_provider}
-                            class="provider-logo-img"
-                            on:error={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              e.currentTarget.nextElementSibling.style.display = 'flex';
-                            }}
-                          />
-                          <div class="provider-initial" style="display: none;">
-                            {getProviderInitial(litellm_provider)}
-                          </div>
-                        {:else}
-                          <div class="provider-initial">
-                            {getProviderInitial(litellm_provider)}
-                          </div>
-                        {/if}
-                      </div>
-                      <div class="model-name-group">
-                        <div class="model-title-row">
-                          {#if modelPages[name]}
-                            <a
-                              class="model-title model-page-link"
-                              href={`/models/${modelPages[name]}`}
-                              title={`${item.display_name} pricing and providers`}
-                              on:click|stopPropagation
-                            >{item.display_name}</a>
-                          {:else}
-                            <span class="model-title" title={item.display_name}>{item.display_name}</span>
-                          {/if}
-                          {#if mode}
-                            <span class="mode-badge">{getModeLabel(mode)}</span>
-                          {/if}
-                        </div>
-                        <span class="model-id" title={getDisplayModelName(name, litellm_provider)}>{getDisplayModelName(name, litellm_provider)}</span>
-                      </div>
-                      <button
-                        class="copy-button"
-                        on:click|stopPropagation={() => copyToClipboard(getDisplayModelName(name, litellm_provider))}
-                        title="Copy model name"
-                        type="button"
-                      >
-                        {#if copiedModel === getDisplayModelName(name, litellm_provider)}
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success-color)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                        {:else}
-                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
-                            <path d="M2 6V2.5C2 1.67157 2.67157 1 3.5 1H7" stroke="currentColor" stroke-width="1.2"/>
-                          </svg>
-                        {/if}
-                      </button>
-                    </div>
-                  </td>
-                  <td class="released-cell">{formatReleaseMonth(item.release_date)}</td>
-                  <td class="context-cell">{formatContext(max_input_tokens)}</td>
-                  <td class="cost-cell">{tableInputCell(item)}</td>
-                  <td class="cost-cell">{tableOutputCell(item)}</td>
-                  <td class="cost-cell td-hide-mobile">{tableCacheReadCell(item)}</td>
-                  <td class="cost-cell td-hide-mobile">{tableCacheWriteCell(item)}</td>
-                </tr>
-                {#if expandedRows.has(name)}
-                  <tr class="expanded-content" transition:fly={{ y: -10, duration: 200 }}>
-                    <td colspan="7">
-                      <div class="detail-panel">
-                        <div class="detail-grid">
-                          <div class="detail-section">
-                            <h4 class="detail-heading">
-                              {#if isImagePricingMode(mode)}
-                                Image pricing <span class="detail-unit">per image where applicable</span>
-                              {:else if mode === "audio_speech"}
-                                Audio pricing <span class="detail-unit">per character where applicable</span>
-                              {:else if mode === "audio_transcription"}
-                                Audio pricing <span class="detail-unit">per second where applicable</span>
-                              {:else}
-                                Token pricing <span class="detail-unit">per 1M tokens where applicable</span>
-                              {/if}
-                            </h4>
-                            <div class="pricing-cards">
-                              <div class="pricing-card">
-                                <span class="pricing-label">Input</span>
-                                <span class="pricing-value">{tableInputCell(item)}</span>
-                              </div>
-                              <div class="pricing-card">
-                                <span class="pricing-label">Output</span>
-                                <span class="pricing-value">{tableOutputCell(item)}</span>
-                              </div>
-                              <div class="pricing-card">
-                                <span class="pricing-label">Cache read</span>
-                                <span class="pricing-value">{tableCacheReadCell(item)}</span>
-                              </div>
-                              <div class="pricing-card">
-                                <span class="pricing-label">Cache write</span>
-                                <span class="pricing-value">{tableCacheWriteCell(item)}</span>
-                              </div>
-                            </div>
-                            {#if isImagePricingMode(mode)}
-                              {@const imageExtras = getImagePricingExtraRows(item)}
-                              {#if imageExtras.length > 0}
-                                <ul class="pricing-extras">
-                                  {#each imageExtras as row}
-                                    <li><span class="pricing-extras-label">{row.label}</span> {row.value}</li>
-                                  {/each}
-                                </ul>
-                              {/if}
-                            {/if}
-                          </div>
-
-                          <!-- Model Info -->
-                          <div class="detail-section">
-                            <h4 class="detail-heading">Model Info</h4>
-                            <div class="info-rows">
-                              <div class="info-row">
-                                <span class="info-label">Provider</span>
-                                <span class="info-value">{litellm_provider || "—"}</span>
-                              </div>
-                              <div class="info-row">
-                                <span class="info-label">Mode</span>
-                                <span class="info-value">{mode ? getModeLabel(mode) : "—"}</span>
-                              </div>
-                              <div class="info-row">
-                                <span class="info-label">Max Input</span>
-                                <span class="info-value">{formatDetailTokenField(max_input_tokens)}</span>
-                              </div>
-                              <div class="info-row">
-                                <span class="info-label">Max Output</span>
-                                <span class="info-value">{formatDetailTokenField(max_output_tokens)}</span>
-                              </div>
-                              <div class="info-row">
-                                <span class="info-label">Released</span>
-                                <span class="info-value">{formatReleaseDate(item.release_date)}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <!-- Features (chat / completion models) -->
-                          {#if !isImagePricingMode(mode) && !isAudioPricingMode(mode)}
-                          <div class="detail-section">
-                            <h4 class="detail-heading">Features</h4>
-                            <div class="feature-list">
-                              {#each [
-                                { key: item.supports_function_calling, label: "Function Calling" },
-                                { key: item.supports_vision, label: "Vision" },
-                                { key: item.supports_response_schema, label: "JSON Mode" },
-                                { key: item.supports_tool_choice, label: "Tool Choice" },
-                                { key: item.supports_parallel_function_calling, label: "Parallel Calls" },
-                                { key: item.supports_audio_input, label: "Audio Input" },
-                                { key: item.supports_prompt_caching, label: "Prompt Caching" },
-                              ] as feature}
-                                <div class="feature-item" class:supported={feature.key}>
-                                  {#if feature.key}
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success-color)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                  {:else}
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-color)" stroke-width="2" stroke-linecap="round" opacity="0.4"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                  {/if}
-                                  <span>{feature.label}</span>
-                                </div>
-                              {/each}
-                            </div>
-                          </div>
-                          {/if}
-                        </div>
-
-                        <!-- Code snippet with tabs -->
-                        <div class="detail-code-section">
-                          <div class="code-header-row">
-                            <div class="code-tabs">
-                              <button
-                                class="code-tab"
-                                class:active={!codeTabStates[name] || codeTabStates[name] === "sdk"}
-                                on:click|stopPropagation={() => { codeTabStates[name] = "sdk"; codeTabStates = codeTabStates; }}
-                              >Python SDK</button>
-                              <button
-                                class="code-tab"
-                                class:active={codeTabStates[name] === "proxy"}
-                                on:click|stopPropagation={() => { codeTabStates[name] = "proxy"; codeTabStates = codeTabStates; }}
-                              >AI Gateway (Proxy)</button>
-                            </div>
-                            {#if !codeTabStates[name] || codeTabStates[name] === "sdk"}
-                              <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmSdkSnippet(mode, getDisplayModelName(name, litellm_provider)))}>
-                                {copiedModel.includes("from litellm") ? "Copied!" : "Copy"}
-                              </button>
-                            {:else}
-                              <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmProxyCurlSnippet(mode, getDisplayModelName(name, litellm_provider)))}>
-                                {copiedModel.includes("curl") ? "Copied!" : "Copy"}
-                              </button>
-                            {/if}
-                          </div>
-                          {#if !codeTabStates[name] || codeTabStates[name] === "sdk"}
-                            <pre class="code-snippet"><code>{@html getLiteLLmSdkSnippetHtml(mode, getDisplayModelName(name, litellm_provider))}</code></pre>
-                          {:else}
-                            <pre class="code-snippet"><code>{@html getLiteLLmProxyCurlSnippetHtml(mode, getDisplayModelName(name, litellm_provider))}</code></pre>
-                          {/if}
-                        </div>
-
-                        <!-- Actions -->
-                        <div class="detail-actions">
-                          <a href={getIssueUrlForFix(name)} target="_blank" rel="noopener noreferrer" class="detail-action-link" on:click|stopPropagation>
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                            Report incorrect data
-                          </a>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                {/if}
-              {/each}
-            {/if}
-          {/each}
+        <tbody class="column-sizer" aria-hidden="true" bind:this={rowsTop}>
+          <tr>
+            <td class="model-name"></td>
+            <td class="released-cell">{sizerCells[0]}</td>
+            <td class="context-cell">{sizerCells[1]}</td>
+            <td class="cost-cell">{sizerCells[2]}</td>
+            <td class="cost-cell">{sizerCells[3]}</td>
+            <td class="cost-cell td-hide-mobile">{sizerCells[4]}</td>
+            <td class="cost-cell td-hide-mobile">{sizerCells[5]}</td>
+          </tr>
         </tbody>
+        {#if rowsAbovePx > 0}
+          <tbody class="row-spacer rows-above" aria-hidden="true">
+            <tr><td colspan="7" style:height="{rowsAbovePx}px"></td></tr>
+          </tbody>
+        {/if}
+        {#each shownResults as { item }, shownIndex (item.name)}
+          {@const name = item.name}
+          {@const mode = item.mode}
+          {@const litellm_provider = item.litellm_provider}
+          {@const max_input_tokens = item.max_input_tokens}
+          {@const max_output_tokens = item.max_output_tokens}
+          <tbody
+            class="model-group"
+            class:last-group={shownStart + shownIndex === results.length - 1}
+            data-name={name}
+            use:measureRowHeight
+          >
+            <tr
+              class="model-row"
+              class:expanded={expandedRows.has(name)}
+              on:click={() => toggleRow(name)}
+            >
+              <td class="model-name">
+                <div class="model-info">
+                  <svg class="expand-icon" class:expanded={expandedRows.has(name)} width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                  <div class="provider-avatar">
+                    {#if getProviderLogo(litellm_provider)}
+                      <img 
+                        src={getProviderLogo(litellm_provider)} 
+                        alt={litellm_provider}
+                        class="provider-logo-img"
+                        on:error={(e) => {
+                          e.currentTarget.style.display = 'none';
+                          e.currentTarget.nextElementSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div class="provider-initial" style="display: none;">
+                        {getProviderInitial(litellm_provider)}
+                      </div>
+                    {:else}
+                      <div class="provider-initial">
+                        {getProviderInitial(litellm_provider)}
+                      </div>
+                    {/if}
+                  </div>
+                  <div class="model-name-group">
+                    <div class="model-title-row">
+                      {#if modelPages[name]}
+                        <a
+                          class="model-title model-page-link"
+                          href={`/models/${modelPages[name]}`}
+                          title={`${item.display_name} pricing and providers`}
+                          on:click|stopPropagation
+                        >{item.display_name}</a>
+                      {:else}
+                        <span class="model-title" title={item.display_name}>{item.display_name}</span>
+                      {/if}
+                      {#if mode}
+                        <span class="mode-badge">{getModeLabel(mode)}</span>
+                      {/if}
+                    </div>
+                    <span class="model-id" title={getDisplayModelName(name, litellm_provider)}>{getDisplayModelName(name, litellm_provider)}</span>
+                  </div>
+                  <button
+                    class="copy-button"
+                    on:click|stopPropagation={() => copyToClipboard(getDisplayModelName(name, litellm_provider))}
+                    title="Copy model name"
+                    type="button"
+                  >
+                    {#if copiedModel === getDisplayModelName(name, litellm_provider)}
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success-color)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    {:else}
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                        <rect x="4" y="4" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                        <path d="M2 6V2.5C2 1.67157 2.67157 1 3.5 1H7" stroke="currentColor" stroke-width="1.2"/>
+                      </svg>
+                    {/if}
+                  </button>
+                </div>
+              </td>
+              <td class="released-cell">{formatReleaseMonth(item.release_date)}</td>
+              <td class="context-cell">{formatContext(max_input_tokens)}</td>
+              <td class="cost-cell">{tableInputCell(item)}</td>
+              <td class="cost-cell">{tableOutputCell(item)}</td>
+              <td class="cost-cell td-hide-mobile">{tableCacheReadCell(item)}</td>
+              <td class="cost-cell td-hide-mobile">{tableCacheWriteCell(item)}</td>
+            </tr>
+            {#if expandedRows.has(name)}
+              <tr class="expanded-content" transition:fly={{ y: -10, duration: 200 }}>
+                <td colspan="7">
+                  <div class="detail-panel">
+                    <div class="detail-grid">
+                      <div class="detail-section">
+                        <h4 class="detail-heading">
+                          {#if isImagePricingMode(mode)}
+                            Image pricing <span class="detail-unit">per image where applicable</span>
+                          {:else if mode === "audio_speech"}
+                            Audio pricing <span class="detail-unit">per character where applicable</span>
+                          {:else if mode === "audio_transcription"}
+                            Audio pricing <span class="detail-unit">per second where applicable</span>
+                          {:else}
+                            Token pricing <span class="detail-unit">per 1M tokens where applicable</span>
+                          {/if}
+                        </h4>
+                        <div class="pricing-cards">
+                          <div class="pricing-card">
+                            <span class="pricing-label">Input</span>
+                            <span class="pricing-value">{tableInputCell(item)}</span>
+                          </div>
+                          <div class="pricing-card">
+                            <span class="pricing-label">Output</span>
+                            <span class="pricing-value">{tableOutputCell(item)}</span>
+                          </div>
+                          <div class="pricing-card">
+                            <span class="pricing-label">Cache read</span>
+                            <span class="pricing-value">{tableCacheReadCell(item)}</span>
+                          </div>
+                          <div class="pricing-card">
+                            <span class="pricing-label">Cache write</span>
+                            <span class="pricing-value">{tableCacheWriteCell(item)}</span>
+                          </div>
+                        </div>
+                        {#if isImagePricingMode(mode)}
+                          {@const imageExtras = getImagePricingExtraRows(item)}
+                          {#if imageExtras.length > 0}
+                            <ul class="pricing-extras">
+                              {#each imageExtras as row}
+                                <li><span class="pricing-extras-label">{row.label}</span> {row.value}</li>
+                              {/each}
+                            </ul>
+                          {/if}
+                        {/if}
+                      </div>
+
+                      <!-- Model Info -->
+                      <div class="detail-section">
+                        <h4 class="detail-heading">Model Info</h4>
+                        <div class="info-rows">
+                          <div class="info-row">
+                            <span class="info-label">Provider</span>
+                            <span class="info-value">{litellm_provider || "—"}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">Mode</span>
+                            <span class="info-value">{mode ? getModeLabel(mode) : "—"}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">Max Input</span>
+                            <span class="info-value">{formatDetailTokenField(max_input_tokens)}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">Max Output</span>
+                            <span class="info-value">{formatDetailTokenField(max_output_tokens)}</span>
+                          </div>
+                          <div class="info-row">
+                            <span class="info-label">Released</span>
+                            <span class="info-value">{formatReleaseDate(item.release_date)}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Features (chat / completion models) -->
+                      {#if !isImagePricingMode(mode) && !isAudioPricingMode(mode)}
+                      <div class="detail-section">
+                        <h4 class="detail-heading">Features</h4>
+                        <div class="feature-list">
+                          {#each [
+                            { key: item.supports_function_calling, label: "Function Calling" },
+                            { key: item.supports_vision, label: "Vision" },
+                            { key: item.supports_response_schema, label: "JSON Mode" },
+                            { key: item.supports_tool_choice, label: "Tool Choice" },
+                            { key: item.supports_parallel_function_calling, label: "Parallel Calls" },
+                            { key: item.supports_audio_input, label: "Audio Input" },
+                            { key: item.supports_prompt_caching, label: "Prompt Caching" },
+                          ] as feature}
+                            <div class="feature-item" class:supported={feature.key}>
+                              {#if feature.key}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--success-color)" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                              {:else}
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted-color)" stroke-width="2" stroke-linecap="round" opacity="0.4"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                              {/if}
+                              <span>{feature.label}</span>
+                            </div>
+                          {/each}
+                        </div>
+                      </div>
+                      {/if}
+                    </div>
+
+                    <!-- Code snippet with tabs -->
+                    <div class="detail-code-section">
+                      <div class="code-header-row">
+                        <div class="code-tabs">
+                          <button
+                            class="code-tab"
+                            class:active={!codeTabStates[name] || codeTabStates[name] === "sdk"}
+                            on:click|stopPropagation={() => { codeTabStates[name] = "sdk"; codeTabStates = codeTabStates; }}
+                          >Python SDK</button>
+                          <button
+                            class="code-tab"
+                            class:active={codeTabStates[name] === "proxy"}
+                            on:click|stopPropagation={() => { codeTabStates[name] = "proxy"; codeTabStates = codeTabStates; }}
+                          >AI Gateway (Proxy)</button>
+                        </div>
+                        {#if !codeTabStates[name] || codeTabStates[name] === "sdk"}
+                          <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmSdkSnippet(mode, getDisplayModelName(name, litellm_provider)))}>
+                            {copiedModel.includes("from litellm") ? "Copied!" : "Copy"}
+                          </button>
+                        {:else}
+                          <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmProxyCurlSnippet(mode, getDisplayModelName(name, litellm_provider)))}>
+                            {copiedModel.includes("curl") ? "Copied!" : "Copy"}
+                          </button>
+                        {/if}
+                      </div>
+                      {#if !codeTabStates[name] || codeTabStates[name] === "sdk"}
+                        <pre class="code-snippet"><code>{@html getLiteLLmSdkSnippetHtml(mode, getDisplayModelName(name, litellm_provider))}</code></pre>
+                      {:else}
+                        <pre class="code-snippet"><code>{@html getLiteLLmProxyCurlSnippetHtml(mode, getDisplayModelName(name, litellm_provider))}</code></pre>
+                      {/if}
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="detail-actions">
+                      <a href={getIssueUrlForFix(name)} target="_blank" rel="noopener noreferrer" class="detail-action-link" on:click|stopPropagation>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        Report incorrect data
+                      </a>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            {/if}
+          </tbody>
+        {/each}
+        {#if rowsBelowPx > 0}
+          <tbody class="row-spacer" aria-hidden="true">
+            <tr><td colspan="7" style:height="{rowsBelowPx}px"></td></tr>
+          </tbody>
+        {/if}
       </table>
     </div>
-    {#if shownBatchCount < resultBatches.length}
-      <div class="rows-sentinel" use:nearViewport={showMoreRows}></div>
-    {/if}
   {/if}
 </main>
 
@@ -1264,7 +1360,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     box-shadow: inset 3px 0 0 var(--litellm-primary);
   }
   tbody tr.model-row.expanded { background-color: var(--bg-secondary); }
-  tbody tr.model-row:last-child { border-bottom: none; }
+  tbody.last-group tr.model-row:last-child { border-bottom: none; }
+  .column-sizer tr { visibility: collapse; }
+  .row-spacer td { padding: 0; border: none; }
+  .rows-above tr { border-bottom: 1px solid var(--border-color); }
 
   tbody tr.expanded-content { border-bottom: 1px solid var(--border-color); }
   tbody tr.expanded-content td { padding: 0; }
