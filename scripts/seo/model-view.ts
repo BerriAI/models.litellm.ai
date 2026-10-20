@@ -20,6 +20,7 @@ export type RowView = {
   outlier: boolean;
   firstParty: boolean;
   standard: boolean;
+  fineTuned: boolean;
   context?: number;
   maxOutput?: number;
   deprecation?: string;
@@ -249,6 +250,7 @@ export function buildModelView(
       outlier: false,
       firstParty: FIRST_PARTY_PROVIDERS.has(m.provider) && isLabProvider(m.provider, lab),
       standard: isStandard(m),
+      fineTuned: Boolean(m.flags.fineTune),
       context: intOf(m.row.max_input_tokens) ?? intOf(m.row.max_tokens),
       maxOutput: intOf(m.row.max_output_tokens),
       deprecation,
@@ -289,8 +291,9 @@ export function buildModelView(
   const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
   // The prose quotes this range, so it comes from the same rows the table renders (regional and
-  // GovCloud rows included); only flagged outliers stay out, and the table marks those.
-  const priced = rows.filter((r) => r.metric && !r.outlier && r.metric.unit === headline?.metric?.unit);
+  // GovCloud rows included). Flagged outliers and fine-tuned models, a product of their own, stay out,
+  // and the table marks both.
+  const priced = rows.filter((r) => r.metric && !r.outlier && !r.fineTuned && r.metric.unit === headline?.metric?.unit);
   let range: ModelView["range"];
   if (new Set(priced.map((r) => r.providerName)).size > 1) {
     const sorted = [...priced].sort((a, b) => a.metric!.value - b.metric!.value);

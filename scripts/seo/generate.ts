@@ -26,14 +26,14 @@ import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides }
 import { calculatorBody, type CalcModel } from "./html";
 import { CALC_JS } from "./calculator";
 import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type NewModelRow, type RankRow } from "./html";
-import { buildRankings, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
+import { buildRankings, indexableRanking, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
 import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, type IndexRow } from "./html";
 import { toolBody, toolData, TOOL_JS } from "./compare-tool";
 import { benchRows, cheapestRow, comparable, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
 import { benchmarksFor, loadBenchmarks, type BenchmarkData } from "./benchmarks";
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
-import { fetchText } from "./fetch";
+import { fetchBytes, fetchText } from "./fetch";
 import { cookbookPage, guardrailsPage, homePage, providersPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
@@ -413,7 +413,7 @@ ${cheapestOnProvider(h.name, list)}
 
   // Comparison pages, their hub and sitemap.
   const benchData: BenchmarkData | null = await loadBenchmarks(async (url) =>
-    process.env.EPOCH_FILE ? new Uint8Array(readFileSync(process.env.EPOCH_FILE)) : new Uint8Array(await (await fetch(url, { signal: AbortSignal.timeout(30_000) })).arrayBuffer()),
+    process.env.EPOCH_FILE ? new Uint8Array(readFileSync(process.env.EPOCH_FILE)) : fetchBytes(url),
   );
   const benchFor = (v: ModelView) =>
     benchmarksFor(
@@ -529,7 +529,8 @@ ${cheapestOnProvider(h.name, list)}
   );
 
   // Rankings: lists sorted by one fact (price or context window), never by quality.
-  const rankings = buildRankings(views, families);
+  const rankings = buildRankings(views, families, new Set(previous?.rankings ?? []));
+  manifest.rankings = rankings.map((r) => r.slug);
   const rankingEntries: SitemapEntry[] = [];
   const rankRows = (r: Ranking): RankRow[] =>
     r.items.map((x, i) => ({
@@ -562,6 +563,7 @@ ${cheapestOnProvider(h.name, list)}
         body: rankingBody({ title, h1, answer, method: r.method, measure: r.measure, rows, others, updated: BUILD_DATE, slug: r.slug }),
         jsonLd: listGraph(path, title, description, BUILD_DATE, [{ name: "Rankings", path: "/rankings" }, { name: h1, path }], r.items.map((x) => ({ name: x.view.name, path: modelPath(x.view.slug) }))),
         markdownPath: `${path}.md`,
+        noindex: !indexableRanking(r),
         image: writeCard(OUT, "pages", `ranking-${r.slug}`, {
           kicker: "Ranking",
           title: h1,
@@ -571,7 +573,7 @@ ${cheapestOnProvider(h.name, list)}
       }),
     );
     write(`rankings/${r.slug}.md`, rankingMarkdown({ h1, answer, method: r.method, measure: r.measure, path, rows }));
-    rankingEntries.push({ path, lastmod: BUILD_DATE });
+    if (indexableRanking(r)) rankingEntries.push({ path, lastmod: BUILD_DATE });
   }
   const rankingsTitle = "AI Model Rankings by Price and Context Window | LiteLLM";
   const rankingsDescription = `${rankings.length} lists of AI models sorted by price or context window, from LiteLLM's price file. None rank by quality.`;
@@ -642,9 +644,9 @@ ${cheapestOnProvider(h.name, list)}
     ),
   );
 
-  // Cost calculator for every model priced per input and output token.
+  // Cost calculator for every model still sold and priced per input and output token.
   const calcModels: CalcModel[] = views
-    .filter((v) => v.status === "active" && v.headline && leadsWithTokens(v.headline.mode, v.headline.prices, v.headline.metric) && (v.headline.prices.input ?? 0) > 0 && (v.headline.prices.output ?? 0) > 0)
+    .filter((v) => v.status !== "retired" && v.headline && leadsWithTokens(v.headline.mode, v.headline.prices, v.headline.metric) && (v.headline.prices.input ?? 0) > 0 && (v.headline.prices.output ?? 0) > 0)
     .sort((a, b) => b.providers.length - a.providers.length || a.name.localeCompare(b.name))
     .map((v) => ({
       slug: v.slug,

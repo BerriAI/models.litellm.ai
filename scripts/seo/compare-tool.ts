@@ -4,7 +4,7 @@
  * and Epoch's data, so it never goes stale. The page is noindex: the reviewed /compare/<a>-vs-<b> pages are the
  * ones meant for search, and the tool links to one when the picked pair has it.
  */
-import { comparable, cheapestRow, compareSlug } from "./compare";
+import { cheapestRow, compareSlug, priced } from "./compare";
 import type { ModelBenchmarks } from "./benchmarks";
 import type { ModelView } from "./model-view";
 import { longDate } from "./format";
@@ -48,7 +48,7 @@ export function toolData(
   const models: Record<string, ToolModel> = {};
   const benchDates: string[] = [];
   for (const v of views
-    .filter(comparable)
+    .filter((v) => v.status !== "retired" && priced(v))
     .sort(
       (a, b) =>
         b.providers.length - a.providers.length || a.name.localeCompare(b.name),

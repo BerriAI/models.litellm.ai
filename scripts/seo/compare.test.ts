@@ -235,6 +235,33 @@ describe("pair selection", () => {
     ).not.toContain(slug);
   });
 
+  test("a reviewed pair is built, reviewed and indexed while a model in it is deprecated", () => {
+    const vs = views({
+      ...COST_MAP,
+      "claude-opus-5": chat("anthropic", 5, 25, 1_000_000, {
+        deprecation_date: "2027-01-01",
+      }),
+    });
+    const slug = "claude-opus-5-vs-gpt-6-astra";
+    const overrides = {
+      families,
+      compare: { pairs: [["gpt-6-astra", "claude-opus-5", "flagship"]] },
+    } as Overrides;
+    const prev = {
+      [slug]: { firstSeen: "2026-09-25", kind: "flagship" as const },
+    };
+    const kept = selectPairs(vs, overrides, prev, "2026-10-20").pairs.find(
+      (p) => p.slug === slug,
+    );
+    expect(kept?.reviewed).toBe(true);
+    expect(indexable(kept!)).toBe(true);
+    expect(indexable({ ...kept!, reviewed: false })).toBe(false);
+    const fresh = selectPairs(vs, overrides, {}, "2026-10-20").pairs.find(
+      (p) => p.slug === slug,
+    );
+    expect(fresh?.reviewed).toBe(true);
+  });
+
   test("a published pair with a retired model stays up but is not indexed", () => {
     const slug = "gemini-2.0-flash-vs-gemini-3.8-flash";
     const prev = {
@@ -506,6 +533,19 @@ describe("comparison tool data", () => {
     // Retired models can't be picked.
     expect(models["gemini-2.0-flash"]).toBeUndefined();
     expect(pairs).toEqual(["claude-opus-5-5-vs-gpt-6-astra"]);
+  });
+
+  test("a model with a shutdown date can still be picked until it retires", () => {
+    const vs = views({
+      ...COST_MAP,
+      "claude-opus-5": chat("anthropic", 5, 25, 1_000_000, {
+        deprecation_date: "2027-01-01",
+      }),
+    });
+    expect(bySlug(vs, "claude-opus-5").status).toBe("deprecated");
+    expect(
+      toolData(vs, () => null, new Set()).models["claude-opus-5"],
+    ).toMatchObject({ in: 5, out: 25 });
   });
 });
 

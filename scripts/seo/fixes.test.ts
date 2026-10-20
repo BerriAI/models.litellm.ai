@@ -15,8 +15,8 @@ import {
   type CostMap,
   type Overrides,
 } from "./group";
-import { fetchText as fetchWithRetry } from "./fetch";
-import { calculatorBody, modelBody } from "./html";
+import { fetchBytes, fetchText as fetchWithRetry } from "./fetch";
+import { calcSection, calculatorBody, modelBody } from "./html";
 import { modelMarkdown } from "./markdown";
 import { buildModelView, modelStatus } from "./model-view";
 
@@ -73,6 +73,20 @@ describe("price range prose", () => {
     const copy = pageCopy(v, "2026-10-20");
     expect(copy.answer).toContain("ranges from $4.00 to $4.80");
     const html = `<p>${copy.answer}</p>${modelBody(v, copy, ctx)}`;
+    expect(rangeMismatch(html)).toBeNull();
+  });
+
+  test("fine-tuned listings are in the table but not in the quoted range", () => {
+    const tuned: CostMap = {
+      "o4-mini": chat("openai", 1.1, 4.4),
+      "azure/o4-mini": chat("azure", 1, 4),
+      "ft:o4-mini-2025-04-16": chat("openai", 4, 16),
+    };
+    const v = view(tuned, "o-4-mini");
+    const copy = pageCopy(v, "2026-10-20");
+    expect(copy.answer).toContain("ranges from $1.00 to $1.10");
+    const html = `<p>${copy.answer}</p>${modelBody(v, copy, ctx)}`;
+    expect(html).toContain("ft:o4-mini-2025-04-16");
     expect(rangeMismatch(html)).toBeNull();
   });
 
@@ -383,6 +397,28 @@ describe("calculator", () => {
   });
 });
 
+describe("model page calculator", () => {
+  const costMap: CostMap = {
+    "claude-sonnet-4-5": chat("anthropic", 3, 15, {
+      deprecation_date: "2026-11-30",
+    }),
+    "claude-sonnet-3-7": chat("anthropic", 3, 15, {
+      deprecation_date: "2026-02-19",
+    }),
+  };
+
+  test("links /calculator for a model still sold, not for a retired one", () => {
+    const sold = view(costMap, "claude-sonnet-4-5");
+    expect(sold.status).toBe("deprecated");
+    expect(calcSection(sold)).toContain(
+      'href="/calculator?model=claude-sonnet-4-5"',
+    );
+    const retired = view(costMap, "claude-sonnet-3-7");
+    expect(retired.status).toBe("retired");
+    expect(calcSection(retired)).not.toContain("/calculator");
+  });
+});
+
 describe("build-time fetch", () => {
   const responder = (replies: (number | Error)[]) => {
     const calls: string[] = [];
@@ -429,5 +465,15 @@ describe("build-time fetch", () => {
       }),
     ).rejects.toThrow("responded 404");
     expect(missing.calls).toHaveLength(1);
+  });
+
+  test("binary downloads retry the same way", async () => {
+    const { calls, fetchFn } = responder([503, 200]);
+    const bytes = await fetchBytes("https://example.com/a.zip", {
+      fetchFn,
+      sleep,
+    });
+    expect(new TextDecoder().decode(bytes)).toBe("ok");
+    expect(calls).toHaveLength(2);
   });
 });

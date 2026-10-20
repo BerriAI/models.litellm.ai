@@ -219,7 +219,7 @@ function priceTable(v: ModelView, rows: RowView[], cols: Col[], hubs: Set<string
         .join("");
       const flag = r.outlier ? ` <span class="flag" title="Differs from other providers by more than 8x; check the provider's pricing page">†</span>` : "";
       const q = r.qualifier ? `<span class="q">${esc(r.qualifier)}</span>` : "";
-      return `<tr${r === v.headline ? ' class="hl"' : ""}><td class="p">${providerLink(r.hub, r.providerName, hubs)}${flag}${q}</td><td><code>${esc(r.modelString)}</code></td>${cells}<td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`;
+      return `<tr${r === v.headline ? ' class="hl"' : ""}${r.fineTuned ? " data-fine-tuned" : ""}><td class="p">${providerLink(r.hub, r.providerName, hubs)}${flag}${q}</td><td><code>${esc(r.modelString)}</code></td>${cells}<td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`;
     })
     .join("");
   return `<div class="tbl"><table><caption>${esc(caption)}</caption><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
@@ -651,7 +651,7 @@ export function calcSection(v: ModelView): string {
   const d = CALC_DEFAULTS;
   const result = calcCost(h.prices.input, h.prices.output, d.input, d.output, d.requests);
   return `<section id="calculator"><h2>${esc(v.name)} cost calculator</h2>
-<p>At ${esc(h.providerName)}'s price (${usd(h.prices.input)} input, ${usd(h.prices.output)} output per 1M tokens), ${int(d.requests)} requests a day with ${int(d.input)} input and ${int(d.output)} output tokens each cost ${calcMoney(result.perDay)} a day, about ${calcMoney(result.perMonth)} a month. Change the numbers for your workload, or <a href="/calculator?model=${encodeURIComponent(v.slug)}">compare it with other models</a>.</p>
+<p>At ${esc(h.providerName)}'s price (${usd(h.prices.input)} input, ${usd(h.prices.output)} output per 1M tokens), ${int(d.requests)} requests a day with ${int(d.input)} input and ${int(d.output)} output tokens each cost ${calcMoney(result.perDay)} a day, about ${calcMoney(result.perMonth)} a month. Change the numbers for your workload${v.status === "retired" ? "." : `, or <a href="/calculator?model=${encodeURIComponent(v.slug)}">compare it with other models</a>.`}</p>
 ${calcForm("model", v.slug, result)}</section>`;
 }
 

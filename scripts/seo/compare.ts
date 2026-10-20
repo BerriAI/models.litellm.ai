@@ -3,11 +3,12 @@
  * sentence on it, computed from the price file. Nothing is typed per page.
  *
  * Pairs come from two places. `overrides.json` `compare.pairs` lists reviewed
- * pairs; they are always built. The build also adds pairs on its own so new
- * models get compared on launch day: a model's predecessor in its family, and
- * for models added in the last 45 days, the two closest models from other labs.
- * New automatic pairs are released in weekly waves (`WEEKLY_CAP`), tracked in
- * the manifest, so pages arrive gradually instead of all at once.
+ * pairs; they are built whenever both models are priced. The build also adds
+ * pairs on its own so new models get compared soon after launch: a model's
+ * predecessor in its family, and for models added in the last 45 days, the two
+ * closest models from other labs. New pages are released in weekly waves
+ * (`WEEKLY_CAP`, reviewed pairs counted first), tracked in the manifest, so
+ * pages arrive gradually instead of all at once.
  */
 import { usd, int, tokensShort, longDate } from "./format";
 import type { Overrides } from "./group";
@@ -210,7 +211,7 @@ export function selectPairs(
     kept = false,
   ) => {
     const slug = compareSlug(a.slug, b.slug);
-    const fits = kept ? priced : comparable;
+    const fits = reviewed || kept ? priced : comparable;
     if (pairs.has(slug) || a === b || !fits(a) || !fits(b)) return false;
     const [first, second] = a.slug < b.slug ? [a, b] : [b, a];
     pairs.set(slug, { slug, a: first, b: second, kind, reviewed });

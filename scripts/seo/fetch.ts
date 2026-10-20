@@ -7,16 +7,27 @@ export type FetchTextOptions = {
   sleep?: (ms: number) => Promise<void>;
 };
 
-type Outcome = { text: string } | { status: number } | { error: unknown };
+type Outcome<T> = { body: T } | { status: number } | { error: unknown };
 
 const retryable = (status: number) => status === 429 || status >= 500;
 const wait = (ms: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, ms));
 
-export async function fetchText(
+export const fetchText = (url: string, options: FetchTextOptions = {}) =>
+  fetchBody(url, (res) => res.text(), options);
+
+export const fetchBytes = (url: string, options: FetchTextOptions = {}) =>
+  fetchBody(
+    url,
+    async (res) => new Uint8Array(await res.arrayBuffer()),
+    options,
+  );
+
+async function fetchBody<T>(
   url: string,
-  options: FetchTextOptions = {},
-): Promise<string> {
+  read: (res: Response) => Promise<T>,
+  options: FetchTextOptions,
+): Promise<T> {
   const {
     timeoutMs = 30_000,
     attempts = 3,
@@ -25,15 +36,15 @@ export async function fetchText(
     sleep = wait,
   } = options;
   for (let attempt = 1; ; attempt++) {
-    const outcome: Outcome = await fetchFn(url, {
+    const outcome: Outcome<T> = await fetchFn(url, {
       signal: AbortSignal.timeout(timeoutMs),
     })
       .then(
-        async (res): Promise<Outcome> =>
-          res.ok ? { text: await res.text() } : { status: res.status },
+        async (res): Promise<Outcome<T>> =>
+          res.ok ? { body: await read(res) } : { status: res.status },
       )
       .catch((error: unknown) => ({ error }));
-    if ("text" in outcome) return outcome.text;
+    if ("body" in outcome) return outcome.body;
     const failure =
       "status" in outcome
         ? new Error(`${url} responded ${outcome.status}`)

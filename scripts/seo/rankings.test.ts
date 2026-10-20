@@ -10,6 +10,7 @@ import { buildModelView, type ModelView } from "./model-view";
 import {
   blended,
   buildRankings,
+  indexableRanking,
   rankingAnswer,
   rankingTitle,
 } from "./rankings";
@@ -116,6 +117,29 @@ describe("rankings", () => {
     expect(
       rankingAnswer(get("cheapest-chat-models"), "October 20, 2026"),
     ).not.toContain("introductory");
+  });
+
+  test("a published family list keeps its page with fewer than three models, but is not indexed", () => {
+    const families = { mixed: "^(gpt-cheap|mistral-cheap|acme-open)-1$" };
+    const slug = "cheapest-mixed";
+    const fresh = buildRankings(views(), families).find((r) => r.slug === slug);
+    expect(fresh && indexableRanking(fresh)).toBe(true);
+    const fewer = views().filter((v) => v.slug !== "acme-open-1");
+    expect(buildRankings(fewer, families).map((r) => r.slug)).not.toContain(
+      slug,
+    );
+    const kept = buildRankings(fewer, families, new Set([slug])).find(
+      (r) => r.slug === slug,
+    );
+    expect(kept?.items.map((x) => x.view.slug)).toEqual([
+      "gpt-cheap-1",
+      "mistral-cheap-1",
+    ]);
+    expect(indexableRanking(kept!)).toBe(false);
+    const none = fewer.filter((v) => !new RegExp(families.mixed).test(v.slug));
+    expect(
+      buildRankings(none, families, new Set([slug])).map((r) => r.slug),
+    ).not.toContain(slug);
   });
 
   test("titles name the measure and the month, never a quality claim", () => {

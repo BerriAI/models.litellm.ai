@@ -78,7 +78,7 @@ export function modelMarkdown(
     lines.push(
       "## Cost calculator",
       "",
-      `${d.requests.toLocaleString("en-US")} requests a day with ${d.input.toLocaleString("en-US")} input and ${d.output.toLocaleString("en-US")} output tokens each, at ${h.providerName}'s price: ${calcMoney(r.perRequest)} per request, ${calcMoney(r.perDay)} per day, ${calcMoney(r.perMonth)} per month (30 days). Try other numbers at ${abs(`/calculator?model=${v.slug}`)}`,
+      `${d.requests.toLocaleString("en-US")} requests a day with ${d.input.toLocaleString("en-US")} input and ${d.output.toLocaleString("en-US")} output tokens each, at ${h.providerName}'s price: ${calcMoney(r.perRequest)} per request, ${calcMoney(r.perDay)} per day, ${calcMoney(r.perMonth)} per month (30 days).${v.status === "retired" ? "" : ` Try other numbers at ${abs(`/calculator?model=${v.slug}`)}`}`,
       "",
     );
   }

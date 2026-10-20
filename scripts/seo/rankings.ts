@@ -94,9 +94,15 @@ function underPrice(cap: number, pool: ModelView[]): Ranking {
   };
 }
 
+const MIN_ITEMS = 3;
+
+/** A ranking published with fewer models than a new one needs is kept for its URL, but not indexed. */
+export const indexableRanking = (r: Ranking) => r.items.length >= MIN_ITEMS;
+
 export function buildRankings(
   views: ModelView[],
   families: Record<string, string>,
+  published: ReadonlySet<string> = new Set(),
 ): Ranking[] {
   const pool = views.filter(rankable);
   const out: Ranking[] = [
@@ -175,7 +181,8 @@ export function buildRankings(
   for (const [family, list] of [...byFamily.entries()].sort((a, b) =>
     a[0].localeCompare(b[0]),
   )) {
-    if (list.length < 3) continue;
+    if (list.length < MIN_ITEMS && !published.has(`cheapest-${family}`))
+      continue;
     const name = familyLabel(family);
     out.push(
       cheapest(
@@ -187,7 +194,9 @@ export function buildRankings(
       ),
     );
   }
-  return out.filter((r) => r.items.length >= 3);
+  return out.filter(
+    (r) => indexableRanking(r) || (published.has(r.slug) && r.items.length > 0),
+  );
 }
 
 /** "claude-opus" -> "Claude Opus", "gpt-sol" -> "GPT Sol". */

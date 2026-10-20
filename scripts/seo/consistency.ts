@@ -36,9 +36,10 @@ export function rangeMismatch(html: string): string | null {
     return "quotes a price range but the table has no matching price column";
   const values: number[] = [];
   for (const body of section.matchAll(/<tbody>([\s\S]*?)<\/tbody>/g)) {
-    for (const row of body[1].matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)) {
-      if (row[1].includes('class="flag"')) continue; // outliers are marked and kept out of the range
-      const cell = [...row[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)][col];
+    for (const row of body[1].matchAll(/<tr([^>]*)>([\s\S]*?)<\/tr>/g)) {
+      if (row[1].includes("data-fine-tuned")) continue;
+      if (row[2].includes('class="flag"')) continue; // outliers are marked and kept out of the range
+      const cell = [...row[2].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)][col];
       const text = cell ? strip(cell[1]) : "";
       if (text.startsWith("$")) values.push(money(text));
     }
