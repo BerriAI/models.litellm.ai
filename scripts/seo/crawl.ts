@@ -55,6 +55,8 @@ export function llmsTxt(
     "## Overview",
     "",
     `- [All models](${SITE_URL}/models): every model with its headline price, grouped by lab`,
+    `- [Rankings](${SITE_URL}/rankings): models sorted by price or context window (never by quality)`,
+    `- [New models](${SITE_URL}/new-models): models added to LiteLLM, by month, with an RSS feed at ${SITE_URL}/new-models.xml`,
     ...(limit ? [`- [Full model list](${SITE_URL}/llms-full.txt): all ${models.length.toLocaleString("en-US")} models with prices, as plain text`] : []),
     `- [Price file on GitHub](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json): the raw data, updated several times a day`,
     `- [LiteLLM docs](https://docs.litellm.ai): the SDK and AI gateway that use these prices for cost tracking`,
@@ -78,4 +80,26 @@ export function llmsTxt(
     "",
   ];
   return lines.join("\n");
+}
+
+/** RSS 2.0 feed of newly added models. */
+export function rssFeed(title: string, link: string, description: string, items: { title: string; link: string; description: string; date: string }[]): string {
+  const rfc = (d: string) => new Date(`${d.length === 10 ? d : `${d}-01`}T00:00:00Z`).toUTCString();
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+<channel>
+<title>${xmlEscape(title)}</title>
+<link>${xmlEscape(link)}</link>
+<atom:link href="${xmlEscape(abs("/new-models.xml"))}" rel="self" type="application/rss+xml"/>
+<description>${xmlEscape(description)}</description>
+<language>en</language>
+${items
+  .map(
+    (i) =>
+      `<item><title>${xmlEscape(i.title)}</title><link>${xmlEscape(i.link)}</link><guid isPermaLink="true">${xmlEscape(i.link)}</guid><pubDate>${rfc(i.date)}</pubDate><description>${xmlEscape(i.description)}</description></item>`,
+  )
+  .join("\n")}
+</channel>
+</rss>
+`;
 }

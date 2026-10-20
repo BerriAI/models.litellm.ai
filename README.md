@@ -22,6 +22,8 @@ The generator writes:
 | `/models/<model-id>` | One page per model, grouping every provider's listing of it, with prices, context window, features, code samples, FAQ and JSON-LD |
 | `/compare/<a>-vs-<b>` | Two models side by side: answer line, prices, features, cheapest provider for each, Epoch AI benchmark scores, "when to pick" from real differences, code, FAQ; markdown copy at `.md`. Model slugs in alphabetical order; the reverse order redirects |
 | `/compare` | Every comparison, grouped by kind |
+| `/rankings/<slug>`, `/rankings` | Models sorted by one fact: blended price (3 input : 1 output), context window, or provider count for the price-capped lists. Never by quality; each page states its method |
+| `/new-models/<yyyy-mm>`, `/new-models`, `/new-models.xml` | Models added to the price file each month, from each model's date added, plus an RSS feed of the latest 50 |
 | `/models/<model-id>.md` | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts` |
 | `/models` | Every active model, grouped by lab with a jump menu, newest first within each lab |
 | `/providers/<provider>` | Every model one provider sells, at that provider's price |
@@ -49,6 +51,12 @@ npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home
 Benchmark scores come from [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks) (CC BY 4.0, credited on every page), downloaded at build time by `scripts/seo/benchmarks.ts`. Only Epoch's own runs and its Capabilities Index are used, never the hub's third-party `*_external.csv` files. Scores match a model only when Epoch's model id (before the `_<setting>` suffix) equals one of the page's ids; anything else is left out. A comparison shows only benchmarks both models have, at each model's best reported setting. If the download fails, pages are built without scores. `EPOCH_FILE` reads the zip from disk.
 
 A retired model with a newer active model in its family becomes a redirect to it (an instant refresh plus a canonical, which search engines treat as permanent); the list is in `/compare/redirects.json`.
+
+## Rankings and new models
+
+`scripts/seo/rankings.ts` builds every ranking from the price file. A model qualifies when it's active, priced, has a 32K-token context window or more, and is offered by at least two providers or by its own lab, which keeps one-off resale variants off the top. Lists sort by blended price at the headline price, except the context ranking (largest first) and the "under $1/$5" lists (most providers first, so they don't repeat the cheapest list). There's one list per model family with three or more qualifying models, and each provider page has its own "cheapest chat models on <provider>" section at that provider's prices. Rankings never use benchmark scores.
+
+`/new-models` groups models by the month they were added (from `added-dates.json` for older models and the manifest for new ones), so its history goes back to 2023.
 
 ## Model grouping
 

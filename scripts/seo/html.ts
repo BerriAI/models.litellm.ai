@@ -329,7 +329,7 @@ function keyStats(v: ModelView): Stat[] {
   if (cacheRead !== undefined && !v.free) stats.push({ label: "Cache read", value: `${usd(cacheRead)} <small>/ 1M</small>` });
   if (v.context) stats.push({ label: "Context", value: `${tokensShort(v.context)} <small>tokens</small>` });
   if (v.maxOutput) stats.push({ label: "Max output", value: `${tokensShort(v.maxOutput)} <small>tokens</small>` });
-  if (v.addedDate) stats.push({ label: "Added", value: `<time datetime="${v.addedDate}">${v.addedDate.length === 10 ? shortDate(v.addedDate) : longDate(v.addedDate)}</time>` });
+  if (v.addedDate) stats.push({ label: "Added", value: `<a href="/new-models/${v.addedDate.slice(0, 7)}"><time datetime="${v.addedDate}">${v.addedDate.length === 10 ? shortDate(v.addedDate) : longDate(v.addedDate)}</time></a>` });
   return stats;
 }
 
@@ -564,4 +564,59 @@ export function redirectPage(to: string, title: string, message: string): string
 <body><p>${esc(message)} <a href="${esc(to)}">Continue to ${esc(url)}</a>.</p></body>
 </html>
 `;
+}
+
+// ---- Rankings and the new-models log --------------------------------------------------------------------
+
+export type RankRow = { rank: number; slug: string; name: string; lab: string | null; display: string; price: string | null; context?: number; providers: number; seller: string };
+
+export function rankingBody(r: { title: string; h1: string; answer: string; method: string; measure: string; rows: RankRow[]; others: { slug: string; title: string }[]; updated: string; slug: string }): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/rankings">Rankings</a><span>›</span><span>${esc(r.h1)}</span></nav>
+<h1>${esc(r.h1)}</h1>
+<p class="answer">${esc(r.answer)}</p>
+<div class="meta"><span>Updated <time datetime="${r.updated}">${longDate(r.updated)}</time></span><span>Sorted by ${esc(r.measure.toLowerCase())} only, not by quality</span></div></div>
+<section id="ranking"><h2>Top ${r.rows.length}</h2><p class="note">${esc(r.method)}</p><div class="tbl" data-track="ranking-table" data-page-kind="ranking" data-page-id="${r.slug}"><table><thead><tr><th class="n">#</th><th>Model</th><th>Lab</th><th class="n">${esc(r.measure)}</th><th>Price per 1M (in / out)</th><th class="n">Context</th><th class="n">Providers</th><th>Price from</th></tr></thead><tbody>${r.rows
+    .map(
+      (x) =>
+        `<tr><td class="n">${x.rank}</td><td><a href="${modelPath(x.slug)}">${esc(x.name)}</a></td><td>${esc(x.lab ?? "–")}</td><td class="n">${esc(x.display)}</td><td class="pr">${esc(x.price ?? "–")}</td><td class="n">${x.context ? tokensShort(x.context) : "–"}</td><td class="n">${x.providers}</td><td>${esc(x.seller)}</td></tr>`,
+    )
+    .join("")}</tbody></table></div></section>
+<section id="more"><h2>More rankings</h2><ul class="links">${r.others.map((o) => `<li><a href="/rankings/${o.slug}">${esc(o.title)}</a></li>`).join("")}<li><a href="/rankings">All rankings</a></li><li><a href="/compare">Model comparisons</a></li></ul></section>`;
+}
+
+export function rankingHubBody(items: { slug: string; title: string; note: string }[], updated: string): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Rankings</span></nav>
+<h1>AI model rankings by price and context window</h1>
+<p class="answer">As of ${longDate(updated)}, ${items.length} lists of AI models sorted by price or context window, from LiteLLM's price file. Each list says how it's sorted and what it leaves out. None of them rank by quality.</p></div>
+<section><h2>All rankings</h2><ul class="links">${items.map((i) => `<li><a href="/rankings/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`;
+}
+
+export type NewModelRow = { slug: string; name: string; lab: string | null; date: string; price: string | null; context?: number; providers: number; status: string };
+
+const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
+
+export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[]): string {
+  const i = months.findIndex((m) => m.ym === ym);
+  const newer = months[i - 1];
+  const older = months[i + 1];
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/new-models">New models</a><span>›</span><span>${esc(monthName(ym))}</span></nav>
+<h1>New AI models in ${esc(monthName(ym))}</h1>
+<p class="answer">${rows.length} ${rows.length === 1 ? "model was" : "models were"} added to LiteLLM's price file in ${esc(monthName(ym))}, newest first, with each one's headline price and context window.</p></div>
+<section><div class="tbl" data-track="new-models-table" data-page-kind="new-models" data-page-id="${ym}"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th><th class="n">Providers</th></tr></thead><tbody>${rows
+    .map(
+      (r) =>
+        `<tr><td>${r.date.length === 10 ? `<time datetime="${r.date}">${shortDate(r.date)}</time>` : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a>${r.status === "active" ? "" : ` <span class="pill">${esc(r.status)}</span>`}</td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td></tr>`,
+    )
+    .join("")}</tbody></table></div></section>
+<nav class="jump" aria-label="Other months">${newer ? `<a href="/new-models/${newer.ym}">← ${esc(monthName(newer.ym))}</a>` : ""}<a href="/new-models">All months</a>${older ? `<a href="/new-models/${older.ym}">${esc(monthName(older.ym))} →</a>` : ""}<a href="/new-models.xml">RSS feed</a></nav>`;
+}
+
+export function newModelsHubBody(latest: NewModelRow[], months: { ym: string; count: number }[], updated: string): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>New models</span></nav>
+<h1>New AI models on LiteLLM</h1>
+<p class="answer">As of ${longDate(updated)}, the ${latest.length} models most recently added to LiteLLM's price file, with their prices on the day. Every month has its own page, and there's an <a href="/new-models.xml">RSS feed</a>.</p></div>
+<section><h2>Latest additions</h2><div class="tbl"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${latest
+    .map((r) => `<tr><td>${r.date.length === 10 ? shortDate(r.date) : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`)
+    .join("")}</tbody></table></div></section>
+<section><h2>By month</h2><ul class="links">${months.map((m) => `<li><a href="/new-models/${m.ym}">${esc(monthName(m.ym))}<span>${m.count} ${m.count === 1 ? "model" : "models"}</span></a></li>`).join("")}</ul></section>`;
 }

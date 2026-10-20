@@ -40,7 +40,17 @@ const APP_PAGES: [string, string][] = [
   ["guardrails.html", "/guardrails"],
 ];
 const pages: [string, string][] = [
-  ...[...htmlFiles("models"), ...htmlFiles("providers"), ...htmlFiles("compare"), "models.html", "compare.html"].map((rel): [string, string] => [
+  ...[
+    ...htmlFiles("models"),
+    ...htmlFiles("providers"),
+    ...htmlFiles("compare"),
+    ...htmlFiles("rankings"),
+    ...htmlFiles("new-models"),
+    "models.html",
+    "compare.html",
+    "rankings.html",
+    "new-models.html",
+  ].map((rel): [string, string] => [
     rel,
     `/${rel.replace(/\.html$/, "")}`,
   ]),
@@ -117,7 +127,7 @@ for (const slug of new Set(Object.values(slugs))) {
   if (!existsSync(path.join(OUT, "models", `${slug}.md`))) errors.push(`missing markdown copy for ${slug}`);
 }
 
-for (const map of ["sitemaps/pages.xml", "sitemaps/models.xml", "sitemaps/providers.xml", "sitemaps/compare.xml"]) {
+for (const map of ["sitemaps/pages.xml", "sitemaps/models.xml", "sitemaps/providers.xml", "sitemaps/compare.xml", "sitemaps/rankings.xml", "sitemaps/new-models.xml"]) {
   const xml = readFileSync(path.join(OUT, map), "utf8");
   for (const m of xml.matchAll(/<loc>([^<]*)<\/loc>/g)) {
     if (!m[1].startsWith(SITE_URL) || !fileFor(m[1].slice(SITE_URL.length) || "/")) errors.push(`${map}: ${m[1]} has no page`);

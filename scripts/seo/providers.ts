@@ -152,7 +152,7 @@ const LAB_RULES: [RegExp, string][] = [
   [/^(gemini|gemma|imagen|veo|nano-banana|chirp|lyria|learnlm|text-embedding-00|text-multilingual-embedding|multimodalembedding)/, "Google"],
   [/^llama/, "Meta"],
   // The price file lists these under the `meta` provider (Meta Model API).
-  [/^muse-(spark|wonder|voice)/, "Meta"],
+  [/^muse-(spark|wonder|voice|image)/, "Meta"],
   [/^(mistral|mixtral|codestral|ministral|pixtral|magistral|devstral|voxtral|open-mistral|open-mixtral)/, "Mistral AI"],
   [/^deepseek/, "DeepSeek"],
   [/^(qwen|qwq)/, "Alibaba"],

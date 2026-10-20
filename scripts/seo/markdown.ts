@@ -9,7 +9,7 @@ import { int, longDate, tokensShort, usd } from "./format";
 import type { ModelView } from "./model-view";
 import { PRICE_FILE_URL, abs, modelPath } from "./site";
 import { comparePath } from "./compare";
-import type { CompareView } from "./html";
+import type { CompareView, NewModelRow, RankRow } from "./html";
 
 const cell = (n: number | undefined) => (n === undefined ? "–" : usd(n));
 const pipe = (s: string) => s.replace(/\|/g, "\\|");
@@ -96,4 +96,18 @@ export function compareMarkdown(c: CompareView): string {
   lines.push("## FAQ", "");
   for (const f of copy.faq) lines.push(`### ${f.q}`, "", f.a, "");
   return lines.join("\n");
+}
+
+/** Markdown copy of a ranking page. */
+export function rankingMarkdown(r: { h1: string; answer: string; method: string; measure: string; path: string; rows: RankRow[] }): string {
+  const lines = [`# ${r.h1}`, "", r.answer, "", `- Page: ${abs(r.path)}`, `- How it's sorted: ${r.method}`, "", `| # | Model | Lab | ${pipe(r.measure)} | Price per 1M (in / out) | Context | Providers |`, "|---|---|---|---|---|---|---|"];
+  for (const x of r.rows) lines.push(`| ${x.rank} | [${pipe(x.name)}](${abs(modelPath(x.slug))}) | ${pipe(x.lab ?? "–")} | ${x.display} | ${pipe(x.price ?? "–")} | ${x.context ? tokensShort(x.context) : "–"} | ${x.providers} |`);
+  return `${lines.join("\n")}\n`;
+}
+
+/** Markdown copy of a month of new models. */
+export function newModelsMarkdown(title: string, path: string, rows: NewModelRow[]): string {
+  const lines = [`# ${title}`, "", `- Page: ${abs(path)}`, "", "| Added | Model | Lab | Price | Context | Providers |", "|---|---|---|---|---|---|"];
+  for (const r of rows) lines.push(`| ${r.date} | [${pipe(r.name)}](${abs(modelPath(r.slug))}) | ${pipe(r.lab ?? "–")} | ${pipe(r.price ?? "–")} | ${r.context ? tokensShort(r.context) : "–"} | ${r.providers} |`);
+  return `${lines.join("\n")}\n`;
 }

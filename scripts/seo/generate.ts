@@ -20,9 +20,11 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pageCopy } from "./copy";
-import { llmsTxt, robotsTxt, sitemapIndex, urlset, type SitemapEntry } from "./crawl";
-import { escapeHtml as esc, int, longDate, monthYear, tokensShort, usd, usdShort } from "./format";
+import { llmsTxt, robotsTxt, rssFeed, sitemapIndex, urlset, type SitemapEntry } from "./crawl";
+import { escapeHtml as esc, int, longDate, monthYear, shortDate, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
+import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type NewModelRow, type RankRow } from "./html";
+import { buildRankings, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
 import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, redirectPage, type IndexRow } from "./html";
 import { benchRows, cheapestRow, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
 import { benchmarksFor, loadBenchmarks, type BenchmarkData } from "./benchmarks";
@@ -30,7 +32,7 @@ import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } f
 import { loadCookbook } from "./cookbook";
 import { cookbookPage, guardrailsPage, homePage, providersPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
-import { compareMarkdown, modelMarkdown } from "./markdown";
+import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
 import { compareCard, copyCardFonts, modelCard, providerCard, writeCard } from "./og";
 import { appShell } from "./shell";
 import type { CardInput } from "./og-card";
@@ -113,6 +115,19 @@ function contentHash(v: ModelView): string {
   ).slice(0, 16);
 }
 
+/** "Cheapest chat models on <provider>": its own prices, sorted by blended price (3 input : 1 output). */
+function cheapestOnProvider(provider: string, list: { view: ModelView; row: RowView }[]): string {
+  const priced = list
+    .filter(({ view, row }) => view.status === "active" && view.mode === "chat" && (row.prices.input ?? 0) > 0 && (row.prices.output ?? 0) > 0)
+    .map((x) => ({ ...x, blend: (3 * x.row.prices.input! + x.row.prices.output!) / 4 }))
+    .sort((a, b) => a.blend - b.blend || a.view.name.localeCompare(b.view.name))
+    .slice(0, 10);
+  if (priced.length < 3) return "";
+  return `<section id="cheapest"><h2>Cheapest chat models on ${esc(provider)}</h2><p class="note">Sorted by ${esc(provider)}'s own prices, blended at 3 input tokens per output token. Active chat models only.</p><div class="tbl"><table><thead><tr><th class="n">#</th><th>Model</th><th class="n">Blended per 1M</th><th>Input / output per 1M</th><th class="n">Context</th></tr></thead><tbody>${priced
+    .map((x, i) => `<tr><td class="n">${i + 1}</td><td><a href="${modelPath(x.view.slug)}">${esc(x.view.name)}</a></td><td class="n">${usd(x.blend)}</td><td class="pr">${usd(x.row.prices.input!)} / ${usd(x.row.prices.output!)}</td><td class="n">${x.row.context ?? x.view.context ? tokensShort((x.row.context ?? x.view.context)!) : "–"}</td></tr>`)
+    .join("")}</tbody></table></div></section>`;
+}
+
 const family = (slug: string) => slug.split(/[-.]/).slice(0, 2).join("-");
 
 /** Same family first, then the same kind of model (image, chat, embedding), newest first. */
@@ -131,7 +146,7 @@ function addedLabel(date: string | null): string | null {
 
 async function main(): Promise<void> {
   // Start clean so pages for regrouped or renamed models never linger.
-  for (const dir of ["models", "providers", "compare", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
+  for (const dir of ["models", "providers", "compare", "rankings", "new-models", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
   // raw.githubusercontent.com serves `main` from a cache for up to five minutes, so a deploy
   // triggered right after a price change could rebuild the old file. A commit URL is never stale.
   const lastCommit = await github<{ sha?: string; commit?: { committer?: { date?: string } } }[]>(
@@ -341,7 +356,7 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
       jsonLd: listGraph("/models", indexTitle, indexDescription, latestChange, [{ name: "Models", path: "/models" }], rows.map((r) => ({ name: r.name, path: modelPath(r.slug) }))),
       body: `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Models</span></nav>
 <h1>AI model API pricing</h1>
-<p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM tracks prices for ${int(rows.length)} models across ${hubList.length} providers. Each model page lists every provider's price, the context window, and the code to call it through LiteLLM. <a href="/compare">Compare models side by side</a>.</p></div>
+<p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM tracks prices for ${int(rows.length)} models across ${hubList.length} providers. Each model page lists every provider's price, the context window, and the code to call it through LiteLLM. <a href="/compare">Compare models side by side</a>, see <a href="/rankings">rankings by price and context window</a>, or the <a href="/new-models">newest models</a>.</p></div>
 <section><h2>Browse by provider</h2><ul class="links">${hubList
         .map((h) => `<li><a href="${providerPath(h.hub)}">${esc(h.name)}<span>${h.list.length} models</span></a></li>`)
         .join("")}</ul></section>
@@ -393,6 +408,7 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
 <h1>${esc(h.name)} model pricing</h1>
 <p class="answer">As of ${longDate(BUILD_DATE)}, ${list.length} ${esc(h.name)} models are available through LiteLLM${newest.length ? `. The most recently added are ${esc(newest.join(", "))}` : ""}. Prices below are ${esc(h.name)}'s list prices.</p>
 <div class="meta"><span>Prices updated <time datetime="${hubChanged}">${longDate(hubChanged)}</time></span><span>Checked <time datetime="${BUILD_DATE}">${longDate(BUILD_DATE)}</time></span>${docs ? `<a href="${esc(docs)}">How to call ${esc(h.name)} with LiteLLM</a>` : ""}</div></div>
+${cheapestOnProvider(h.name, list)}
 <section><h2>${esc(h.name)} models</h2>${indexTable(hubRows)}</section>`,
       }),
     );
@@ -496,6 +512,118 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
   );
   write("compare/redirects.json", JSON.stringify(redirects));
 
+  // Rankings: lists sorted by one fact (price or context window), never by quality.
+  const rankings = buildRankings(views, families);
+  const rankingEntries: SitemapEntry[] = [];
+  const rankRows = (r: Ranking): RankRow[] =>
+    r.items.map((x, i) => ({
+      rank: i + 1,
+      slug: x.view.slug,
+      name: x.view.name,
+      lab: x.view.lab,
+      display: x.display,
+      price: x.view.headline ? `${usd(x.view.headline.prices.input ?? 0)} / ${(x.view.headline.prices.output ?? 0) > 0 ? usd(x.view.headline.prices.output!) : "–"}` : null,
+      context: x.view.context,
+      providers: x.view.providers.length,
+      seller: x.view.headline?.providerName ?? "–",
+    }));
+  for (const r of rankings) {
+    const path = rankingPath(r.slug);
+    const title = rankingTitle(r, month);
+    const h1 = r.heading;
+    const answer = rankingAnswer(r, longDate(BUILD_DATE));
+    const description = answer.length <= 160 ? answer : `${h1}: the top ${r.items.length}, sorted by ${r.measure.toLowerCase()}, from LiteLLM's price file.`;
+    const rows = rankRows(r);
+    const others = rankings.filter((o) => o !== r).slice(0, 8).map((o) => ({ slug: o.slug, title: o.heading }));
+    write(
+      `rankings/${r.slug}.html`,
+      layout({
+        title,
+        description,
+        path,
+        body: rankingBody({ title, h1, answer, method: r.method, measure: r.measure, rows, others, updated: BUILD_DATE, slug: r.slug }),
+        jsonLd: listGraph(path, title, description, BUILD_DATE, [{ name: "Rankings", path: "/rankings" }, { name: h1, path }], r.items.map((x) => ({ name: x.view.name, path: modelPath(x.view.slug) }))),
+        markdownPath: `${path}.md`,
+        image: writeCard(OUT, "pages", `ranking-${r.slug}`, {
+          kicker: "Ranking",
+          title: h1,
+          subtitle: `Sorted by ${r.measure.toLowerCase()}, as of ${shortDate(BUILD_DATE)}`,
+          stats: r.items.slice(0, 3).map((x, i) => ({ value: `#${i + 1}`, label: `${x.view.name}, ${x.display}` })),
+        }),
+      }),
+    );
+    write(`rankings/${r.slug}.md`, rankingMarkdown({ h1, answer, method: r.method, measure: r.measure, path, rows }));
+    rankingEntries.push({ path, lastmod: BUILD_DATE });
+  }
+  const rankingsTitle = "AI Model Rankings by Price and Context Window | LiteLLM";
+  const rankingsDescription = `${rankings.length} lists of AI models sorted by price or context window, from LiteLLM's price file. None rank by quality.`;
+  write(
+    "rankings.html",
+    layout({
+      title: rankingsTitle,
+      description: rankingsDescription,
+      path: "/rankings",
+      body: rankingHubBody(rankings.map((r) => ({ slug: r.slug, title: r.heading, note: r.items[0] ? `#1: ${r.items[0].view.name}` : "" })), BUILD_DATE),
+      jsonLd: listGraph("/rankings", rankingsTitle, rankingsDescription, BUILD_DATE, [{ name: "Rankings", path: "/rankings" }], rankings.map((r) => ({ name: rankingTitle(r, month), path: rankingPath(r.slug) }))),
+      image: writeCard(OUT, "pages", "rankings", { kicker: "LiteLLM Model Catalog", title: "AI model rankings", subtitle: "By price and context window, never by quality", stats: [{ value: int(rankings.length), label: "rankings" }] }),
+    }),
+  );
+
+  // New models: a page per month, from each model's date added, and an RSS feed.
+  const dated = views
+    .filter((v) => v.addedDate && (v.headline || v.context))
+    .sort((a, b) => b.addedDate!.localeCompare(a.addedDate!) || a.name.localeCompare(b.name));
+  const newRow = (v: ModelView): NewModelRow => ({ slug: v.slug, name: v.name, lab: v.lab, date: v.addedDate!, price: shortPrice(v.headline), context: v.context, providers: v.providers.length, status: v.status });
+  const byMonth = new Map<string, ModelView[]>();
+  for (const v of dated) byMonth.set(v.addedDate!.slice(0, 7), [...(byMonth.get(v.addedDate!.slice(0, 7)) ?? []), v]);
+  const months = [...byMonth.entries()].map(([ym, list]) => ({ ym, count: list.length }));
+  const newModelEntries: SitemapEntry[] = [];
+  for (const [ym, list] of byMonth) {
+    const path = `/new-models/${ym}`;
+    const name = longDate(`${ym}-01`).replace(/ 1, /, " ");
+    const title = `New AI Models in ${name}: ${list.length} Added to LiteLLM | LiteLLM`;
+    const description = `${list.length} AI ${list.length === 1 ? "model" : "models"} added to LiteLLM in ${name}, including ${list.slice(0, 3).map((v) => v.name).join(", ")}, with prices and context windows.`.slice(0, 200);
+    const rows = list.map(newRow);
+    const lastmod = list.map((v) => v.addedDate!).sort().at(-1)!;
+    write(
+      `new-models/${ym}.html`,
+      layout({
+        title,
+        description: description.length <= 160 ? description : `${list.length} AI models added to LiteLLM in ${name}, with prices and context windows.`,
+        path,
+        body: newModelsMonthBody(ym, rows, months),
+        jsonLd: listGraph(path, title, description, lastmod.length === 10 ? lastmod : `${lastmod}-01`, [{ name: "New models", path: "/new-models" }, { name, path }], list.map((v) => ({ name: v.name, path: modelPath(v.slug) }))),
+        markdownPath: `${path}.md`,
+        image: writeCard(OUT, "pages", `new-models-${ym}`, { kicker: "New models", title: `New AI models in ${name}`, subtitle: "Added to LiteLLM's price file", stats: [{ value: int(list.length), label: list.length === 1 ? "model" : "models" }] }),
+      }),
+    );
+    write(`new-models/${ym}.md`, newModelsMarkdown(`New AI models in ${name}`, path, rows));
+    newModelEntries.push({ path, lastmod: lastmod.length === 10 ? lastmod : undefined });
+  }
+  const latestNew = dated.slice(0, 30);
+  const newTitle = "New AI Models on LiteLLM: Latest Additions by Month | LiteLLM";
+  const newDescription = `The AI models most recently added to LiteLLM's price file, with prices and context windows, newest first. ${latestNew[0] ? `Latest: ${latestNew[0].name}.` : ""}`;
+  write(
+    "new-models.html",
+    layout({
+      title: newTitle,
+      description: newDescription.length <= 160 ? newDescription : "The AI models most recently added to LiteLLM's price file, with prices and context windows, newest first.",
+      path: "/new-models",
+      body: newModelsHubBody(latestNew.map(newRow), months, BUILD_DATE),
+      jsonLd: listGraph("/new-models", newTitle, newDescription, latestNew[0]?.addedDate?.length === 10 ? latestNew[0].addedDate : BUILD_DATE, [{ name: "New models", path: "/new-models" }], latestNew.map((v) => ({ name: v.name, path: modelPath(v.slug) }))),
+      image: writeCard(OUT, "pages", "new-models", { kicker: "LiteLLM Model Catalog", title: "New AI models", subtitle: "Latest additions to LiteLLM's price file", stats: latestNew[0] ? [{ value: shortDate(latestNew[0].addedDate!.length === 10 ? latestNew[0].addedDate! : `${latestNew[0].addedDate}-01`), label: `latest: ${latestNew[0].name}` }] : [] }),
+    }),
+  );
+  write(
+    "new-models.xml",
+    rssFeed(
+      "New AI models on LiteLLM",
+      abs("/new-models"),
+      "AI models added to LiteLLM's model price file, with their prices.",
+      dated.slice(0, 50).map((v) => ({ title: `${v.name} added to LiteLLM`, link: abs(modelPath(v.slug)), description: [shortPrice(v.headline), v.context ? `${tokensShort(v.context)} context` : null, v.lab ? `by ${v.lab}` : null].filter(Boolean).join(", "), date: v.addedDate! })),
+    ),
+  );
+
   write("404.html", layout({ title: "Page not found | LiteLLM", description: "This page doesn't exist.", path: "/404", body: notFoundBody(), noindex: true }));
 
 
@@ -574,11 +702,20 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
     console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");
   }
   // Crawl files, after the app routes so their entries reflect whether their data loaded.
-  const pageEntries: SitemapEntry[] = [{ path: "/", lastmod: latestChange }, { path: "/models", lastmod: latestChange }, { path: "/compare", lastmod: BUILD_DATE }, ...appEntries];
+  const pageEntries: SitemapEntry[] = [
+    { path: "/", lastmod: latestChange },
+    { path: "/models", lastmod: latestChange },
+    { path: "/compare", lastmod: BUILD_DATE },
+    { path: "/rankings", lastmod: BUILD_DATE },
+    { path: "/new-models", lastmod: BUILD_DATE },
+    ...appEntries,
+  ];
   write("sitemaps/pages.xml", urlset(pageEntries));
   write("sitemaps/models.xml", urlset(modelEntries.sort((a, b) => (b.lastmod ?? "").localeCompare(a.lastmod ?? ""))));
   write("sitemaps/providers.xml", urlset(providerEntries));
   write("sitemaps/compare.xml", urlset(compareEntries));
+  write("sitemaps/rankings.xml", urlset(rankingEntries));
+  write("sitemaps/new-models.xml", urlset(newModelEntries));
   write(
     "sitemap.xml",
     sitemapIndex([
@@ -586,6 +723,8 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
       { path: "/sitemaps/models.xml", lastmod: latestChange },
       { path: "/sitemaps/providers.xml", lastmod: latestChange },
       { path: "/sitemaps/compare.xml", lastmod: BUILD_DATE },
+      { path: "/sitemaps/rankings.xml", lastmod: BUILD_DATE },
+      { path: "/sitemaps/new-models.xml", lastmod: BUILD_DATE },
     ]),
   );
   write("robots.txt", robotsTxt());
