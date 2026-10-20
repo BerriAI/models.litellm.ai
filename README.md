@@ -20,17 +20,23 @@ The generator writes:
 | Path | What it is |
 |---|---|
 | `/models/<model-id>` | One page per model, grouping every provider's listing of it, with prices, context window, features, code samples, FAQ and JSON-LD |
+| `/compare/<a>-vs-<b>` | Two models side by side: answer line, prices, features, cheapest provider for each, Epoch AI benchmark scores, "when to pick" from real differences, code, FAQ; markdown copy at `.md`. Model slugs in alphabetical order; the reverse order redirects |
+| `/compare` | Every comparison, grouped by kind |
+| `/compare/custom?models=a,b,c` | Pick up to four models and compare them side by side; every model page's "Compare" button opens it with that model first. Reads `/compare/models.json`, rebuilt with every price change. Noindex; it links the reviewed pair pages when the picked pair has one |
+| `/rankings/<slug>`, `/rankings` | Models sorted by one fact: blended price (3 input : 1 output), context window, or provider count for the price-capped lists. Never by quality; each page states its method |
+| `/calculator` | Cost per request, day and month for any token-priced model, with shareable links (`?model=&in=&out=&req=`) and a static table of the default workload for the compared models |
+| `/new-models/<yyyy-mm>`, `/new-models`, `/new-models.xml` | Models added to the price file each month, from each model's date added, plus an RSS feed of the latest 50 |
 | `/models/<model-id>.md` | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts` |
-| `/models` | Every model, most recently added first |
+| `/models` | Every active model, grouped by lab with a jump menu, newest first within each lab |
 | `/providers/<provider>` | Every model one provider sells, at that provider's price |
 | `/sitemap.xml`, `/sitemaps/*.xml` | Sitemap index split by page type, with `lastmod` from real data changes |
-| `/robots.txt`, `/llms.txt` | Crawl rules and a plain-text index for AI agents |
+| `/robots.txt`, `/llms.txt`, `/llms-full.txt` | Crawl rules, a short plain-text index for AI agents (newest 100 models), and the full model list |
 | `/models/slugs.json` | Price-file key to page slug, used by the catalog table to link rows |
 | `/models/manifest.json` | Per-model content hash, change date, date added and price history; the next build diffs against it |
 | `/build-info.json` | Counts, GitHub stars and price-file freshness for the home page stats |
 | `/changes.json` | URLs that changed in this build, for IndexNow |
 | `/og/<kind>/<id>.json` | Each page's share-card text; `api/og.ts` draws it as `/og/<kind>/<id>.png` |
-| `/index.html`, `/providers.html`, `/cookbook.html`, `/guardrails.html` | The app's routes, each with its own title, canonical, share image and a `<noscript>` summary for crawlers that don't run JavaScript |
+| `/index.html`, `/providers.html`, `/cookbook.html`, `/guardrails.html` | The app's routes, each with its own title, canonical, share image, BreadcrumbList and its content rendered as plain HTML (`#seo-shell`, built in `scripts/seo/app-pages.ts`) for crawlers that don't run JavaScript. The app removes it when it mounts. `/providers` lists every provider in `provider_endpoints_support.json`; `/cookbook` lists every tutorial on docs.litellm.ai (from its sitemap and each page's markdown copy, `scripts/seo/cookbook.ts`) plus the litellm repo's cookbook index, written to `/cookbook.json` for the app's Cookbook tab too; `/guardrails` renders the guardrails list. Both go noindex if the build can't load their data |
 
 ## Share images
 
@@ -40,11 +46,33 @@ Every page's `og:image` points at `/og/<kind>/<id>.png?v=<hash>`. `vercel.json` 
 npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home
 ```
 
+## Comparisons
+
+`scripts/seo/compare.ts` picks the pairs and writes every sentence on a comparison page from the price file. Reviewed pairs live in `overrides.json` under `compare.pairs` and are built whenever both models are priced. The build also adds pairs by itself so new models get compared soon after launch: each model with its predecessor in its family (`families` in `overrides.json`, a regex on the page slug), and models added in the last 45 days against the two closest models from other labs. New pages are released in weekly waves of at most 40 (`WEEKLY_CAP`), counted from `compare` in the manifest. Reviewed pairs count first, so the first build ships only the 40 reviewed pairs and automatic pairs follow from day 7. An automatic pair whose prices, context and features barely differ, or whose models have fewer than 3 providers, is built with noindex; reviewed and successor pairs are indexed unless one of their models is retired.
+
+Benchmark scores come from [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks) (CC BY 4.0, credited on every page), downloaded at build time by `scripts/seo/benchmarks.ts`. The page shows the Capabilities Index and a fixed list of benchmarks in three groups (coding and agents, reasoning and knowledge, math; see `BENCHMARKS`): Epoch's own runs, plus external results Epoch collects from each benchmark's leaderboard, linked to that source. Each file's score column and scale come from Epoch's `benchmark_metadata.csv`. Scores match a model only when Epoch's model id (before the `_<setting>` suffix) equals one of the page's ids; anything else is left out. The Capabilities Index file has no model ids, so it matches a page's display name exactly. A comparison shows only benchmarks both models have, at each model's best reported setting. Some benchmarks (Terminal-Bench, SWE-bench Verified) have few recent models in Epoch's data; they appear once Epoch records them. If the download fails, pages are built without scores. `EPOCH_FILE` reads the zip from disk.
+
+A retired model's page stays up with its last listed prices and a notice that links to the newest active model in its family. A comparison already published keeps its page when one of its models is deprecated or retired; a pair with a retired model is built with noindex.
+
+## Calculator and tracking
+
+Every model priced per input and output token has a cost calculator (`scripts/seo/calculator.ts`). The build fills in the default workload (1,000 input and 500 output tokens, 10,000 requests a day), so crawlers and the markdown copy see a number; the page script reads the prices from the page's JSON-LD and recomputes as the reader types. Both use the same arithmetic and money format, which a test keeps in step.
+
+Code snippets, calculators, comparison and ranking tables carry `data-track` attributes, and each page's `<main>` carries its kind and id. With PostHog loaded (it already is, on models.litellm.ai), copying a snippet sends `snippet_copied` and the first change to a calculator sends `calculator_used`, both with the page kind and id.
+
+## Rankings and new models
+
+`scripts/seo/rankings.ts` builds every ranking from the price file. A model qualifies when it's active, priced, has a 32K-token context window or more, and is offered by at least two providers or by its own lab, which keeps one-off resale variants off the top. Lists sort by blended price at the headline price, except the context ranking (largest first) and the "under $1/$5" lists (most providers first, so they don't repeat the cheapest list). There's one list per model family with three or more qualifying models; a list already published keeps its page with noindex when fewer than three are left, until none is, and each provider page has its own "cheapest chat models on <provider>" section at that provider's prices. Rankings never use benchmark scores.
+
+`/new-models` groups models by the month they were added (from `added-dates.json` for older models and the manifest for new ones), so its history goes back to 2023.
+
 ## Model grouping
 
 `scripts/seo/group.ts` maps price-file keys to one page per model: `gemini/gemini-nano-banana-2.1`, `vertex_ai/gemini-nano-banana-2.1` and `openrouter/google/gemini-nano-banana-2.1` share `/models/gemini-nano-banana-2.1`. Regions, inference profiles, dated snapshots and tiers become rows on that page. When the heuristic gets a model wrong, fix it in `scripts/seo/overrides.json` (merge or split pages, pin a name or slug) rather than in code. Published slugs never change: the build reads them back from the live manifest.
 
-When a lab sells a model at an introductory price for a limited time, add it to `introPricing` in `overrides.json` with the end date and the lab's pricing page, for example `"gemini-4-argon": { "until": "2026-11-30", "source": "https://ai.google.dev/gemini-api/docs/pricing" }`. The page then shows an "Introductory price" badge, says so in its answer, FAQ and meta description, labels the share card, and sets `priceValidUntil` in its JSON-LD. The price itself still comes from the price file, and the note disappears on the first build after the end date.
+When a lab sells a model at an introductory price for a limited time, add it to `introPricing` in `overrides.json` with the end date and the lab's pricing page, for example `"gemini-4-argon": { "until": "2026-11-30", "source": "https://ai.google.dev/gemini-api/docs/pricing" }`. The page then shows an "Introductory price" badge, says so in its answer, FAQ and meta description, labels the share card, and sets `priceValidUntil` in its JSON-LD. The price itself still comes from the price file, and the note disappears on the first build after the end date. The note shows only when the headline price comes from the lab's own API, or from a provider listed in the entry's optional `providers`.
+
+Each model has a status: `retired` when every priced listing's `deprecation_date` has passed, `deprecated` when any listing has one, otherwise `active`. Retired models get a banner, keep their page for reference and leave the sitemap and `/models`. Correct a wrong status with `status` in `overrides.json`. `npm run seo:check` also fails any model page whose quoted price range disagrees with its own price table.
 
 The page's headline price is the model's own lab when it sells the model (Anthropic for Claude, Google AI Studio for Gemini), otherwise the cheapest provider. A price more than 8x away from the median of the other providers is flagged on the page and kept out of the headline.
 

@@ -222,4 +222,4 @@ export const OG_FONTS = [
 
 /** Only lowercase ids made of the characters our slugs use. */
 export const OG_ID = /^[a-z0-9][a-z0-9._-]*$/;
-export const OG_KINDS = ["models", "providers", "pages"] as const;
+export const OG_KINDS = ["models", "providers", "pages", "compare"] as const;

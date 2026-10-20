@@ -170,3 +170,20 @@ export function listGraph(
 export function jsonLdScript(data: Json): string {
   return `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`;
 }
+
+/** Comparison page: WebPage, breadcrumb and FAQ. */
+export function compareGraph(path: string, title: string, description: string, dateModified: string, h1: string, faq: { q: string; a: string }[]): Json {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      ...siteNodes(),
+      webPage(path, title, description, dateModified),
+      breadcrumb([
+        { name: "Home", path: "/" },
+        { name: "Compare", path: "/compare" },
+        { name: h1, path },
+      ]),
+      { "@type": "FAQPage", mainEntity: faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
+    ],
+  };
+}

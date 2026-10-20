@@ -65,9 +65,19 @@ export type Overrides = {
    * current price ends after `until` (YYYY-MM-DD). The price itself still comes from the price file.
    */
   introPricing?: Record<string, IntroPricing>;
+  /** Page key -> status, when the price file's deprecation dates are missing or wrong. */
+  status?: Record<string, "active" | "deprecated" | "retired">;
+  /** Family name -> regex on the page slug; one model family per line of versions (see compare.ts). */
+  families?: Record<string, string>;
+  /** Reviewed comparison pairs: [slug, slug, kind]. Always built; the build adds more on its own. */
+  compare?: { pairs: [string, string, string][] };
 };
 
-export type IntroPricing = { until: string; source: string };
+/**
+ * `providers` lists the LiteLLM provider ids whose price is introductory; without it, only the lab's own
+ * API counts. The tag shows only when the headline price comes from one of those sellers.
+ */
+export type IntroPricing = { until: string; source: string; providers?: string[] };
 
 const NON_MODEL_KEYS = new Set(["sample_spec", "fallback_generalizations"]);
 const SIZE_BUCKET = /^(fireworks-ai|together-ai)-/;

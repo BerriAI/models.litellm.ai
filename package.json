@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",
+    "fflate": "0.8.2",
     "fuse.js": "^7.0.0",
     "marked": "^17.0.1",
     "mixpanel-browser": "^2.73.0",

@@ -4,6 +4,9 @@
  */
 import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/modelPresentation";
 import { headlinePrice, type PageCopy } from "./copy";
+import { onCompareTool, TOOL_CSS } from "./compare-tool";
+import { CALC_DEFAULTS, DAYS_PER_MONTH, calcCost, calcMoney, onCalculator } from "./calculator";
+import { leadsWithTokens } from "./pricing";
 import { escapeHtml as esc, int, longDate, shortDate, tokensShort, usd } from "./format";
 import { jsonLdScript } from "./jsonld";
 import type { OgImage } from "./og";
@@ -82,6 +85,14 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:8px;paddin
 .src ul{padding-left:18px}
 .intro{font-size:14px;color:var(--fg2)}
 .tag{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:999px;padding:1px 10px}
+th[scope=row]{text-transform:none;letter-spacing:0;font-size:14px;font-weight:500;color:var(--fg2);background:transparent;white-space:normal}
+.calc{display:grid;gap:14px;border:1px solid var(--rule);border-radius:10px;padding:16px;max-width:760px}
+.calc-in{display:flex;flex-wrap:wrap;gap:12px}.calc-in label{display:grid;gap:4px;font-size:13px;color:var(--muted);flex:1 1 160px}
+.calc-in input,.calc-in select{font:inherit;font-size:15px;color:var(--fg);background:var(--bg);border:1px solid var(--rule2);border-radius:6px;padding:6px 8px;width:100%}
+.calc-out{display:flex;flex-wrap:wrap;gap:10px}.calc-out div{flex:1 1 140px;display:grid;gap:2px}.calc-out dt{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}.calc-out dd{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums}
+${TOOL_CSS}
+.cmp{font-size:13px;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:1px 10px}.cmp:hover{text-decoration:none;background:var(--bg3)}
+.jump{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}.jump span{color:var(--muted)}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--bg3);color:var(--fg2)}
 .warnbox{border:1px solid var(--warn);border-radius:8px;padding:10px 14px;color:var(--fg);max-width:75ch}
 footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13px}
@@ -92,7 +103,7 @@ footer a{color:var(--muted)}
 
 const ANALYTICS = `<script>if(location.hostname==="models.litellm.ai"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister identify reset get_distinct_id set_config opt_in_capturing opt_out_capturing".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init(${JSON.stringify(POSTHOG_KEY)},{api_host:"https://us.i.posthog.com",defaults:"2026-05-30",person_profiles:"identified_only",cross_subdomain_cookie:true,capture_pageview:true,capture_pageleave:true,disable_session_recording:true,capture_heatmaps:false,disable_surveys:true,autocapture:{dom_event_allowlist:["click"],element_allowlist:["a","button"]}})}</script>`;
 
-const COPY_JS = `<script>document.addEventListener("click",function(e){var b=e.target.closest("[data-copy]");if(!b)return;var t=document.getElementById(b.getAttribute("data-copy"));if(!t||!navigator.clipboard)return;navigator.clipboard.writeText(t.innerText).then(function(){b.textContent="Copied";setTimeout(function(){b.textContent="Copy"},1500)}).catch(function(){})})</script>`;
+const COPY_JS = `<script>document.addEventListener("click",function(e){var b=e.target.closest("[data-copy]");if(!b)return;var t=document.getElementById(b.getAttribute("data-copy"));if(!t||!navigator.clipboard)return;navigator.clipboard.writeText(t.innerText).then(function(){b.textContent="Copied";setTimeout(function(){b.textContent="Copy"},1500)}).catch(function(){});var m=document.querySelector("main");if(window.posthog&&posthog.capture)posthog.capture("snippet_copied",{snippet:b.getAttribute("data-copy"),page_kind:m&&m.getAttribute("data-page-kind"),page_id:m&&m.getAttribute("data-page-id")})})</script>`;
 
 export type Layout = {
   title: string;
@@ -104,6 +115,10 @@ export type Layout = {
   noindex?: boolean;
   ogType?: string;
   image?: OgImage;
+  /** Page kind and id, on <main> for analytics (e.g. "model", "gpt-5"). */
+  track?: { kind: string; id: string };
+  /** Extra script for the page, after the shared ones. */
+  script?: string;
 };
 
 /** Share-image tags; large cards on X, Slack, LinkedIn and iMessage. */
@@ -155,7 +170,7 @@ ${l.jsonLd ? jsonLdScript(l.jsonLd) : ""}
 <a class="brand" href="/"><picture><source srcset="/brand/litellm-logo-white.png" media="(prefers-color-scheme: dark)"><img src="/brand/litellm-logo-blue.png" alt="LiteLLM" width="132" height="25"></picture><span>Models</span></a>
 <nav aria-label="Site"><a href="/models">All models</a><a href="/">Search</a><a href="/providers">Providers</a><a href="${DOCS_URL}">Docs</a><a href="${GITHUB_URL}">GitHub</a></nav>
 </div></header>
-<main>
+<main${l.track ? ` data-page-kind="${esc(l.track.kind)}" data-page-id="${esc(l.track.id)}"` : ""}>
 ${l.body}
 </main>
 <footer><div>
@@ -163,6 +178,7 @@ ${l.body}
 <a href="/models">All models</a><a href="/llms.txt">llms.txt</a><a href="/sitemap.xml">Sitemap</a><a href="${DOCS_URL}/docs/proxy/cost_tracking">Cost tracking docs</a>
 </div></footer>
 ${COPY_JS}
+${l.script ?? ""}
 ${ANALYTICS}
 </body>
 </html>
@@ -203,7 +219,7 @@ function priceTable(v: ModelView, rows: RowView[], cols: Col[], hubs: Set<string
         .join("");
       const flag = r.outlier ? ` <span class="flag" title="Differs from other providers by more than 8x; check the provider's pricing page">†</span>` : "";
       const q = r.qualifier ? `<span class="q">${esc(r.qualifier)}</span>` : "";
-      return `<tr${r === v.headline ? ' class="hl"' : ""}><td class="p">${providerLink(r.hub, r.providerName, hubs)}${flag}${q}</td><td><code>${esc(r.modelString)}</code></td>${cells}<td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`;
+      return `<tr${r === v.headline ? ' class="hl"' : ""}${r.fineTuned ? " data-fine-tuned" : ""}><td class="p">${providerLink(r.hub, r.providerName, hubs)}${flag}${q}</td><td><code>${esc(r.modelString)}</code></td>${cells}<td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`;
     })
     .join("");
   return `<div class="tbl"><table><caption>${esc(caption)}</caption><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
@@ -269,7 +285,7 @@ ${creds}`;
 }
 
 function codeBlock(id: string, label: string, code: string): string {
-  return `<div class="code"><div class="code-h"><span>${label}</span><button class="copy" type="button" data-copy="${id}">Copy</button></div><pre id="${id}">${esc(code)}</pre></div>`;
+  return `<div class="code" data-track="snippet" data-snippet="${id}"><div class="code-h"><span>${label}</span><button class="copy" type="button" data-copy="${id}">Copy</button></div><pre id="${id}">${esc(code)}</pre></div>`;
 }
 
 export type ModelPageContext = {
@@ -279,6 +295,10 @@ export type ModelPageContext = {
   history: { date: string; price: string }[];
   /** Provider pages that exist, so rows only link to real pages. */
   hubs: Set<string>;
+  /** Comparison pages this model is on. */
+  comparisons?: { slug: string; other: string }[];
+  /** A retired model's newer family member, linked from the retired notice. */
+  successor?: { name: string; slug: string } | null;
 };
 
 type Stat = { label: string; value: string; lead?: boolean; tag?: string };
@@ -325,7 +345,7 @@ function keyStats(v: ModelView): Stat[] {
   if (cacheRead !== undefined && !v.free) stats.push({ label: "Cache read", value: `${usd(cacheRead)} <small>/ 1M</small>` });
   if (v.context) stats.push({ label: "Context", value: `${tokensShort(v.context)} <small>tokens</small>` });
   if (v.maxOutput) stats.push({ label: "Max output", value: `${tokensShort(v.maxOutput)} <small>tokens</small>` });
-  if (v.addedDate) stats.push({ label: "Added", value: `<time datetime="${v.addedDate}">${v.addedDate.length === 10 ? shortDate(v.addedDate) : longDate(v.addedDate)}</time>` });
+  if (v.addedDate) stats.push({ label: "Added", value: `<a href="/new-models/${v.addedDate.slice(0, 7)}"><time datetime="${v.addedDate}">${v.addedDate.length === 10 ? shortDate(v.addedDate) : longDate(v.addedDate)}</time></a>` });
   return stats;
 }
 
@@ -346,14 +366,16 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
   parts.push(`<div class="head">
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(v.name)}</span></nav>
 <h1>${esc(copy.h1)}</h1>
-<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span></div>
+<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span>${onCompareTool(v) ? `<a class="cmp" href="/compare/custom?models=${encodeURIComponent(v.slug)}" data-track="compare-button">Compare</a>` : ""}</div>
 <dl class="stats">${stats.map((s) => `<div class="stat${s.lead ? " lead" : ""}"><dt><span>${s.label}</span>${s.tag ? `<span class="tag">${s.tag}</span>` : ""}</dt><dd>${s.value}</dd></div>`).join("")}</dl>
 <p class="answer">${esc(copy.answer)}</p>
 ${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.until)}, per <a href="${esc(v.intro.source)}">${esc(v.lab ?? h.providerName)}'s pricing page</a>.</p>` : ""}
 <div class="meta"><span>Prices updated <time datetime="${ctx.lastChanged}">${longDate(ctx.lastChanged)}</time></span><span>Checked <time datetime="${ctx.buildDate}">${longDate(ctx.buildDate)}</time></span></div>
 </div>`);
 
-  if (v.deprecation) {
+  if (v.status === "retired") {
+    parts.push(`<div class="warnbox"><strong>Retired.</strong> ${v.deprecation ? `${esc(h?.providerName ?? "The provider")} retired <code>${esc(ms)}</code> on ${longDate(v.deprecation)}. ` : ""}Prices below are the last listed and kept for reference.${ctx.successor ? ` Its successor is <a href="${modelPath(ctx.successor.slug)}">${esc(ctx.successor.name)}</a>.` : ""}</div>`);
+  } else if (v.deprecation) {
     const past = v.deprecation <= ctx.buildDate.slice(0, 10);
     parts.push(`<div class="warnbox">${past ? "Deprecated" : "Scheduled for deprecation"}: ${esc(h?.providerName ?? "The provider")} lists ${longDate(v.deprecation)} as the deprecation date for <code>${esc(ms)}</code>.</div>`);
   }
@@ -383,6 +405,9 @@ ${copy.examples
 </section>`);
   }
 
+  const calc = calcSection(v);
+  if (calc) parts.push(calc);
+
   if (v.capabilities.length || v.inputModalities.length) {
     parts.push(`<section id="features"><h2>${esc(v.name)} features</h2>
 ${v.inputModalities.length ? `<p>Input: ${esc(v.inputModalities.join(", "))}.${v.outputModalities.length ? ` Output: ${esc(v.outputModalities.join(", "))}.` : ""}</p>` : ""}
@@ -409,6 +434,11 @@ ${codeBlock("curl", "Call the proxy", getLiteLLmProxyCurlSnippet(mode, v.slug))}
     .map((f) => `<div><h3>${esc(f.q)}</h3><p>${esc(f.a)}</p></div>`)
     .join("")}</div></section>`);
 
+  if (ctx.comparisons?.length) {
+    parts.push(`<section id="compare"><h2>Compare ${esc(v.name)}</h2><ul class="links">${ctx.comparisons
+      .map((c) => `<li><a href="/compare/${c.slug}">${esc(v.name)} vs ${esc(c.other)}</a></li>`)
+      .join("")}</ul><p><a href="/compare">All model comparisons</a></p></section>`);
+  }
   if (ctx.related.length) {
     parts.push(`<section id="related"><h2>${v.lab ? `More ${esc(v.lab)} models` : "Related models"}</h2>
 <ul class="links">${ctx.related
@@ -432,16 +462,218 @@ ${v.docs.length ? `<p>LiteLLM docs: ${v.docs.map((d) => `<a href="${esc(d.url)}"
 
 export type IndexRow = { name: string; slug: string; lab: string | null; price: string | null; context?: number; providers: number; added: string | null };
 
-export function indexTable(rows: IndexRow[]): string {
-  return `<div class="tbl"><table><thead><tr><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th><th class="n">Providers</th><th>Added</th></tr></thead><tbody>${rows
+/** `showLab: false` drops the Lab column, for tables already grouped under a lab heading. */
+export function indexTable(rows: IndexRow[], { showLab = true } = {}): string {
+  return `<div class="tbl"><table><thead><tr><th>Model</th>${showLab ? "<th>Lab</th>" : ""}<th>Price</th><th class="n">Context</th><th class="n">Providers</th><th>Added</th></tr></thead><tbody>${rows
     .map(
       (r) =>
-        `<tr><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td><td>${r.added ? esc(r.added) : "–"}</td></tr>`,
+        `<tr><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td>${showLab ? `<td>${esc(r.lab ?? "–")}</td>` : ""}<td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td><td>${r.added ? esc(r.added) : "–"}</td></tr>`,
     )
     .join("")}</tbody></table></div>`;
+}
+
+const anchor = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** /models body: one section per lab, largest first, with a jump menu; models without a known lab go last. */
+export function labSections(rows: IndexRow[]): string {
+  const byLab = new Map<string, IndexRow[]>();
+  for (const r of rows) byLab.set(r.lab ?? "", [...(byLab.get(r.lab ?? "") ?? []), r]);
+  const labs = [...byLab.entries()].sort((a, b) => Number(a[0] === "") - Number(b[0] === "") || b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  const name = (lab: string) => lab || "Other labs";
+  const jump = `<nav class="jump" aria-label="Jump to a lab">${labs.map(([lab, list]) => `<a href="#${anchor(name(lab))}">${esc(name(lab))} <span>${list.length}</span></a>`).join("")}</nav>`;
+  return `${jump}${labs
+    .map(([lab, list]) => `<section id="${anchor(name(lab))}"><h2>${lab ? `${esc(lab)} models` : "Models from other labs"}</h2>${indexTable(list, { showLab: false })}</section>`)
+    .join("")}`;
 }
 
 export function notFoundBody(): string {
   return `<div class="head"><h1>Page not found</h1><p class="answer">This page doesn't exist. Search the catalog or browse every model.</p>
 <p><a href="/">Search the model catalog</a> · <a href="/models">Browse all models</a></p></div>`;
+}
+
+// ---- Comparison pages ------------------------------------------------------------------------------------
+
+export type CompareView = {
+  slug: string;
+  a: ModelView;
+  b: ModelView;
+  copy: import("./compare").CompareCopy;
+  rows: [string, string, string][];
+  bench: import("./compare").BenchRow[];
+  benchDate: string | null;
+  cheapest: { model: ModelView; row: RowView | null }[];
+  related: { slug: string; title: string }[];
+  buildDate: string;
+  hubs: Set<string>;
+};
+
+export function compareBody(c: CompareView): string {
+  const { a, b, copy } = c;
+  const head = `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/compare">Compare</a><span>›</span><span>${esc(copy.h1)}</span></nav>
+<h1>${esc(copy.h1)}</h1>
+<p class="answer">As of ${longDate(c.buildDate)}, ${esc(copy.answer)}</p>
+<div class="meta"><span>Prices from LiteLLM's price file</span><span>Checked <time datetime="${c.buildDate}">${longDate(c.buildDate)}</time></span></div></div>`;
+  const table = `<section id="side-by-side"><h2>${esc(a.name)} vs ${esc(b.name)} side by side</h2><div class="tbl" data-track="compare-table" data-page-kind="compare" data-page-id="${c.slug}"><table><caption>Headline prices in US dollars per 1M tokens: each model's own lab where it sells it, otherwise its cheapest provider. Source: LiteLLM model price file, as of ${longDate(c.buildDate)}.</caption><thead><tr><th></th><th><a href="${modelPath(a.slug)}">${esc(a.name)}</a></th><th><a href="${modelPath(b.slug)}">${esc(b.name)}</a></th></tr></thead><tbody>${c.rows
+    .map(([k, x, y]) => `<tr><th scope="row">${esc(k)}</th><td>${x}</td><td>${y}</td></tr>`)
+    .join("")}</tbody></table></div></section>`;
+  const buy = `<section id="providers"><h2>Cheapest provider for each</h2><ul>${c.cheapest
+    .map(({ model, row }) => (row ? `<li><a href="${modelPath(model.slug)}">${esc(model.name)}</a>: ${row.hub && c.hubs.has(row.hub) ? `<a href="${providerPath(row.hub)}">${esc(row.providerName)}</a>` : esc(row.providerName)} at ${usd(row.prices.input!)} input and ${row.prices.output !== undefined ? usd(row.prices.output) : "–"} output per 1M tokens (<code>${esc(row.modelString)}</code>)</li>` : ""))
+    .join("")}</ul></section>`;
+  const benchCats = [...new Set(c.bench.map((r) => r.category))];
+  const external = c.bench.some((r) => !r.epoch);
+  const bench = c.bench.length
+    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>From the <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a> (<a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. ${external ? "Some results were run by Epoch and others collected by Epoch from each benchmark's own leaderboard, linked in the first column. " : ""}Each model's best reported reasoning setting is shown in brackets. Higher is better. Only benchmarks with a score for both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${benchCats
+        .map(
+          (cat) =>
+            `<tr><th scope="rowgroup" colspan="3">${esc(cat)}</th></tr>${c.bench
+              .filter((r) => r.category === cat)
+              .map((r) => `<tr><th scope="row"><a href="${esc(r.url)}">${esc(r.name)}</a></th><td>${esc(r.a)}</td><td>${esc(r.b)}</td></tr>`)
+              .join("")}`,
+        )
+        .join("")}</tbody></table></div></section>`
+    : "";
+  const picks = copy.pickA.length || copy.pickB.length
+    ? `<section id="when"><h2>When to pick which</h2><div class="grid2">${[
+        [a, copy.pickA],
+        [b, copy.pickB],
+      ]
+        .filter(([, list]) => (list as string[]).length)
+        .map(([m, list]) => `<div><h3>Pick ${esc((m as ModelView).name)} for</h3><ul>${(list as string[]).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`)
+        .join("")}</div><p class="note">From differences in the data above only; where the data is equal, no reason is given.</p></section>`
+    : "";
+  const sa = a.headline!.modelString;
+  const sb = b.headline!.modelString;
+  const sdk = `from litellm import completion
+
+messages = [{"role": "user", "content": "Hello!"}]
+
+# ${a.name}
+response = completion(model="${sa}", messages=messages)
+
+# ${b.name}
+response = completion(model="${sb}", messages=messages)
+
+# ${a.name}, falling back to ${b.name} if the call fails
+response = completion(model="${sa}", messages=messages, fallbacks=["${sb}"])`;
+  const code = `<section id="code"><h2>Call ${esc(a.name)} or ${esc(b.name)} with LiteLLM</h2><p>Both use the OpenAI format through LiteLLM, so switching is a model name change. Set each provider's API key in the environment first.</p>${codeBlock(`sdk-${c.slug}`, "Python SDK", sdk)}</section>`;
+  const faq = `<section id="faq"><h2>FAQ</h2><div class="faq">${copy.faq.map((f) => `<div><h3>${esc(f.q)}</h3><p>${esc(f.a)}</p></div>`).join("")}</div></section>`;
+  const more = `<section id="related"><h2>More comparisons</h2><ul class="links">${[
+    `<li><a href="${modelPath(a.slug)}">${esc(a.name)} pricing<span>All providers</span></a></li>`,
+    `<li><a href="${modelPath(b.slug)}">${esc(b.name)} pricing<span>All providers</span></a></li>`,
+    ...c.related.map((r) => `<li><a href="/compare/${r.slug}">${esc(r.title)}</a></li>`),
+    `<li><a href="/compare">All comparisons</a></li>`,
+  ].join("")}</ul></section>`;
+  return [head, table, buy, bench, picks, code, faq, more].join("\n");
+}
+
+export function compareHubBody(groups: { label: string; items: { slug: string; title: string; note: string }[] }[], count: number, buildDate: string): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Compare</span></nav>
+<h1>AI model comparisons</h1>
+<p class="answer">As of ${longDate(buildDate)}, ${int(count)} side-by-side comparisons of AI models: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file. Each line names the cheaper model at 3 input tokens per output token. New models get compared when they're added. To compare any models you choose, <a href="/compare/custom">build your own comparison</a>.</p></div>
+${groups
+  .filter((g) => g.items.length)
+  .map((g) => `<section><h2>${esc(g.label)}</h2><ul class="links">${g.items.map((i) => `<li><a href="/compare/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`)
+  .join("\n")}`;
+}
+
+// ---- Rankings and the new-models log --------------------------------------------------------------------
+
+export type RankRow = { rank: number; slug: string; name: string; lab: string | null; display: string; price: string | null; context?: number; providers: number; seller: string };
+
+export function rankingBody(r: { title: string; h1: string; answer: string; method: string; measure: string; rows: RankRow[]; others: { slug: string; title: string }[]; updated: string; slug: string }): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/rankings">Rankings</a><span>›</span><span>${esc(r.h1)}</span></nav>
+<h1>${esc(r.h1)}</h1>
+<p class="answer">${esc(r.answer)}</p>
+<div class="meta"><span>Updated <time datetime="${r.updated}">${longDate(r.updated)}</time></span><span>Sorted by ${esc(r.measure.toLowerCase())} only, not by quality</span></div></div>
+<section id="ranking"><h2>Top ${r.rows.length}</h2><p class="note">${esc(r.method)}</p><div class="tbl" data-track="ranking-table" data-page-kind="ranking" data-page-id="${r.slug}"><table><thead><tr><th class="n">#</th><th>Model</th><th>Lab</th><th class="n">${esc(r.measure)}</th><th>Price per 1M (in / out)</th><th class="n">Context</th><th class="n">Providers</th><th>Price from</th></tr></thead><tbody>${r.rows
+    .map(
+      (x) =>
+        `<tr><td class="n">${x.rank}</td><td><a href="${modelPath(x.slug)}">${esc(x.name)}</a></td><td>${esc(x.lab ?? "–")}</td><td class="n">${esc(x.display)}</td><td class="pr">${esc(x.price ?? "–")}</td><td class="n">${x.context ? tokensShort(x.context) : "–"}</td><td class="n">${x.providers}</td><td>${esc(x.seller)}</td></tr>`,
+    )
+    .join("")}</tbody></table></div></section>
+<section id="more"><h2>More rankings</h2><ul class="links">${r.others.map((o) => `<li><a href="/rankings/${o.slug}">${esc(o.title)}</a></li>`).join("")}<li><a href="/rankings">All rankings</a></li><li><a href="/compare">Model comparisons</a></li></ul></section>`;
+}
+
+export function rankingHubBody(items: { slug: string; title: string; note: string }[], updated: string): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Rankings</span></nav>
+<h1>AI model rankings by price and context window</h1>
+<p class="answer">As of ${longDate(updated)}, ${items.length} lists of AI models sorted by price or context window, from LiteLLM's price file. Each list says how it's sorted and what it leaves out. None of them rank by quality.</p></div>
+<section><h2>All rankings</h2><ul class="links">${items.map((i) => `<li><a href="/rankings/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`;
+}
+
+export type NewModelRow = { slug: string; name: string; lab: string | null; date: string; price: string | null; context?: number; providers: number; status: string };
+
+const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
+
+export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[]): string {
+  const i = months.findIndex((m) => m.ym === ym);
+  const newer = months[i - 1];
+  const older = months[i + 1];
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/new-models">New models</a><span>›</span><span>${esc(monthName(ym))}</span></nav>
+<h1>New AI models in ${esc(monthName(ym))}</h1>
+<p class="answer">${rows.length} ${rows.length === 1 ? "model was" : "models were"} added to LiteLLM's price file in ${esc(monthName(ym))}, newest first, with each one's headline price and context window.</p></div>
+<section><div class="tbl" data-track="new-models-table" data-page-kind="new-models" data-page-id="${ym}"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th><th class="n">Providers</th></tr></thead><tbody>${rows
+    .map(
+      (r) =>
+        `<tr><td>${r.date.length === 10 ? `<time datetime="${r.date}">${shortDate(r.date)}</time>` : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a>${r.status === "active" ? "" : ` <span class="pill">${esc(r.status)}</span>`}</td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td></tr>`,
+    )
+    .join("")}</tbody></table></div></section>
+<nav class="jump" aria-label="Other months">${newer ? `<a href="/new-models/${newer.ym}">← ${esc(monthName(newer.ym))}</a>` : ""}<a href="/new-models">All months</a>${older ? `<a href="/new-models/${older.ym}">${esc(monthName(older.ym))} →</a>` : ""}<a href="/new-models.xml">RSS feed</a></nav>`;
+}
+
+export function newModelsHubBody(latest: NewModelRow[], months: { ym: string; count: number }[], updated: string): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>New models</span></nav>
+<h1>New AI models on LiteLLM</h1>
+<p class="answer">As of ${longDate(updated)}, the ${latest.length} models most recently added to LiteLLM's price file, with their prices on the day. Every month has its own page, and there's an <a href="/new-models.xml">RSS feed</a>.</p></div>
+<section><h2>Latest additions</h2><div class="tbl"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${latest
+    .map((r) => `<tr><td>${r.date.length === 10 ? shortDate(r.date) : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`)
+    .join("")}</tbody></table></div></section>
+<section><h2>By month</h2><ul class="links">${months.map((m) => `<li><a href="/new-models/${m.ym}">${esc(monthName(m.ym))}<span>${m.count} ${m.count === 1 ? "model" : "models"}</span></a></li>`).join("")}</ul></section>`;
+}
+
+// ---- Cost calculator -------------------------------------------------------------------------------------
+
+/** Inputs and results, with the default workload's result already filled in. */
+function calcForm(kind: string, id: string, result: import("./calculator").CalcResult, select = "", listId = ""): string {
+  const d = CALC_DEFAULTS;
+  return `<div class="calc" data-calc data-track="calculator" data-page-kind="${kind}" data-page-id="${esc(id)}"${listId ? ` data-calc-list="${listId}"` : ""}>
+<div class="calc-in">${select}<label>Input tokens per request<input type="number" name="in" value="${d.input}" min="0" inputmode="numeric"></label><label>Output tokens per request<input type="number" name="out" value="${d.output}" min="0" inputmode="numeric"></label><label>Requests per day<input type="number" name="req" value="${d.requests}" min="0" inputmode="numeric"></label></div>
+<dl class="calc-out"><div><dt>Per request</dt><dd data-r="req">${calcMoney(result.perRequest)}</dd></div><div><dt>Per day</dt><dd data-r="day">${calcMoney(result.perDay)}</dd></div><div><dt>Per month (${DAYS_PER_MONTH} days)</dt><dd data-r="month">${calcMoney(result.perMonth)}</dd></div></dl>
+</div>`;
+}
+
+/** The calculator section on a model page; only for models priced per input and output token. */
+export function calcSection(v: ModelView): string {
+  const h = v.headline;
+  if (!h || !leadsWithTokens(h.mode, h.prices, h.metric) || h.prices.input === undefined || h.prices.output === undefined || v.free) return "";
+  const d = CALC_DEFAULTS;
+  const result = calcCost(h.prices.input, h.prices.output, d.input, d.output, d.requests);
+  return `<section id="calculator"><h2>${esc(v.name)} cost calculator</h2>
+<p>At ${esc(h.providerName)}'s price (${usd(h.prices.input)} input, ${usd(h.prices.output)} output per 1M tokens), ${int(d.requests)} requests a day with ${int(d.input)} input and ${int(d.output)} output tokens each cost ${calcMoney(result.perDay)} a day, about ${calcMoney(result.perMonth)} a month. Change the numbers for your workload${onCalculator(v) ? `, or <a href="/calculator?model=${encodeURIComponent(v.slug)}">compare it with other models</a>.` : "."}</p>
+${calcForm("model", v.slug, result)}</section>`;
+}
+
+/** `intro` is the written-out last day of an introductory price. */
+export type CalcModel = { slug: string; name: string; input: number; output: number; providers: number; intro?: string };
+
+const calcLabel = (m: CalcModel) => (m.intro ? `${m.name} (introductory price until ${m.intro})` : m.name);
+
+export function calculatorBody(models: CalcModel[], defaultSlug: string, table: CalcModel[], buildDate: string): string {
+  const d = CALC_DEFAULTS;
+  const first = models.find((m) => m.slug === defaultSlug) ?? models[0];
+  const result = calcCost(first.input, first.output, d.input, d.output, d.requests);
+  const list = Object.fromEntries(models.map((m) => [m.slug, [m.name, m.input, m.output]]));
+  const select = `<label>Model<select name="model">${models.map((m) => `<option value="${esc(m.slug)}"${m.slug === first.slug ? " selected" : ""}>${esc(calcLabel(m))}</option>`).join("")}</select></label>`;
+  const rows = table
+    .map((m) => ({ m, r: calcCost(m.input, m.output, d.input, d.output, d.requests) }))
+    .sort((a, b) => a.r.perMonth - b.r.perMonth || a.m.name.localeCompare(b.m.name));
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Calculator</span></nav>
+<h1>LLM API pricing calculator</h1>
+<p class="answer">Estimate what ${int(models.length)} AI models cost for your workload, at prices from LiteLLM's price file as of ${longDate(buildDate)}. Pick a model, then enter tokens per request and requests per day.</p></div>
+<section id="calculator">${calcForm("calculator", "calculator", result, select, "calc-models")}
+<script type="application/json" id="calc-models">${JSON.stringify(list).replace(/</g, "\\u003c")}</script>
+<p class="note">Uses each model's headline price: its own lab's API where it sells it, otherwise its cheapest provider. Cached input, batch discounts and long-context tiers aren't included; each model's page lists them.</p></section>
+<section id="examples"><h2>What ${int(d.requests)} requests a day cost</h2><p>Each request with ${int(d.input)} input and ${int(d.output)} output tokens, for the models on our <a href="/compare">comparison pages</a>, cheapest first.</p><div class="tbl" data-track="calculator-table"><table><thead><tr><th>Model</th><th class="n">Per request</th><th class="n">Per day</th><th class="n">Per month</th></tr></thead><tbody>${rows
+    .map(({ m, r }) => `<tr><td><a href="${modelPath(m.slug)}">${esc(m.name)}</a>${m.intro ? ` <span class="note">introductory price until ${esc(m.intro)}</span>` : ""}</td><td class="n">${calcMoney(r.perRequest)}</td><td class="n">${calcMoney(r.perDay)}</td><td class="n">${calcMoney(r.perMonth)}</td></tr>`)
+    .join("")}</tbody></table></div></section>`;
 }

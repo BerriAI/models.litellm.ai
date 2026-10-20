@@ -23,5 +23,235 @@
       "until": "2026-11-30",
       "source": "https://ai.google.dev/gemini-api/docs/pricing"
     }
+  },
+  "families": {
+    "claude-opus": "^claude-opus-\\d+(-\\d+)?$",
+    "claude-sonnet": "^claude-sonnet-\\d+(-\\d+)?$",
+    "claude-haiku": "^claude-haiku-\\d+(-\\d+)?$",
+    "claude-fable": "^claude-fable-\\d+(-\\d+)?$",
+    "gpt": "^gpt-\\d+(\\.\\d+)?$",
+    "gpt-astra": "^gpt-\\d+(\\.\\d+)?-astra$",
+    "gpt-sol": "^gpt-\\d+(\\.\\d+)?-sol$",
+    "gpt-terra": "^gpt-\\d+(\\.\\d+)?-terra$",
+    "gpt-luna": "^gpt-\\d+(\\.\\d+)?-luna$",
+    "gemini-pro": "^(gemini-\\d+(\\.\\d+)?-pro(-preview)?|gemini-\\d+-argon)$",
+    "gemini-flash": "^gemini-\\d+(\\.\\d+)?-flash$",
+    "gemini-flash-lite": "^gemini-\\d+(\\.\\d+)?-flash-lite$",
+    "grok": "^grok-\\d+(\\.\\d+)?$",
+    "deepseek-flash": "^deepseek-v\\d+(\\.\\d+)?-flash$",
+    "deepseek-pro": "^deepseek-v\\d+(\\.\\d+)?-pro$",
+    "glm": "^glm-\\d+(\\.\\d+)?$",
+    "qwen-max": "^qwen\\d+(\\.\\d+)?-max$",
+    "minimax": "^minimax-m\\d+(\\.\\d+)?$",
+    "kimi": "^kimi-k\\d+(\\.\\d+)?$",
+    "mistral-large": "^mistral-large-\\d+$",
+    "mistral-medium": "^mistral-medium-\\d+(\\.\\d+)?$",
+    "mistral-small": "^mistral-small-\\d+(\\.\\d+)?$",
+    "muse-wonder": "^muse-wonder-\\d+(\\.\\d+)?$",
+    "muse-spark": "^muse-spark-\\d+(\\.\\d+)?$"
+  },
+  "compare": {
+    "pairs": [
+      [
+        "claude-opus-5",
+        "claude-opus-5-5",
+        "successor"
+      ],
+      [
+        "claude-sonnet-5",
+        "claude-sonnet-5-5",
+        "successor"
+      ],
+      [
+        "claude-haiku-4-5",
+        "claude-haiku-5-5",
+        "successor"
+      ],
+      [
+        "claude-fable-5",
+        "claude-fable-5-1",
+        "successor"
+      ],
+      [
+        "gpt-5.5",
+        "gpt-6-astra",
+        "successor"
+      ],
+      [
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+        "successor"
+      ],
+      [
+        "gemini-3.1-pro-preview",
+        "gemini-4-argon",
+        "successor"
+      ],
+      [
+        "grok-4.6",
+        "grok-4.7",
+        "successor"
+      ],
+      [
+        "deepseek-v4-flash",
+        "deepseek-v4.1-flash",
+        "successor"
+      ],
+      [
+        "glm-5.2",
+        "glm-5.3",
+        "successor"
+      ],
+      [
+        "qwen3.7-max",
+        "qwen3.8-max",
+        "successor"
+      ],
+      [
+        "minimax-m2.7",
+        "minimax-m3",
+        "successor"
+      ],
+      [
+        "kimi-k2.7-code",
+        "kimi-k3",
+        "successor"
+      ],
+      [
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
+        "tier"
+      ],
+      [
+        "claude-haiku-5-5",
+        "claude-sonnet-5-5",
+        "tier"
+      ],
+      [
+        "gpt-5.6-luna",
+        "gpt-5.6-terra",
+        "tier"
+      ],
+      [
+        "deepseek-v4-flash",
+        "deepseek-v4-pro",
+        "tier"
+      ],
+      [
+        "claude-opus-5-5",
+        "gpt-6-astra",
+        "flagship"
+      ],
+      [
+        "claude-opus-5-5",
+        "gemini-4-argon",
+        "flagship"
+      ],
+      [
+        "gemini-4-argon",
+        "gpt-6-astra",
+        "flagship"
+      ],
+      [
+        "claude-fable-5-1",
+        "gpt-6-astra",
+        "flagship"
+      ],
+      [
+        "claude-opus-5-5",
+        "grok-4.7",
+        "flagship"
+      ],
+      [
+        "gemini-4-argon",
+        "grok-4.7",
+        "flagship"
+      ],
+      [
+        "claude-opus-5-5",
+        "muse-wonder-1.0",
+        "flagship"
+      ],
+      [
+        "gpt-6-astra",
+        "muse-wonder-1.0",
+        "flagship"
+      ],
+      [
+        "claude-sonnet-5-5",
+        "gpt-6.1-sol",
+        "mid"
+      ],
+      [
+        "claude-sonnet-5-5",
+        "gemini-4-argon",
+        "mid"
+      ],
+      [
+        "gemini-4-argon",
+        "gpt-6.1-sol",
+        "mid"
+      ],
+      [
+        "claude-haiku-5-5",
+        "gemini-3.8-flash",
+        "small"
+      ],
+      [
+        "claude-haiku-5-5",
+        "gpt-5.6-luna",
+        "small"
+      ],
+      [
+        "gemini-3.8-flash",
+        "gpt-5.6-luna",
+        "small"
+      ],
+      [
+        "deepseek-v4.1-flash",
+        "gemini-3.8-flash",
+        "small"
+      ],
+      [
+        "deepseek-v4-pro",
+        "kimi-k3",
+        "open"
+      ],
+      [
+        "deepseek-v4-pro",
+        "glm-5.3",
+        "open"
+      ],
+      [
+        "glm-5.3",
+        "kimi-k3",
+        "open"
+      ],
+      [
+        "deepseek-v4-pro",
+        "qwen3.8-max",
+        "flagship"
+      ],
+      [
+        "deepseek-v4-flash",
+        "minimax-m3",
+        "open"
+      ],
+      [
+        "deepseek-v4-flash",
+        "gpt-oss-120b",
+        "open"
+      ],
+      [
+        "claude-sonnet-5-5",
+        "kimi-k3",
+        "coding"
+      ],
+      [
+        "claude-sonnet-5-5",
+        "glm-5.3",
+        "coding"
+      ]
+    ]
   }
 }
