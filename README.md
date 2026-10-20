@@ -21,16 +21,16 @@ The generator writes:
 |---|---|
 | `/models/<model-id>` | One page per model, grouping every provider's listing of it, with prices, context window, features, code samples, FAQ and JSON-LD |
 | `/models/<model-id>.md` | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts` |
-| `/models` | Every model, most recently added first |
+| `/models` | Every active model, grouped by lab with a jump menu, newest first within each lab |
 | `/providers/<provider>` | Every model one provider sells, at that provider's price |
 | `/sitemap.xml`, `/sitemaps/*.xml` | Sitemap index split by page type, with `lastmod` from real data changes |
-| `/robots.txt`, `/llms.txt` | Crawl rules and a plain-text index for AI agents |
+| `/robots.txt`, `/llms.txt`, `/llms-full.txt` | Crawl rules, a short plain-text index for AI agents (newest 100 models), and the full model list |
 | `/models/slugs.json` | Price-file key to page slug, used by the catalog table to link rows |
 | `/models/manifest.json` | Per-model content hash, change date, date added and price history; the next build diffs against it |
 | `/build-info.json` | Counts, GitHub stars and price-file freshness for the home page stats |
 | `/changes.json` | URLs that changed in this build, for IndexNow |
 | `/og/<kind>/<id>.json` | Each page's share-card text; `api/og.ts` draws it as `/og/<kind>/<id>.png` |
-| `/index.html`, `/providers.html`, `/cookbook.html`, `/guardrails.html` | The app's routes, each with its own title, canonical, share image and a `<noscript>` summary for crawlers that don't run JavaScript |
+| `/index.html`, `/providers.html`, `/cookbook.html`, `/guardrails.html` | The app's routes, each with its own title, canonical, share image, BreadcrumbList and its content rendered as plain HTML (`#seo-shell`, built in `scripts/seo/app-pages.ts`) for crawlers that don't run JavaScript. The app removes it when it mounts. `/providers` lists every provider in `provider_endpoints_support.json`; `/cookbook` lists every tutorial on docs.litellm.ai (from its sitemap and each page's markdown copy, `scripts/seo/cookbook.ts`) plus the litellm repo's cookbook index, written to `/cookbook.json` for the app's Cookbook tab too; `/guardrails` renders the guardrails list. Both go noindex if the build can't load their data |
 
 ## Share images
 
@@ -44,7 +44,9 @@ npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home
 
 `scripts/seo/group.ts` maps price-file keys to one page per model: `gemini/gemini-nano-banana-2.1`, `vertex_ai/gemini-nano-banana-2.1` and `openrouter/google/gemini-nano-banana-2.1` share `/models/gemini-nano-banana-2.1`. Regions, inference profiles, dated snapshots and tiers become rows on that page. When the heuristic gets a model wrong, fix it in `scripts/seo/overrides.json` (merge or split pages, pin a name or slug) rather than in code. Published slugs never change: the build reads them back from the live manifest.
 
-When a lab sells a model at an introductory price for a limited time, add it to `introPricing` in `overrides.json` with the end date and the lab's pricing page, for example `"gemini-4-argon": { "until": "2026-11-30", "source": "https://ai.google.dev/gemini-api/docs/pricing" }`. The page then shows an "Introductory price" badge, says so in its answer, FAQ and meta description, labels the share card, and sets `priceValidUntil` in its JSON-LD. The price itself still comes from the price file, and the note disappears on the first build after the end date.
+When a lab sells a model at an introductory price for a limited time, add it to `introPricing` in `overrides.json` with the end date and the lab's pricing page, for example `"gemini-4-argon": { "until": "2026-11-30", "source": "https://ai.google.dev/gemini-api/docs/pricing" }`. The page then shows an "Introductory price" badge, says so in its answer, FAQ and meta description, labels the share card, and sets `priceValidUntil` in its JSON-LD. The price itself still comes from the price file, and the note disappears on the first build after the end date. The note shows only when the headline price comes from the lab's own API, or from a provider listed in the entry's optional `providers`.
+
+Each model has a status: `retired` when every priced listing's `deprecation_date` has passed, `deprecated` when any listing has one, otherwise `active`. Retired models get a banner, keep their page for reference and leave the sitemap and `/models`. Correct a wrong status with `status` in `overrides.json`. `npm run seo:check` also fails any model page whose quoted price range disagrees with its own price table.
 
 The page's headline price is the model's own lab when it sells the model (Anthropic for Claude, Google AI Studio for Gemini), otherwise the cheapest provider. A price more than 8x away from the median of the other providers is flagged on the page and kept out of the headline.
 

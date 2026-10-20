@@ -1,7 +1,9 @@
 /** Provider display names, provider hub ids, docs links and model labs. */
 
 export type ProviderSupport = {
-  providers?: Record<string, { display_name?: string; url?: string }>;
+  providers?: Record<string, { display_name?: string; url?: string; endpoints?: Record<string, boolean> }>;
+  /** Endpoint metadata: `provider_json_field` is the key used in each provider's `endpoints`. */
+  endpoints?: Record<string, { display_name?: string; leftnav_label?: string; provider_json_field?: string; url?: string }>;
 };
 
 /** Names people search for, which beat the docs labels like "AWS - Bedrock (`bedrock`)". */
@@ -149,6 +151,8 @@ const LAB_RULES: [RegExp, string][] = [
   [/^(gpt|o\d|chatgpt|dall-e|whisper|tts-1|text-embedding-3|text-embedding-ada|gpt-image|sora|davinci|babbage|codex|omni-moderation|text-moderation|computer-use)/, "OpenAI"],
   [/^(gemini|gemma|imagen|veo|nano-banana|chirp|lyria|learnlm|text-embedding-00|text-multilingual-embedding|multimodalembedding)/, "Google"],
   [/^llama/, "Meta"],
+  // The price file lists these under the `meta` provider (Meta Model API).
+  [/^muse-(spark|wonder|voice)/, "Meta"],
   [/^(mistral|mixtral|codestral|ministral|pixtral|magistral|devstral|voxtral|open-mistral|open-mixtral)/, "Mistral AI"],
   [/^deepseek/, "DeepSeek"],
   [/^(qwen|qwq)/, "Alibaba"],

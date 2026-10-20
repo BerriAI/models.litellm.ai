@@ -4,7 +4,7 @@
  */
 import { article, int, listProse, longDate, monthYear, tokensShort, usd, usdShort } from "./format";
 import type { ModelView, RowView } from "./model-view";
-import { CHAT_MODES, IMAGE_MODES } from "./pricing";
+import { CHAT_MODES, IMAGE_MODES, UNIT_LABEL, leadsWithTokens } from "./pricing";
 
 export type Faq = { q: string; a: string };
 export type CostExample = { label: string; rows: { who: string; cost: number }[] };
@@ -56,7 +56,7 @@ export function headlinePrice(v: ModelView): HeadlinePrice | null {
   if (!r) return null;
   const p = r.prices;
   if (v.free) return { unit: "free" };
-  if (CHAT_MODES.has(r.mode) && p.input !== undefined && p.output !== undefined) {
+  if (leadsWithTokens(r.mode, p, r.metric) && p.input !== undefined && p.output !== undefined) {
     return { unit: "tokens", input: p.input, output: p.output };
   }
   if (r.mode === "embedding" && p.input !== undefined) return { unit: "input_tokens", value: p.input };
@@ -72,7 +72,7 @@ export function headlinePrice(v: ModelView): HeadlinePrice | null {
 }
 
 function metricUnit(unit: string): string {
-  return unit.replace(/_/g, " ").replace("per 1m", "per 1M").replace("per 1k", "per 1K");
+  return UNIT_LABEL[unit as keyof typeof UNIT_LABEL] ?? unit.replace(/_/g, " ");
 }
 
 /** "X costs $4.00 per 1M input tokens and $20.00 per 1M output tokens on Anthropic". */
@@ -119,7 +119,7 @@ function titlePrice(v: ModelView): string | null {
   const p = r.prices;
   const from = v.headlineBasis === "lowest" ? "from " : "";
   if (v.free) return "Free";
-  if (CHAT_MODES.has(r.mode) && p.input !== undefined && p.output !== undefined) {
+  if (leadsWithTokens(r.mode, p, r.metric) && p.input !== undefined && p.output !== undefined) {
     return `${from}${usdShort(p.input)}/${usdShort(p.output)} per 1M Tokens`;
   }
   if (r.mode === "embedding" && p.input !== undefined) return `${from}${usdShort(p.input)} per 1M Tokens`;
@@ -127,6 +127,7 @@ function titlePrice(v: ModelView): string | null {
   if (r.mode === "video_generation" && p.perSecond !== undefined) return `${from}${usd(p.perSecond)} per Second`;
   if (r.mode === "audio_speech" && p.per1MChars !== undefined) return `${from}${usdShort(p.per1MChars)} per 1M Characters`;
   if (r.mode === "audio_transcription" && p.perMinute !== undefined) return `${from}${usd(p.perMinute)} per Minute`;
+  if (r.metric && r.metric.value > 0) return `${from}${usd(r.metric.value)} ${UNIT_LABEL[r.metric.unit].replace(/\b\w/g, (c) => c.toUpperCase()).replace(/^Per\b/, "per")}`;
   return null;
 }
 

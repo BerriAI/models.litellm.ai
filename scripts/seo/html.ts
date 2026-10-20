@@ -82,6 +82,7 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:8px;paddin
 .src ul{padding-left:18px}
 .intro{font-size:14px;color:var(--fg2)}
 .tag{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:999px;padding:1px 10px}
+.jump{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}.jump span{color:var(--muted)}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--bg3);color:var(--fg2)}
 .warnbox{border:1px solid var(--warn);border-radius:8px;padding:10px 14px;color:var(--fg);max-width:75ch}
 footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13px}
@@ -353,7 +354,9 @@ ${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.u
 <div class="meta"><span>Prices updated <time datetime="${ctx.lastChanged}">${longDate(ctx.lastChanged)}</time></span><span>Checked <time datetime="${ctx.buildDate}">${longDate(ctx.buildDate)}</time></span></div>
 </div>`);
 
-  if (v.deprecation) {
+  if (v.status === "retired") {
+    parts.push(`<div class="warnbox"><strong>Retired.</strong> ${v.deprecation ? `${esc(h?.providerName ?? "The provider")} retired <code>${esc(ms)}</code> on ${longDate(v.deprecation)}. ` : ""}Prices below are the last listed and kept for reference.</div>`);
+  } else if (v.deprecation) {
     const past = v.deprecation <= ctx.buildDate.slice(0, 10);
     parts.push(`<div class="warnbox">${past ? "Deprecated" : "Scheduled for deprecation"}: ${esc(h?.providerName ?? "The provider")} lists ${longDate(v.deprecation)} as the deprecation date for <code>${esc(ms)}</code>.</div>`);
   }
@@ -432,13 +435,28 @@ ${v.docs.length ? `<p>LiteLLM docs: ${v.docs.map((d) => `<a href="${esc(d.url)}"
 
 export type IndexRow = { name: string; slug: string; lab: string | null; price: string | null; context?: number; providers: number; added: string | null };
 
-export function indexTable(rows: IndexRow[]): string {
-  return `<div class="tbl"><table><thead><tr><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th><th class="n">Providers</th><th>Added</th></tr></thead><tbody>${rows
+/** `showLab: false` drops the Lab column, for tables already grouped under a lab heading. */
+export function indexTable(rows: IndexRow[], { showLab = true } = {}): string {
+  return `<div class="tbl"><table><thead><tr><th>Model</th>${showLab ? "<th>Lab</th>" : ""}<th>Price</th><th class="n">Context</th><th class="n">Providers</th><th>Added</th></tr></thead><tbody>${rows
     .map(
       (r) =>
-        `<tr><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td><td>${r.added ? esc(r.added) : "–"}</td></tr>`,
+        `<tr><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td>${showLab ? `<td>${esc(r.lab ?? "–")}</td>` : ""}<td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td><td>${r.added ? esc(r.added) : "–"}</td></tr>`,
     )
     .join("")}</tbody></table></div>`;
+}
+
+const anchor = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** /models body: one section per lab, largest first, with a jump menu; models without a known lab go last. */
+export function labSections(rows: IndexRow[]): string {
+  const byLab = new Map<string, IndexRow[]>();
+  for (const r of rows) byLab.set(r.lab ?? "", [...(byLab.get(r.lab ?? "") ?? []), r]);
+  const labs = [...byLab.entries()].sort((a, b) => Number(a[0] === "") - Number(b[0] === "") || b[1].length - a[1].length || a[0].localeCompare(b[0]));
+  const name = (lab: string) => lab || "Other labs";
+  const jump = `<nav class="jump" aria-label="Jump to a lab">${labs.map(([lab, list]) => `<a href="#${anchor(name(lab))}">${esc(name(lab))} <span>${list.length}</span></a>`).join("")}</nav>`;
+  return `${jump}${labs
+    .map(([lab, list]) => `<section id="${anchor(name(lab))}"><h2>${lab ? `${esc(lab)} models` : "Models from other labs"}</h2>${indexTable(list, { showLab: false })}</section>`)
+    .join("")}`;
 }
 
 export function notFoundBody(): string {

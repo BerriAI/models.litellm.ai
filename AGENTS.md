@@ -4,7 +4,9 @@
 
 This is a **Svelte 4 + Vite 5 + TypeScript** client-side SPA (no backend). The app fetches its data at runtime from public GitHub files. `npm run build` also runs `scripts/seo/generate.ts`, which writes a static page per model and provider into `dist/` (see README.md). Static pages and the app share `src/modelPresentation.ts` and `src/modelMeta.ts`.
 
-Only LiteLLM's own data goes on the site: `model_prices_and_context_window.json` and `provider_endpoints_support.json` from BerriAI/litellm. Do not add prices, model names or dates from other sources to the generated pages; fix grouping and names in `scripts/seo/overrides.json`.
+Only LiteLLM's own data goes on the site: `model_prices_and_context_window.json` and `provider_endpoints_support.json` from BerriAI/litellm, plus the cookbook index and guardrails list the app already reads. Do not add prices, model names or dates from other sources to the generated pages; fix grouping and names in `scripts/seo/overrides.json`.
+
+One exception: an `introPricing` entry in `overrides.json` may carry a hand-typed end date (`until`), because the price file can't say a price is temporary. It must cite the lab's own pricing page as an https `source`, and the build rejects it otherwise. Add `providers` when the introductory price applies to sellers other than the lab's own API. The price itself always comes from the price file.
 
 ### Running the dev server
 

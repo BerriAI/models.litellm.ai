@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { rangeMismatch } from "./consistency";
 import { OG_ID } from "./og-card";
 import { SITE_URL } from "./site";
 
@@ -83,6 +84,10 @@ for (const [rel, urlPath] of pages) {
   }
   for (const m of html.matchAll(/href="(\/[^"]*)"/g)) {
     if (!fileFor(m[1])) errors.push(`${rel}: broken link ${m[1]}`);
+  }
+  if (rel.startsWith("models/")) {
+    const mismatch = rangeMismatch(html);
+    if (mismatch) errors.push(`${rel}: ${mismatch}`);
   }
 }
 

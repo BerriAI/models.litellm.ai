@@ -13,6 +13,7 @@
  *   PREVIOUS_MANIFEST_URL  manifest to diff against, or "none"
  *   BUILD_DATE             override today's date (YYYY-MM-DD), for tests
  *   SEO_OUT_DIR            output directory (default dist)
+ *   COOKBOOK_FILE, GUARDRAILS_FILE  read the cookbook index and guardrails list from disk
  *   GITHUB_TOKEN           optional; avoids GitHub API rate limits for the star count
  */
 import { createHash } from "node:crypto";
@@ -22,16 +23,19 @@ import { pageCopy } from "./copy";
 import { llmsTxt, robotsTxt, sitemapIndex, urlset, type SitemapEntry } from "./crawl";
 import { escapeHtml as esc, int, longDate, monthYear, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
-import { indexTable, layout, modelBody, notFoundBody, type IndexRow } from "./html";
-import { listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
+import { indexTable, labSections, layout, modelBody, notFoundBody, type IndexRow } from "./html";
+import { breadcrumb, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
+import { loadCookbook } from "./cookbook";
+import { cookbookPage, guardrailsPage, homePage, providersPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { modelMarkdown } from "./markdown";
 import { copyCardFonts, modelCard, providerCard, writeCard } from "./og";
-import { appShell, linkList } from "./shell";
+import { appShell } from "./shell";
+import type { CardInput } from "./og-card";
 import { buildModelView, type ModelView, type RowView } from "./model-view";
-import { CHAT_MODES, IMAGE_MODES } from "./pricing";
+import { CHAT_MODES, IMAGE_MODES, UNIT_LABEL, leadsWithTokens } from "./pricing";
 import { providerDocsUrl, providerName, type ProviderSupport } from "./providers";
-import { COST_MAP_RAW_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, providerPath } from "./site";
+import { COOKBOOK_URL, COST_MAP_RAW_URL, GUARDRAILS_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, providerPath } from "./site";
 import { PAGE_TITLES } from "../../src/pageTitles";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
@@ -54,6 +58,16 @@ async function loadText(file: string | undefined, url: string): Promise<string> 
   return file ? readFileSync(file, "utf8") : fetchText(url);
 }
 
+/** Optional build data (the cookbook and guardrails lists); null when it can't be loaded. */
+async function fetchJson<T>(file: string | undefined, url: string): Promise<T | null> {
+  try {
+    return JSON.parse(await loadText(file, url)) as T;
+  } catch (err) {
+    console.warn(`seo: ${url} unavailable; its page is built noindex`, err);
+    return null;
+  }
+}
+
 /** GitHub API read, authenticated when GITHUB_TOKEN is set; null on any failure. */
 async function github<T>(pathAndQuery: string): Promise<T | null> {
   try {
@@ -72,7 +86,7 @@ const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 export function shortPrice(r: RowView | null): string | null {
   if (!r) return null;
   const p = r.prices;
-  if (CHAT_MODES.has(r.mode) && p.input !== undefined && p.output !== undefined) {
+  if (leadsWithTokens(r.mode, p, r.metric) && p.input !== undefined && p.output !== undefined) {
     return p.input === 0 && p.output === 0 ? "Free" : `${usdShort(p.input)} / ${usdShort(p.output)} per 1M tokens`;
   }
   if (r.mode === "embedding" && p.input !== undefined) return p.input === 0 ? "Free" : `${usdShort(p.input)} per 1M tokens`;
@@ -80,6 +94,7 @@ export function shortPrice(r: RowView | null): string | null {
   if (p.perSecond !== undefined) return `${usd(p.perSecond)} per second`;
   if (p.perMinute !== undefined) return `${usd(p.perMinute)} per minute`;
   if (p.per1MChars !== undefined) return `${usdShort(p.per1MChars)} per 1M characters`;
+  if (r.metric && r.metric.value > 0 && r.metric.unit !== "per_1m_tokens") return `${usd(r.metric.value)} ${UNIT_LABEL[r.metric.unit]}`;
   if (p.input !== undefined) return `${usdShort(p.input)} per 1M input tokens`;
   if (p.imageOutputTokens !== undefined) return `${usdShort(p.imageOutputTokens)} per 1M image tokens`;
   return null;
@@ -202,7 +217,12 @@ async function main(): Promise<void> {
     const firstSeen = v.addedDate;
     const price = shortPrice(v.headline);
     const history = [...(prev?.history ?? [])];
-    if (price && history[history.length - 1]?.price !== price) history.push({ date: BUILD_DATE, price });
+    const last = history[history.length - 1];
+    if (price && last?.price !== price) {
+      // Same data, new wording (a label fix): relabel the last entry instead of logging a price change.
+      if (unchanged && last) history[history.length - 1] = { ...last, price };
+      else history.push({ date: BUILD_DATE, price });
+    }
 
     const thin = !v.headline && !v.context;
     const related = relatedFor(v, byLab, byFamily).map((o) => ({ name: o.name, slug: o.slug, price: shortPrice(o.headline) }));
@@ -223,7 +243,8 @@ async function main(): Promise<void> {
     );
     write(`models/${v.slug}.md`, modelMarkdown(v, copy, lastChanged));
 
-    if (!thin) modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });
+    // Retired models keep their page for reference but leave the sitemap.
+    if (!thin && v.status !== "retired") modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });
     // Compare with the previous build, not the date: a second build on the same day
     // must not report every page that changed earlier that day.
     if (!unchanged && !thin) {
@@ -268,7 +289,7 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
   }
 
   // /models index, newest first.
-  const sorted = [...views].filter((v) => v.headline || v.context).sort(newestFirst);
+  const sorted = [...views].filter((v) => (v.headline || v.context) && v.status !== "retired").sort(newestFirst);
   const rows: IndexRow[] = sorted.map((v) => ({
     name: v.name,
     slug: v.slug,
@@ -305,10 +326,9 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
 <h1>AI model API pricing</h1>
 <p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM tracks prices for ${int(rows.length)} models across ${hubList.length} providers. Each model page lists every provider's price, the context window, and the code to call it through LiteLLM. Most recently added models first.</p></div>
 <section><h2>Browse by provider</h2><ul class="links">${hubList
-        .slice(0, 40)
         .map((h) => `<li><a href="${providerPath(h.hub)}">${esc(h.name)}<span>${h.list.length} models</span></a></li>`)
         .join("")}</ul></section>
-<section><h2>All models</h2>${indexTable(rows)}</section>`,
+<section><h2>Models by lab</h2><p>Newest first within each lab. Retired models are left out; their pages stay up for reference.</p>${labSections(rows)}</section>`,
     }),
   );
 
@@ -355,7 +375,7 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
         body: `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(h.name)}</span></nav>
 <h1>${esc(h.name)} model pricing</h1>
 <p class="answer">As of ${longDate(BUILD_DATE)}, ${list.length} ${esc(h.name)} models are available through LiteLLM${newest.length ? `. The most recently added are ${esc(newest.join(", "))}` : ""}. Prices below are ${esc(h.name)}'s list prices.</p>
-${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with LiteLLM</a></p>` : ""}</div>
+<div class="meta"><span>Prices updated <time datetime="${hubChanged}">${longDate(hubChanged)}</time></span><span>Checked <time datetime="${BUILD_DATE}">${longDate(BUILD_DATE)}</time></span>${docs ? `<a href="${esc(docs)}">How to call ${esc(h.name)} with LiteLLM</a>` : ""}</div></div>
 <section><h2>${esc(h.name)} models</h2>${indexTable(hubRows)}</section>`,
       }),
     );
@@ -364,13 +384,83 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
 
   write("404.html", layout({ title: "Page not found | LiteLLM", description: "This page doesn't exist.", path: "/404", body: notFoundBody(), noindex: true }));
 
-  // Crawl files.
-  const pageEntries: SitemapEntry[] = [
-    { path: "/", lastmod: latestChange },
-    { path: "/models", lastmod: latestChange },
-    // The app's other routes have their own pages now (see shell.ts); their content isn't dated.
-    ...(existsSync(path.join(OUT, "index.html")) ? [{ path: "/providers" }, { path: "/cookbook" }, { path: "/guardrails" }] : []),
-  ];
+
+  // Share-image fonts, then the app's routes with their own head and server-rendered content.
+  copyCardFonts(OUT, path.resolve(HERE, "../.."));
+  const indexFile = path.join(OUT, "index.html");
+  const appEntries: SitemapEntry[] = [];
+  if (existsSync(indexFile)) {
+    const appHtml = readFileSync(indexFile, "utf8");
+    const supported = Object.keys(support.providers ?? {}).length;
+    const listings = Object.keys(costMap).filter((k) => k !== "sample_spec").length;
+    const hubs = hubList.map((h) => ({ hub: h.hub, name: h.name, count: h.list.length }));
+    const recent = sorted.slice(0, 20).map((v) => ({ slug: v.slug, name: v.name, price: shortPrice(v.headline) }));
+    const [cookbookIndex, guardrails] = await Promise.all([
+      fetchJson<CookbookGuide[]>(process.env.COOKBOOK_FILE, COOKBOOK_URL),
+      fetchJson<Record<string, Guardrail>>(process.env.GUARDRAILS_FILE, GUARDRAILS_URL),
+    ]);
+    // A local COOKBOOK_FILE means an offline build: skip the docs crawl.
+    const guides = process.env.COOKBOOK_FILE ? cookbookIndex : await loadCookbook((u) => fetchText(u, 15_000), cookbookIndex);
+    if (guides) write("cookbook.json", JSON.stringify(guides));
+    const homeDescription = `Compare pricing, context windows and features for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file.`;
+    const providersDescription = `LiteLLM supports ${supported} AI providers, ${hubList.length} with model prices here. See the endpoints each supports: chat, embeddings, images, audio, batches and more.`;
+    const routes: { path: string; title: string; description: string; card: CardInput; page: AppPage }[] = [
+      {
+        path: "/",
+        title: PAGE_TITLES.models,
+        description: homeDescription,
+        card: {
+          kicker: "LiteLLM Model Catalog",
+          title: "AI model pricing, context windows and providers",
+          subtitle: "Updated several times a day",
+          stats: [
+            { value: int(rows.length), label: "models" },
+            { value: int(hubList.length), label: "providers" },
+            { value: int(listings), label: "price listings" },
+          ],
+        },
+        page: homePage(rows.length, hubs, recent, latestChange),
+      },
+      {
+        path: "/providers",
+        title: PAGE_TITLES.providers,
+        description: providersDescription,
+        card: { kicker: "LiteLLM providers", title: "AI provider integrations", subtitle: "Supported endpoints for every provider", stats: [{ value: int(supported), label: "providers" }, { value: int(hubList.length), label: "with model prices" }] },
+        page: providersPage(support, hubs, latestChange),
+      },
+      {
+        path: "/cookbook",
+        title: PAGE_TITLES.cookbook,
+        description: `${guides?.length ? `${guides.length} guides` : "Guides"} for using LiteLLM with popular AI tools and coding assistants, from the LiteLLM cookbook.`,
+        card: { kicker: "LiteLLM cookbook", title: "AI tool guides", subtitle: "Use LiteLLM with popular AI tools and coding assistants", stats: guides?.length ? [{ value: int(guides.length), label: "guides" }] : [] },
+        page: cookbookPage(guides),
+      },
+      {
+        path: "/guardrails",
+        title: PAGE_TITLES.guardrails,
+        description: `${guardrails ? `${Object.keys(guardrails).length} ready-made guardrails` : "Guardrails"} to copy, customize, and deploy on the LiteLLM AI Gateway to protect your LLM applications.`,
+        card: { kicker: "LiteLLM guardrails", title: "Custom code guardrails", subtitle: "Copy, customize, and deploy them with LiteLLM", stats: guardrails ? [{ value: int(Object.keys(guardrails).length), label: "guardrails" }] : [] },
+        page: guardrailsPage(guardrails),
+      },
+    ];
+    for (const r of routes) {
+      const id = r.path === "/" ? "home" : r.path.slice(1);
+      const lastmod = r.page.lastmod ?? BUILD_DATE;
+      const jsonLd = {
+        "@context": "https://schema.org",
+        "@graph": [webPage(r.path, r.title, r.description, lastmod), breadcrumb(r.page.breadcrumbs)],
+      };
+      write(
+        r.path === "/" ? "index.html" : `${id}.html`,
+        appShell(appHtml, { path: r.path, title: r.title, description: r.description, image: writeCard(OUT, "pages", id, r.card), body: r.page.body, jsonLd, noindex: !r.page.indexable }),
+      );
+      if (r.page.indexable && r.path !== "/") appEntries.push({ path: r.path, lastmod: r.page.lastmod });
+    }
+  } else {
+    console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");
+  }
+  // Crawl files, after the app routes so their entries reflect whether their data loaded.
+  const pageEntries: SitemapEntry[] = [{ path: "/", lastmod: latestChange }, { path: "/models", lastmod: latestChange }, ...appEntries];
   write("sitemaps/pages.xml", urlset(pageEntries));
   write("sitemaps/models.xml", urlset(modelEntries.sort((a, b) => (b.lastmod ?? "").localeCompare(a.lastmod ?? ""))));
   write("sitemaps/providers.xml", urlset(providerEntries));
@@ -383,82 +473,17 @@ ${docs ? `<p class="meta"><a href="${esc(docs)}">How to call ${esc(h.name)} with
     ]),
   );
   write("robots.txt", robotsTxt());
+  const llmsModels = sorted.map((v) => ({
+    name: v.name,
+    slug: v.slug,
+    summary: [shortPrice(v.headline), v.context ? `${tokensShort(v.context)} context` : null, `${v.providers.length} provider${v.providers.length === 1 ? "" : "s"}`]
+      .filter(Boolean)
+      .join(", "),
+  }));
+  const llmsProviders = hubList.map((h) => ({ name: h.name, hub: h.hub, count: h.list.length }));
+  write("llms.txt", llmsTxt(llmsModels, llmsProviders, 100));
+  write("llms-full.txt", llmsTxt(llmsModels, llmsProviders));
 
-  // Share-image fonts, then the app's routes with their own head and a no-JS summary.
-  copyCardFonts(OUT, path.resolve(HERE, "../.."));
-  const indexFile = path.join(OUT, "index.html");
-  if (existsSync(indexFile)) {
-    const appHtml = readFileSync(indexFile, "utf8");
-    const supported = Object.keys(support.providers ?? {}).length;
-    const listings = Object.keys(costMap).filter((k) => k !== "sample_spec").length;
-    const recent = sorted.slice(0, 20).map((v) => ({ href: modelPath(v.slug), text: v.name, note: shortPrice(v.headline) ?? undefined }));
-    const hubLinks = hubList.slice(0, 30).map((h) => ({ href: providerPath(h.hub), text: `${h.name} pricing`, note: `${h.list.length} models` }));
-    const homeDescription = `Compare pricing, context windows and features for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file.`;
-    write(
-      "index.html",
-      appShell(appHtml, {
-        path: "/",
-        title: PAGE_TITLES.models,
-        description: homeDescription,
-        image: writeCard(OUT, "pages", "home", {
-          kicker: "LiteLLM Model Catalog",
-          title: "AI model pricing, context windows and providers",
-          subtitle: "Updated several times a day",
-          stats: [
-            { value: int(rows.length), label: "models" },
-            { value: int(hubList.length), label: "providers" },
-            { value: int(listings), label: "price listings" },
-          ],
-        }),
-        noscript: `<main><h1>AI model pricing, context windows and providers</h1><p>${esc(homeDescription)} <a href="/models">Browse every model</a>.</p><h2>Recently added models</h2>${linkList(recent)}<h2>Pricing by provider</h2>${linkList(hubLinks)}</main>`,
-      }),
-    );
-    const routes = [
-      {
-        path: "/providers",
-        title: PAGE_TITLES.providers,
-        description: `Browse ${supported} AI providers and the endpoints LiteLLM supports for each: chat completions, embeddings, images, audio, batches and more.`,
-        card: { kicker: "LiteLLM providers", title: "AI provider integrations", subtitle: "Supported endpoints for every provider", stats: [{ value: int(supported), label: "providers" }] },
-        noscript: `<main><h1>AI provider integrations</h1><p>LiteLLM supports ${supported} AI providers. Model prices by provider:</p>${linkList(hubLinks)}</main>`,
-      },
-      {
-        path: "/cookbook",
-        title: PAGE_TITLES.cookbook,
-        description: "Guides for using LiteLLM with popular AI tools and coding assistants, from the LiteLLM community.",
-        card: { kicker: "LiteLLM cookbook", title: "AI tool guides", subtitle: "Use LiteLLM with popular AI tools and coding assistants", stats: [] },
-        noscript: `<main><h1>AI tool guides</h1><p>Guides for using LiteLLM with popular AI tools and coding assistants. See also the <a href="https://docs.litellm.ai">LiteLLM docs</a>.</p></main>`,
-      },
-      {
-        path: "/guardrails",
-        title: PAGE_TITLES.guardrails,
-        description: "Copy, customize, and deploy guardrails that protect your LLM applications with LiteLLM.",
-        card: { kicker: "LiteLLM guardrails", title: "Custom code guardrails", subtitle: "Copy, customize, and deploy them with LiteLLM", stats: [] },
-        noscript: `<main><h1>Custom code guardrails</h1><p>Copy, customize, and deploy guardrails that protect your LLM applications. See the <a href="https://docs.litellm.ai/docs/proxy/guardrails/quick_start">guardrails docs</a>.</p></main>`,
-      },
-    ];
-    for (const r of routes) {
-      const id = r.path.slice(1);
-      write(
-        `${id}.html`,
-        appShell(appHtml, { path: r.path, title: r.title, description: r.description, image: writeCard(OUT, "pages", id, r.card), noscript: r.noscript }),
-      );
-    }
-  } else {
-    console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");
-  }
-  write(
-    "llms.txt",
-    llmsTxt(
-      sorted.map((v) => ({
-        name: v.name,
-        slug: v.slug,
-        summary: [shortPrice(v.headline), v.context ? `${tokensShort(v.context)} context` : null, `${v.providers.length} provider${v.providers.length === 1 ? "" : "s"}`]
-          .filter(Boolean)
-          .join(", "),
-      })),
-      hubList.map((h) => ({ name: h.name, hub: h.hub, count: h.list.length })),
-    ),
-  );
 
   write("models/manifest.json", JSON.stringify(manifest));
   write("models/slugs.json", JSON.stringify(slugMap));

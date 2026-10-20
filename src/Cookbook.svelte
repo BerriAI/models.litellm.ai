@@ -35,7 +35,9 @@
       loading = true;
       error = null;
 
-      const response = await fetch(INDEX_URL);
+      // The site's own list (docs tutorials plus the cookbook index, built by scripts/seo/cookbook.ts); the raw index if it's missing, as in dev.
+      let response = await fetch("/cookbook.json").catch(() => null);
+      if (!response?.ok || !(response.headers.get("content-type") ?? "").includes("json")) response = await fetch(INDEX_URL);
       if (!response.ok) {
         throw new Error(`Failed to fetch guides: ${response.statusText}`);
       }

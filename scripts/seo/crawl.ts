@@ -36,10 +36,16 @@ ${items}
 `;
 }
 
+/**
+ * `limit` writes the short llms.txt (newest models only, linking llms-full.txt); without it, the full list.
+ * The full file runs to about 190 KB, more than most agents fetch in one go.
+ */
 export function llmsTxt(
   models: { name: string; slug: string; summary: string }[],
   providers: { name: string; hub: string; count: number }[],
+  limit?: number,
 ): string {
+  const listed = limit ? models.slice(0, limit) : models;
   const lines = [
     "# LiteLLM Model Catalog",
     "",
@@ -47,7 +53,8 @@ export function llmsTxt(
     "",
     "## Overview",
     "",
-    `- [All models](${SITE_URL}/models): every model with its headline price, newest first`,
+    `- [All models](${SITE_URL}/models): every model with its headline price, grouped by lab`,
+    ...(limit ? [`- [Full model list](${SITE_URL}/llms-full.txt): all ${models.length.toLocaleString("en-US")} models with prices, as plain text`] : []),
     `- [Price file on GitHub](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json): the raw data, updated several times a day`,
     `- [LiteLLM docs](https://docs.litellm.ai): the SDK and AI gateway that use these prices for cost tracking`,
     "",
@@ -55,9 +62,9 @@ export function llmsTxt(
     "",
     ...providers.map((p) => `- [${p.name}](${SITE_URL}/providers/${p.hub}): ${p.count} models`),
     "",
-    "## Models",
+    limit ? `## Newest ${listed.length} models` : "## Models",
     "",
-    ...models.map((m) => `- [${m.name}](${SITE_URL}/models/${m.slug}.md): ${m.summary}`),
+    ...listed.map((m) => `- [${m.name}](${SITE_URL}/models/${m.slug}.md): ${m.summary}`),
     "",
   ];
   return lines.join("\n");
