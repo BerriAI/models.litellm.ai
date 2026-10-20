@@ -109,6 +109,7 @@
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
     query = urlParams.get("q") ?? "";
+    searchText = query;
 
     fetch("/models/slugs.json")
       .then((res) => (res.ok ? res.json() : {}))
@@ -219,6 +220,13 @@
     query = value;
   }, 500);
 
+  $: setQueryDebounced(searchText);
+
+  function clearSearch() {
+    searchText = "";
+    query = "";
+  }
+
   const getIssueUrlForAdd = (query: string) => {
     const q = encodeURIComponent(query);
     const body = encodeURIComponent(
@@ -256,6 +264,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   let sha: string | null = null;
   let query = "";
+  let searchText = "";
   let lines: string[] = [];
   let index: Fuse<Item>;
   let results: ResultItem[] = [];
@@ -537,8 +546,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         <input
           id="query"
           bind:this={searchInput}
-          value={query}
-          on:input={(e) => setQueryDebounced(e.currentTarget.value)}
+          bind:value={searchText}
           on:focus={() => { searchFocused = true; }}
           on:blur={() => { searchFocused = false; }}
           type="text"
@@ -548,12 +556,12 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
           placeholder="Search models... (e.g., gpt-4o, claude-3.5, gemini)"
           class="search-input"
         />
-        {#if query}
-          <button class="search-clear" on:click={() => { query = ""; }} type="button">
+        {#if searchText}
+          <button class="search-clear" on:click={clearSearch} type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         {/if}
-        {#if !query && !searchFocused}
+        {#if !searchText && !searchFocused}
           <kbd class="search-shortcut">⌘K</kbd>
         {/if}
       </div>
@@ -590,8 +598,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       <div class="results-meta">
         <span class="results-count">{results.length.toLocaleString()} models</span>
         <div class="results-meta-right">
-          {#if query || selectedProvider || maxInputTokens || maxOutputTokens}
-            <button class="clear-filters" on:click={() => { query = ""; selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
+          {#if searchText || selectedProvider || maxInputTokens || maxOutputTokens}
+            <button class="clear-filters" on:click={() => { clearSearch(); selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
               Clear all filters
             </button>
           {/if}
