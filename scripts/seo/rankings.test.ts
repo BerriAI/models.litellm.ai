@@ -7,8 +7,8 @@ import {
   type Overrides,
 } from "./group";
 import { buildModelView, type ModelView } from "./model-view";
+import { blended } from "./compare";
 import {
-  blended,
   buildRankings,
   indexableRanking,
   rankingAnswer,
@@ -43,6 +43,8 @@ const COST_MAP: CostMap = {
   "fireworks_ai/acme/acme-open-1": chat("fireworks_ai", 0.06, 0.12, 64_000),
   // One reseller only, not the lab: left out, however cheap.
   "deepinfra/acme/acme-oneoff-1": chat("deepinfra", 0.001, 0.001, 128_000),
+  // One reseller with a huge window: left out of the context ranking too.
+  "deepinfra/acme/acme-huge-1": chat("deepinfra", 0.1, 0.4, 10_000_000),
   // Too small a context window: left out.
   "gpt-tiny-1": chat("openai", 0.01, 0.01, 8_000),
   // Retired: left out.
@@ -86,6 +88,9 @@ describe("rankings", () => {
     const r = get("largest-context-window");
     expect(r.items[0].view.slug).toBe("gemini-big-1");
     expect(r.items[0].display).toBe("2,000,000 tokens");
+    expect(rankingAnswer(r, "October 20, 2026")).toBe(
+      "As of October 20, 2026, among LiteLLM's active models with a 32K-token context window or more, offered by at least two providers or by their own lab, Gemini Big 1 has the largest context window, at 2,000,000 tokens, from Google AI Studio.",
+    );
   });
 
   test("price-capped lists sort by provider coverage, so they don't repeat the cheapest list", () => {
@@ -93,7 +98,7 @@ describe("rankings", () => {
     expect(r.items[0].view.slug).toBe("acme-open-1");
     expect(r.items.map((x) => x.view.slug)).not.toContain("claude-mid-1");
     expect(rankingAnswer(r, "October 20, 2026")).toContain(
-      "3 active models on LiteLLM cost under $1 per 1M tokens",
+      "3 of LiteLLM's active models with a 32K-token context window or more, offered by at least two providers or by their own lab, cost under $1 per 1M tokens",
     );
   });
 

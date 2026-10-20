@@ -76,6 +76,15 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+export function unescapeHtml(s: string): string {
+  return s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
 /** Join names as prose: `A`, `A and B`, `A, B and C`. */
 export function listProse(items: string[]): string {
   if (items.length <= 1) return items[0] ?? "";

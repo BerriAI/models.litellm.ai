@@ -5,6 +5,7 @@ import { describe, expect, test } from "vitest";
 import middleware from "../../middleware";
 import {
   benchmarksFor,
+  latestBenchmarkDate,
   parseBenchmarkZip,
   parseCsv,
   splitVersion,
@@ -13,6 +14,7 @@ import {
   WEEKLY_CAP,
   answerLine,
   benchRows,
+  cheaperNote,
   compareCopy,
   compareSlug,
   contextPair,
@@ -29,6 +31,7 @@ import {
   type Overrides,
 } from "./group";
 import { compareBody, type CompareView } from "./html";
+import { usd } from "./format";
 import { compareMarkdown } from "./markdown";
 import { buildModelView, type ModelView } from "./model-view";
 
@@ -315,6 +318,18 @@ describe("comparison copy", () => {
     ).not.toContain("introductory");
   });
 
+  test("which is cheaper goes by the blended price, not input alone", () => {
+    const vs = views({
+      "acme-low-input": chat("together_ai", 1, 20, 128_000),
+      "acme-low-blend": chat("together_ai", 2, 4, 128_000),
+    });
+    const p = pair(vs, "acme-low-blend", "acme-low-input");
+    expect(compareCopy(p, "2026-10-20").faq[0].a).toBe(
+      "Acme Low Blend is cheaper at 3 input tokens per output token: $2.50 per 1M tokens blended ($2.00 input, $4.00 output), versus $5.75 ($1.00 and $20.00) for Acme Low Input, as of October 20, 2026.",
+    );
+    expect(cheaperNote(p)).toBe("Acme Low Blend is cheaper");
+  });
+
   test("context windows that round to the same short form are written out", () => {
     expect(contextPair(1_000_000, 1_048_576)).toEqual([
       "1,000,000",
@@ -377,6 +392,8 @@ describe("Epoch AI benchmarks", () => {
         ["gpt-6-astra_low", "0.80", "2026-09-10T00:00:00Z"],
         ["claude-opus-5-5_max", "0.906", "2026-09-25T00:00:00Z"],
         ["claude-opus-5-5-preview_max", "0.99", "2026-09-25T00:00:00Z"],
+        ["gpt-5-mini-2026-05-01_high", "0.82", "2026-05-02"],
+        ["gpt-5-mini-2026-08-01_high", "0.77", "2026-08-02"],
       ]),
     ),
     "swe_bench_verified.csv": strToU8(
@@ -499,13 +516,56 @@ describe("Epoch AI benchmarks", () => {
     );
   });
 
-  test("dated snapshots match their undated model; quoted CSV fields parse", () => {
+  test("an undated page takes the newest dated snapshot, a dated page its own, never the best of several", () => {
+    const gpqa = (ids: string[]) =>
+      benchmarksFor(data, ids, ["GPT-5 Mini"])!.scores.find(
+        (x) => x.benchmark === "GPQA Diamond",
+      )!;
+    expect(gpqa(["gpt-5-mini"])).toMatchObject({
+      score: 0.77,
+      date: "2026-08-02",
+    });
+    expect(gpqa(["gpt-5-mini-2026-05-01"])).toMatchObject({ score: 0.82 });
+  });
+
+  test("the data-as-of date counts the Capabilities Index date too", () => {
+    const eciOnly = benchmarksFor(data, ["not-on-epoch"], ["Claude Opus 5.5"]);
+    expect(eciOnly!.scores).toEqual([]);
+    expect(latestBenchmarkDate([eciOnly, null])).toBe("2026-09-22");
+  });
+
+  test("the markdown copy shows table cells as plain text, not HTML entities", () => {
+    const vs = views();
+    const p = pair(vs, "claude-opus-5-5", "gpt-6-astra");
+    const md = compareMarkdown({
+      slug: p.slug,
+      a: p.a,
+      b: p.b,
+      copy: compareCopy(p, "2026-10-20"),
+      rows: [["Price shown is from", "Anthropic", "Weights &amp; Biases"]],
+      bench: [],
+      benchDate: null,
+      cheapest: [],
+      related: [],
+      buildDate: "2026-10-20",
+      hubs: new Set(),
+    });
+    expect(md).toContain(
+      "| Price shown is from | Anthropic | Weights & Biases |",
+    );
+  });
+
+  test("dated versions keep their date; quoted CSV fields parse", () => {
     expect(splitVersion("gpt-5.4-2026-03-05_xhigh")).toEqual({
-      id: "gpt-5-4",
+      id: "gpt-5-4-2026-03-05",
+      model: "gpt-5-4",
+      snapshot: "20260305",
       setting: "xhigh",
     });
     expect(splitVersion("glm-5.3_unknown")).toEqual({
       id: "glm-5-3",
+      model: "glm-5-3",
+      snapshot: null,
       setting: null,
     });
     expect(parseCsv('a,b\n"x, ""y""",2\n')).toEqual([{ a: 'x, "y"', b: "2" }]);
@@ -547,6 +607,18 @@ describe("comparison tool data", () => {
       toolData(vs, () => null, new Set()).models["claude-opus-5"],
     ).toMatchObject({ in: 5, out: 25 });
   });
+
+  test("tool prices are the price file's per-1M values without float noise, so equal prices tie", () => {
+    const vs = views({
+      ...COST_MAP,
+      "acme-open-1": chat("acme", 0.03, 0, 131_000, {
+        output_cost_per_token: 1.7e-7,
+      }),
+    });
+    expect(
+      toolData(vs, () => null, new Set()).models["acme-open-1"],
+    ).toMatchObject({ in: 0.03, out: 0.17 });
+  });
 });
 
 describe("comparison tool page", () => {
@@ -579,6 +651,13 @@ describe("comparison tool page", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     return root.innerHTML;
   }
+
+  test("tool prices read the same as the model pages, $0.125 included", () => {
+    const src = /var usd=(function\(n\)\{[^}]*\})/.exec(TOOL_JS)![1];
+    const toolUsd = new Function(`return ${src}`)() as (n: number) => string;
+    for (const n of [0, 0.0375, 0.075, 0.125, 1.25, 3, 15, 1234.5])
+      expect(toolUsd(n)).toBe(usd(n));
+  });
 
   test("benchmark text is escaped and credited to Epoch AI under CC BY 4.0 with its date", async () => {
     const vs = views(COST_MAP, {

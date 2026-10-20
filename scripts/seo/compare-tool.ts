@@ -5,7 +5,7 @@
  * ones meant for search, and the tool links to one when the picked pair has it.
  */
 import { cheapestRow, compareSlug, priced } from "./compare";
-import type { ModelBenchmarks } from "./benchmarks";
+import { latestBenchmarkDate, type ModelBenchmarks } from "./benchmarks";
 import type { ModelView } from "./model-view";
 import { longDate } from "./format";
 
@@ -32,6 +32,8 @@ export type ToolModel = {
   b?: Record<string, string>;
 };
 
+const noFloatNoise = (n: number) => Number(n.toPrecision(12));
+
 const FEATURES: [string, string][] = [
   ["Image input", "vision"],
   ["Function calling", "tools"],
@@ -40,15 +42,19 @@ const FEATURES: [string, string][] = [
   ["Reasoning", "reason"],
 ];
 
+export function onCompareTool(v: ModelView): boolean {
+  return v.status !== "retired" && priced(v);
+}
+
 export function toolData(
   views: ModelView[],
   benchFor: (v: ModelView) => ModelBenchmarks | null,
   pairSlugs: Set<string>,
 ): { models: Record<string, ToolModel>; pairs: string[]; asOf: string | null } {
   const models: Record<string, ToolModel> = {};
-  const benchDates: string[] = [];
+  const benches: (ModelBenchmarks | null)[] = [];
   for (const v of views
-    .filter((v) => v.status !== "retired" && priced(v))
+    .filter(onCompareTool)
     .sort(
       (a, b) =>
         b.providers.length - a.providers.length || a.name.localeCompare(b.name),
@@ -61,11 +67,7 @@ export function toolData(
     }
     const cheap = cheapestRow(v);
     const bench = benchFor(v);
-    benchDates.push(
-      ...[bench?.eci?.date, ...(bench?.scores ?? []).map((s) => s.date)].filter(
-        (d): d is string => !!d,
-      ),
-    );
+    benches.push(bench);
     const b: Record<string, string> = {};
     if (bench?.eci) b["Epoch Capabilities Index"] = bench.eci.score.toFixed(1);
     for (const s of bench?.scores ?? [])
@@ -74,10 +76,10 @@ export function toolData(
     models[v.slug] = {
       n: v.name,
       lab: v.lab,
-      in: p.input!,
-      out: p.output!,
-      ...(p.cacheRead !== undefined ? { cr: p.cacheRead } : {}),
-      ...(p.cacheWrite !== undefined ? { cw: p.cacheWrite } : {}),
+      in: noFloatNoise(p.input!),
+      out: noFloatNoise(p.output!),
+      ...(p.cacheRead !== undefined ? { cr: noFloatNoise(p.cacheRead) } : {}),
+      ...(p.cacheWrite !== undefined ? { cw: noFloatNoise(p.cacheWrite) } : {}),
       ctx: v.context!,
       ...(v.maxOutput ? { mo: v.maxOutput } : {}),
       f,
@@ -86,7 +88,7 @@ export function toolData(
       ...(v.intro ? { iu: longDate(v.intro.until) } : {}),
       ...(cheap
         ? {
-            cheap: [cheap.providerName, cheap.prices.input!] as [
+            cheap: [cheap.providerName, noFloatNoise(cheap.prices.input!)] as [
               string,
               number,
             ],
@@ -96,7 +98,7 @@ export function toolData(
       ...(Object.keys(b).length ? { b } : {}),
     };
   }
-  const latest = benchDates.sort().at(-1);
+  const latest = latestBenchmarkDate(benches);
   return {
     models,
     pairs: [...pairSlugs].filter((s) =>
@@ -133,7 +135,7 @@ export const TOOL_JS = `<script>(function(){
 var root=document.getElementById("ct");if(!root)return;
 var MAX=4,data=null,pairs={},asOf=null;
 var esc=function(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})};
-var usd=function(n){return n==null?"–":n>=0.1?"$"+n.toFixed(2):"$"+Number(n.toPrecision(3))};
+var usd=function(n){if(n==null)return"–";if(n===0)return"$0";var p=Number(n.toPrecision(4)).toFixed(10).replace(/0+$/,"").split(".");return"$"+Number(p[0]).toLocaleString("en-US")+"."+(p[1]||"").padEnd(2,"0")};
 var tok=function(n){return n==null?"–":n.toLocaleString("en-US")};
 var yn=function(v){return v===1?"Yes":v===0?"No":"–"};
 var picked=(new URLSearchParams(location.search).get("models")||"").split(",").filter(Boolean).slice(0,MAX);

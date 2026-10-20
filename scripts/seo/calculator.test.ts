@@ -53,6 +53,14 @@ describe("cost calculator", () => {
     expect(calcMoney(0.7)).toBe("$0.70");
   });
 
+  test("a cost that is a half cent up to float noise rounds up in the build and the page script", () => {
+    const { perDay } = calcCost(0.025, 0.025, 1000, 500, 10_000);
+    const src = /var fmt=(function\(n\)\{[^}]*\})/.exec(CALC_JS)![1];
+    const fmt = new Function(`return ${src}`)() as (n: number) => string;
+    expect(calcMoney(perDay)).toBe("$0.38");
+    expect(fmt(perDay)).toBe("$0.38");
+  });
+
   test("arithmetic: (in × input price + out × output price) per request, × requests, × 30 days", () => {
     expect(calcCost(4, 20, 2000, 500, 10_000)).toEqual({
       perRequest: 0.018,

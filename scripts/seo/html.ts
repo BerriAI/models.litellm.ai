@@ -4,8 +4,8 @@
  */
 import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/modelPresentation";
 import { headlinePrice, type PageCopy } from "./copy";
-import { TOOL_CSS } from "./compare-tool";
-import { CALC_DEFAULTS, DAYS_PER_MONTH, calcCost, calcMoney } from "./calculator";
+import { onCompareTool, TOOL_CSS } from "./compare-tool";
+import { CALC_DEFAULTS, DAYS_PER_MONTH, calcCost, calcMoney, onCalculator } from "./calculator";
 import { leadsWithTokens } from "./pricing";
 import { escapeHtml as esc, int, longDate, shortDate, tokensShort, usd } from "./format";
 import { jsonLdScript } from "./jsonld";
@@ -307,8 +307,6 @@ export type ModelPageContext = {
   comparisons?: { slug: string; other: string }[];
   /** A retired model's newer family member, linked from the retired notice. */
   successor?: { name: string; slug: string } | null;
-  /** Whether the model can be opened in the comparison tool. */
-  comparable?: boolean;
 };
 
 type Stat = { label: string; value: string; lead?: boolean; tag?: string };
@@ -376,7 +374,7 @@ export function modelBody(v: ModelView, copy: PageCopy, ctx: ModelPageContext): 
   parts.push(`<div class="head">
 <nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(v.name)}</span></nav>
 <h1>${esc(copy.h1)}</h1>
-<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span>${ctx.comparable ? `<a class="cmp" href="/compare/custom?models=${encodeURIComponent(v.slug)}" data-track="compare-button">Compare</a>` : ""}</div>
+<div class="idline"><span>${v.lab ? `By ${esc(v.lab)} · ` : ""}${v.providers.length} ${v.providers.length === 1 ? "provider" : "providers"}</span><span class="id"><code id="model-id">${esc(ms)}</code><button class="copy" type="button" data-copy="model-id">Copy</button></span>${onCompareTool(v) ? `<a class="cmp" href="/compare/custom?models=${encodeURIComponent(v.slug)}" data-track="compare-button">Compare</a>` : ""}</div>
 <dl class="stats">${stats.map((s) => `<div class="stat${s.lead ? " lead" : ""}"><dt><span>${s.label}</span>${s.tag ? `<span class="tag">${s.tag}</span>` : ""}</dt><dd>${s.value}</dd></div>`).join("")}</dl>
 <p class="answer">${esc(copy.answer)}</p>
 ${v.intro && h ? `<p class="intro">Introductory price until ${longDate(v.intro.until)}, per <a href="${esc(v.intro.source)}">${esc(v.lab ?? h.providerName)}'s pricing page</a>.</p>` : ""}
@@ -579,7 +577,7 @@ response = completion(model="${sa}", messages=messages, fallbacks=["${sb}"])`;
 export function compareHubBody(groups: { label: string; items: { slug: string; title: string; note: string }[] }[], count: number, buildDate: string): string {
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Compare</span></nav>
 <h1>AI model comparisons</h1>
-<p class="answer">As of ${longDate(buildDate)}, ${int(count)} side-by-side comparisons of AI models: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file. New models get compared when they're added. To compare any models you choose, <a href="/compare/custom">build your own comparison</a>.</p></div>
+<p class="answer">As of ${longDate(buildDate)}, ${int(count)} side-by-side comparisons of AI models: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file. Each line names the cheaper model at 3 input tokens per output token. New models get compared when they're added. To compare any models you choose, <a href="/compare/custom">build your own comparison</a>.</p></div>
 ${groups
   .filter((g) => g.items.length)
   .map((g) => `<section><h2>${esc(g.label)}</h2><ul class="links">${g.items.map((i) => `<li><a href="/compare/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`)
@@ -659,7 +657,7 @@ export function calcSection(v: ModelView): string {
   const d = CALC_DEFAULTS;
   const result = calcCost(h.prices.input, h.prices.output, d.input, d.output, d.requests);
   return `<section id="calculator"><h2>${esc(v.name)} cost calculator</h2>
-<p>At ${esc(h.providerName)}'s price (${usd(h.prices.input)} input, ${usd(h.prices.output)} output per 1M tokens), ${int(d.requests)} requests a day with ${int(d.input)} input and ${int(d.output)} output tokens each cost ${calcMoney(result.perDay)} a day, about ${calcMoney(result.perMonth)} a month. Change the numbers for your workload${v.status === "retired" ? "." : `, or <a href="/calculator?model=${encodeURIComponent(v.slug)}">compare it with other models</a>.`}</p>
+<p>At ${esc(h.providerName)}'s price (${usd(h.prices.input)} input, ${usd(h.prices.output)} output per 1M tokens), ${int(d.requests)} requests a day with ${int(d.input)} input and ${int(d.output)} output tokens each cost ${calcMoney(result.perDay)} a day, about ${calcMoney(result.perMonth)} a month. Change the numbers for your workload${onCalculator(v) ? `, or <a href="/calculator?model=${encodeURIComponent(v.slug)}">compare it with other models</a>.` : "."}</p>
 ${calcForm("model", v.slug, result)}</section>`;
 }
 

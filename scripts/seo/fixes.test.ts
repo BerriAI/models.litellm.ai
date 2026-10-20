@@ -1,6 +1,11 @@
 import { describe, expect, test } from "vitest";
-import middleware, { NOT_FOUND_PATH } from "../../middleware";
+import middleware, {
+  config as middlewareConfig,
+  NOT_FOUND_PATH,
+} from "../../middleware";
+import vercel from "../../vercel.json";
 import { cookbookPage, guardrailsPage, providersPage } from "./app-pages";
+import { toolData } from "./compare-tool";
 import { rangeMismatch } from "./consistency";
 import {
   DOCS_SITEMAP_URL,
@@ -90,6 +95,18 @@ describe("price range prose", () => {
     expect(rangeMismatch(html)).toBeNull();
   });
 
+  test("a listing with a $0 input price and paid output starts the range at $0", () => {
+    const zeroInput: CostMap = {
+      "o4-mini": chat("openai", 1.1, 4.4),
+      "vercel_ai_gateway/openai/o4-mini": chat("vercel_ai_gateway", 0, 4.4),
+    };
+    const v = view(zeroInput, "o-4-mini");
+    const copy = pageCopy(v, "2026-10-20");
+    expect(copy.answer).toContain("ranges from $0 to $1.10");
+    const html = `<p>${copy.answer}</p>${modelBody(v, copy, ctx)}`;
+    expect(rangeMismatch(html)).toBeNull();
+  });
+
   test("the check fails when prose and table disagree", () => {
     const v = view(costMap, "claude-opus-5-5");
     const copy = pageCopy(v, "2026-10-20");
@@ -170,6 +187,40 @@ describe("/404", () => {
     );
   });
 
+  test("serves ranking and new-models pages as markdown, and their indexes as HTML", () => {
+    const ask = (route: string) =>
+      middleware(
+        new Request(`https://models.litellm.ai${route}`, {
+          headers: { accept: "text/markdown" },
+        }),
+      );
+    for (const route of ["/rankings", "/rankings/", "/new-models", "/models"])
+      expect(ask(route)).toBeUndefined();
+    for (const route of [
+      "/rankings/cheapest-chat-models",
+      "/new-models/2023-10",
+    ])
+      expect(
+        new URL(ask(route)!.headers.get("x-middleware-rewrite")!).pathname,
+      ).toBe(`${route}.md`);
+  });
+
+  test("tells caches that every page served as markdown to agents varies by Accept", () => {
+    const varies = vercel.headers
+      .filter((rule) =>
+        rule.headers.some((h) => h.key === "Vary" && h.value === "Accept"),
+      )
+      .map((rule) => new RegExp(`^${rule.source}$`));
+    const sections = middlewareConfig.matcher.filter((m) =>
+      m.endsWith("/:path*"),
+    );
+    expect(sections.length).toBeGreaterThan(0);
+    for (const section of sections)
+      expect(
+        varies.some((rx) => rx.test(section.replace("/:path*", "/a-page"))),
+      ).toBe(true);
+  });
+
   test("serves the compare tools as HTML to agents, and comparisons as markdown", () => {
     const ask = (route: string) =>
       middleware(
@@ -229,6 +280,14 @@ describe("per-output prices", () => {
       label: "per generation",
     });
     expect(pageCopy(v, "2026-10-20").title).toContain("$0.08 per Generation");
+  });
+
+  test("a model with $0 input but paid output is not shown as free", () => {
+    const v = view(
+      { "together_ai/acme/acme-2": chat("together_ai", 0, 4.4) },
+      "acme-2",
+    );
+    expect(v.free).toBe(false);
   });
 
   test("a model with only $0 prices is still free", () => {
@@ -419,6 +478,34 @@ describe("model page calculator", () => {
     const retired = view(costMap, "claude-sonnet-3-7");
     expect(retired.status).toBe("retired");
     expect(calcSection(retired)).not.toContain("/calculator");
+  });
+
+  test("shows the Compare button on every model the comparison tool lists", () => {
+    const tool = toolData(
+      [view(costMap, "claude-sonnet-4-5"), view(costMap, "claude-sonnet-3-7")],
+      () => null,
+      new Set(),
+    );
+    for (const key of ["claude-sonnet-4-5", "claude-sonnet-3-7"]) {
+      const v = view(costMap, key);
+      const html = modelBody(v, pageCopy(v, "2026-10-20"), ctx);
+      expect(html.includes(`href="/compare/custom?models=${v.slug}"`)).toBe(
+        v.slug in tool.models,
+      );
+    }
+    expect(Object.keys(tool.models)).toEqual(["claude-sonnet-4-5"]);
+  });
+
+  test("links /calculator only for models the calculator lists", () => {
+    const inputOnly = view(
+      { "together_ai/acme/acme-classify": chat("together_ai", 1, 0) },
+      "acme-classify",
+    );
+    expect(calcSection(inputOnly)).toContain("cost calculator");
+    expect(calcSection(inputOnly)).not.toContain("/calculator");
+    expect(
+      modelMarkdown(inputOnly, pageCopy(inputOnly, "2026-10-20"), "2026-10-20"),
+    ).not.toContain("/calculator");
   });
 });
 

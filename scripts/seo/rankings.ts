@@ -3,7 +3,7 @@
  * never by quality. Each page states how it sorts and what it leaves out, so a reader can check it.
  */
 import { int, longDate, usd } from "./format";
-import { comparable, familyOf } from "./compare";
+import { blended, comparable, familyOf } from "./compare";
 import type { ModelView } from "./model-view";
 
 export type Ranking = {
@@ -25,8 +25,6 @@ export type Ranking = {
 };
 
 /** 3 input tokens per output token: the usual chat ratio, and the one most price comparisons use. */
-export const blended = (v: ModelView) =>
-  (3 * v.headline!.prices.input! + v.headline!.prices.output!) / 4;
 const cap = (v: ModelView, label: string) =>
   v.capabilities.find((c) => c.label === label)?.supported === true;
 
@@ -43,8 +41,9 @@ function rankable(v: ModelView): boolean {
 }
 
 const TOP = 20;
-const COMMON =
-  "Active models only, with a 32K-token context window or more, offered by at least two providers or by their own lab. Free models are left out.";
+const POOL =
+  "active models with a 32K-token context window or more, offered by at least two providers or by their own lab";
+const COMMON = `Only ${POOL}. Free models are left out.`;
 
 function cheapest(
   slug: string,
@@ -235,9 +234,9 @@ export function rankingAnswer(r: Ranking, date: string): string {
     ? ` That price is introductory through ${longDate(top.view.intro.until)}.`
     : "";
   if (r.byProviders) {
-    return `As of ${date}, ${r.byProviders.total} active models on LiteLLM cost under $${r.byProviders.cap} per 1M tokens (blended). The most widely offered is ${top.view.name}, from ${top.view.providers.length} providers, at ${usd(blended(top.view))} per 1M tokens.${intro}`;
+    return `As of ${date}, ${r.byProviders.total} of LiteLLM's ${POOL}, cost under $${r.byProviders.cap} per 1M tokens (blended). The most widely offered is ${top.view.name}, from ${top.view.providers.length} providers, at ${usd(blended(top.view))} per 1M tokens.${intro}`;
   }
   return r.largest
-    ? `As of ${date}, the largest context window among ${r.subject.replace("models by context window", "active models")} on LiteLLM is ${top.view.name}'s, at ${top.display}, from ${seller}.`
-    : `As of ${date}, the cheapest of the ${r.subject} on LiteLLM is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.${intro}`;
+    ? `As of ${date}, among LiteLLM's ${POOL}, ${top.view.name} has the largest context window, at ${top.display}, from ${seller}.`
+    : `As of ${date}, among LiteLLM's ${POOL}, the cheapest of the ${r.subject} is ${top.view.name}, at ${top.display} per 1M tokens (${r.measure.startsWith("Blended") ? "blended" : "input"}), from ${seller}.${intro}`;
 }

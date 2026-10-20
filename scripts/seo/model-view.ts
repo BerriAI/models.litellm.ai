@@ -317,7 +317,10 @@ export function buildModelView(
   const intro = introEntry && introSeller && (!today || introEntry.until >= today) ? introEntry : undefined;
 
   // Free only when nothing on the headline row costs money: Lyria has $0 tokens but charges per clip.
-  const free = !!headline && (CHAT_MODES.has(mode) || mode === "embedding") && headline.metric?.value === 0;
+  const free =
+    !!headline &&
+    (CHAT_MODES.has(mode) || mode === "embedding") &&
+    !Object.values(headline.prices).some((x) => typeof x === "number" && x > 0);
 
   return {
     pageKey: group.pageKey,

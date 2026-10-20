@@ -251,6 +251,18 @@ export function selectPairs(
 
 const input = (v: ModelView) => v.headline!.prices.input!;
 const output = (v: ModelView) => v.headline!.prices.output!;
+/** Price per 1M tokens at 3 input tokens for every output token, the mix rankings and "which is cheaper" use. */
+export const blended = (v: ModelView) => (3 * input(v) + output(v)) / 4;
+const sameBlended = (a: ModelView, b: ModelView) =>
+  usd(blended(a)) === usd(blended(b));
+const lowerBlended = (a: ModelView, b: ModelView) =>
+  blended(a) <= blended(b) ? a : b;
+
+/** The comparison hub's one-line verdict for a pair. */
+export function cheaperNote(p: Pair): string {
+  if (sameBlended(p.a, p.b)) return "Same blended price";
+  return `${lowerBlended(p.a, p.b).name} is cheaper`;
+}
 /** How much more `hi` costs than `lo`: $10 vs $4 is 150% more. */
 const pct = (hi: number, lo: number) => Math.round(((hi - lo) / lo) * 100);
 /** How much less `lo` costs than `hi`: $4 vs $10 is 60% less. Not the same number as `pct`. */
@@ -409,14 +421,8 @@ export function compareCopy(p: Pair, buildDate: string): CompareCopy {
     )
     .join("");
   const answer = answerLine(p) + intro;
-  const cheaper =
-    input(a) === input(b)
-      ? output(a) <= output(b)
-        ? a
-        : b
-      : input(a) < input(b)
-        ? a
-        : b;
+  const cheaper = lowerBlended(a, b);
+  const pricier = cheaper === a ? b : a;
   const bigger = a.context! >= b.context! ? a : b;
   const title = `${a.name} vs ${b.name}: Price, Context Window and Features | LiteLLM`;
   // Meta descriptions over ~160 characters get cut: the full answer if it fits, else its first clause, else a plain summary.
@@ -432,7 +438,9 @@ export function compareCopy(p: Pair, buildDate: string): CompareCopy {
       a:
         input(a) === input(b) && output(a) === output(b)
           ? `They cost the same: ${usd(input(a))} per 1M input tokens and ${usd(output(a))} per 1M output tokens, as of ${longDate(buildDate)}.`
-          : `${cheaper.name} is cheaper: ${usd(input(cheaper))} per 1M input tokens and ${usd(output(cheaper))} per 1M output tokens, versus ${usd(input(cheaper === a ? b : a))} and ${usd(output(cheaper === a ? b : a))} for ${(cheaper === a ? b : a).name}, as of ${longDate(buildDate)}.`,
+          : sameBlended(a, b)
+            ? `They cost the same at 3 input tokens per output token, ${usd(blended(a))} per 1M tokens blended: ${a.name} is ${usd(input(a))} input and ${usd(output(a))} output per 1M tokens, and ${b.name} is ${usd(input(b))} and ${usd(output(b))}, as of ${longDate(buildDate)}.`
+            : `${cheaper.name} is cheaper at 3 input tokens per output token: ${usd(blended(cheaper))} per 1M tokens blended (${usd(input(cheaper))} input, ${usd(output(cheaper))} output), versus ${usd(blended(pricier))} (${usd(input(pricier))} and ${usd(output(pricier))}) for ${pricier.name}, as of ${longDate(buildDate)}.`,
     },
     {
       q: `Which has the larger context window, ${a.name} or ${b.name}?`,
