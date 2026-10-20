@@ -104,16 +104,17 @@ export function toolBody(): string {
 <noscript><p>This tool needs JavaScript. See the <a href="/compare">comparison pages</a> instead.</p></noscript></section>`;
 }
 
-export const TOOL_CSS = `.ct{overflow-x:auto;border:1px solid var(--rule);border-radius:10px}
-.ct table{min-width:640px}.ct th[scope=col]{vertical-align:top;text-transform:none;letter-spacing:0;font-size:15px;color:var(--fg);background:var(--bg2);min-width:180px}
-.ct .pick{display:grid;gap:6px}.ct input{font:inherit;font-size:14px;width:100%;padding:6px 8px;border:1px solid var(--rule2);border-radius:6px;background:var(--bg);color:var(--fg)}
-.ct .rm{font:inherit;font-size:12px;border:0;background:none;color:var(--muted);cursor:pointer;padding:0;justify-self:start}
-.ct td.best{font-weight:650}
-.cb-list{position:fixed;z-index:50;max-height:340px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:10px;box-shadow:0 12px 32px rgba(8,11,38,.18)}
-.cb-list li{display:grid;gap:1px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:14px}
-.cb-list li small{font-size:12px;color:var(--muted)}
+export const TOOL_CSS = `.ct{overflow-x:auto;border:1px solid var(--rule);border-radius:12px;background:var(--bg);box-shadow:var(--shadow)}
+.ct table{min-width:640px}.ct th[scope=col]{vertical-align:top;font-size:15px;font-weight:600;color:var(--fg);background:var(--bg2);min-width:190px}
+.ct .pick{display:grid;gap:6px;justify-items:start}.ct .pick .note{font-size:13px;font-weight:400;color:var(--muted)}
+.ct .rm{height:24px;font-size:12px;padding:0 8px;color:var(--muted)}
+.ct td.best{font-weight:650;color:var(--fg)}.ct .lnk{font-size:13px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:6px 14px}
+.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}
+.cb-list{position:fixed;z-index:50;max-height:340px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:12px;box-shadow:0 12px 32px rgba(8,11,38,.18)}
+.cb-list li{display:grid;gap:1px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500}
+.cb-list li small{font-size:12px;font-weight:400;color:var(--muted)}
 .cb-list li[aria-selected=true],.cb-list li:hover{background:var(--bg3)}
-.cb-list .cb-none{cursor:default;color:var(--muted)}.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}.ct tr.grp th{background:var(--bg3)}.ct .lnk{font-size:13px;padding:10px 12px}`;
+.cb-list .cb-none{cursor:default;color:var(--muted);font-weight:400}`;
 
 /** Client side: reads /compare/models.json, renders columns, keeps ?models= in the URL. */
 export const TOOL_JS = `<script>(function(){
