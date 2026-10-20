@@ -217,7 +217,7 @@
 
   const setQueryDebounced = debounce((value: string) => {
     query = value;
-  }, 300);
+  }, 500);
 
   const getIssueUrlForAdd = (query: string) => {
     const q = encodeURIComponent(query);
