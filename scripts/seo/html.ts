@@ -23,7 +23,7 @@ const CSS = `
 html{font-family:Geist,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 body{background:var(--mesh) no-repeat,var(--bg);color:var(--fg);line-height:1.6;font-size:15px}
 a{color:var(--accent);text-decoration:none;text-underline-offset:3px}a:hover{text-decoration:underline}
-:focus-visible{outline:none;box-shadow:0 0 0 3px var(--ring);border-radius:6px}
+:focus-visible{outline:2px solid transparent;outline-offset:2px;box-shadow:0 0 0 3px var(--ring);border-radius:6px}
 code,pre{font-family:"Geist Mono",ui-monospace,Menlo,monospace;font-size:.86em}
 code{background:var(--bg3);padding:1px 6px;border-radius:5px;overflow-wrap:anywhere}
 .top{border-bottom:1px solid var(--rule);background:var(--nav);backdrop-filter:blur(12px);position:sticky;top:0;z-index:10}
@@ -94,7 +94,7 @@ th[scope=rowgroup]{font-size:12px;font-weight:600;letter-spacing:.04em;text-tran
 .calc{display:grid;gap:16px;border:1px solid var(--rule);border-radius:12px;padding:18px;max-width:780px;background:var(--bg);box-shadow:var(--shadow)}
 .calc-in{display:flex;flex-wrap:wrap;gap:12px}.calc-in label{display:grid;gap:6px;font-size:13px;font-weight:500;color:var(--fg2);flex:1 1 160px}
 .calc-in input,.calc-in select,.ct input{font:inherit;font-size:14px;height:36px;color:var(--fg);background:var(--bg);border:1px solid var(--rule2);border-radius:8px;padding:0 10px;width:100%;transition:border-color .15s,box-shadow .15s}
-.calc-in input:focus,.calc-in select:focus,.ct input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
+.calc-in input:focus,.calc-in select:focus,.ct input:focus{outline:2px solid transparent;outline-offset:2px;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
 .calc-out{display:flex;flex-wrap:wrap;gap:12px;padding-top:14px;border-top:1px solid var(--rule)}.calc-out div{flex:1 1 140px;display:grid;gap:2px}.calc-out dt{font-size:13px;font-weight:500;color:var(--muted)}.calc-out dd{font-size:24px;font-weight:650;letter-spacing:-.015em;font-variant-numeric:tabular-nums}
 ${TOOL_CSS}
 .jump{display:flex;flex-wrap:wrap;gap:6px;font-size:13px}
@@ -105,7 +105,7 @@ ${TOOL_CSS}
 footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13px}
 footer div{max-width:1080px;margin:0 auto;padding:24px 20px;display:flex;gap:8px 20px;flex-wrap:wrap}
 footer a{color:var(--muted)}footer a:hover{color:var(--fg)}
-@media (max-width:600px){main{padding:20px 16px 56px;gap:32px}.stats{gap:8px}.stat{padding:12px 14px}.stat dd{font-size:21px}.top-in{padding:10px 16px}.top nav{margin-left:-10px;flex-wrap:nowrap;overflow-x:auto;max-width:calc(100% + 10px);scrollbar-width:none}th,td{padding:9px 10px}.grid2{grid-template-columns:1fr}.calc{padding:14px}}
+@media (max-width:600px){main{padding:20px 16px 56px;gap:32px}.stats{gap:8px}.stat{padding:12px 14px}.stat dd{font-size:21px}.top-in{padding:10px 16px}.top nav{margin-left:-6px;max-width:calc(100% + 6px)}.top nav a{padding:4px 6px}th,td{padding:9px 10px}.grid2{grid-template-columns:1fr}.calc{padding:14px}}
 `;
 
 const ANALYTICS = `<script>if(location.hostname==="models.litellm.ai"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister identify reset get_distinct_id set_config opt_in_capturing opt_out_capturing".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init(${JSON.stringify(POSTHOG_KEY)},{api_host:"https://us.i.posthog.com",defaults:"2026-05-30",person_profiles:"identified_only",cross_subdomain_cookie:true,capture_pageview:true,capture_pageleave:true,disable_session_recording:true,capture_heatmaps:false,disable_surveys:true,autocapture:{dom_event_allowlist:["click"],element_allowlist:["a","button"]}})}</script>`;
