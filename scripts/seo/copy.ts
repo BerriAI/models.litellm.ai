@@ -127,7 +127,7 @@ function titlePrice(v: ModelView): string | null {
   if (r.mode === "video_generation" && p.perSecond !== undefined) return `${from}${usd(p.perSecond)} per Second`;
   if (r.mode === "audio_speech" && p.per1MChars !== undefined) return `${from}${usdShort(p.per1MChars)} per 1M Characters`;
   if (r.mode === "audio_transcription" && p.perMinute !== undefined) return `${from}${usd(p.perMinute)} per Minute`;
-  if (r.metric && r.metric.value > 0) return `${from}${usd(r.metric.value)} ${UNIT_LABEL[r.metric.unit].replace(/\b\w/g, (c) => c.toUpperCase()).replace(/^Per\b/, "per")}`;
+  if (r.metric && r.metric.value > 0 && r.metric.unit !== "per_1m_tokens") return `${from}${usd(r.metric.value)} ${UNIT_LABEL[r.metric.unit].replace(/\b\w/g, (c) => c.toUpperCase()).replace(/^Per\b/, "per")}`;
   return null;
 }
 

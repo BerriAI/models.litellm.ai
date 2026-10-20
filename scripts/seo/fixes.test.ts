@@ -4,7 +4,7 @@ import middleware, {
   NOT_FOUND_PATH,
 } from "../../middleware";
 import vercel from "../../vercel.json";
-import { cookbookPage, guardrailsPage, providersPage } from "./app-pages";
+import { cookbookPage, providersPage } from "./app-pages";
 import { toolData } from "./compare-tool";
 import { rangeMismatch } from "./consistency";
 import {
@@ -150,9 +150,7 @@ describe("providers page", () => {
     expect(page.breadcrumbs.map((c) => c.name)).toEqual(["Home", "Providers"]);
   });
 
-  test("cookbook and guardrails pages go noindex when their data can't load", () => {
-    expect(cookbookPage(null).indexable).toBe(false);
-    expect(guardrailsPage(null).indexable).toBe(false);
+  test("the cookbook page's sitemap date is its newest guide", () => {
     const page = cookbookPage([
       {
         title: "Claude Code Quickstart",
@@ -160,7 +158,6 @@ describe("providers page", () => {
         date: "2026-01-15",
       },
     ]);
-    expect(page.indexable).toBe(true);
     expect(page.lastmod).toBe("2026-01-15");
   });
 });
@@ -280,6 +277,33 @@ describe("per-output prices", () => {
       label: "per generation",
     });
     expect(pageCopy(v, "2026-10-20").title).toContain("$0.08 per Generation");
+  });
+
+  test("a title shows a per-token price only for chat and embedding models", () => {
+    const tokenPriced: CostMap = {
+      "gemini/acme-voice-tts": {
+        litellm_provider: "gemini",
+        mode: "audio_speech",
+        input_cost_per_token: 5e-7,
+        output_cost_per_token: 1e-5,
+      },
+      "acme-picture-1": {
+        litellm_provider: "openai",
+        mode: "image_generation",
+        output_cost_per_image_token: 4e-5,
+      },
+      "acme-listen-1": {
+        litellm_provider: "openai",
+        mode: "audio_transcription",
+        input_cost_per_token: 2e-6,
+        output_cost_per_token: 1.2e-5,
+      },
+    };
+    for (const key of ["acme-voice-tts", "acme-picture-1", "acme-listen-1"]) {
+      expect(pageCopy(view(tokenPriced, key), "2026-10-20").title).toMatch(
+        /API Pricing, Context Window & Providers/,
+      );
+    }
   });
 
   test("a model with $0 input but paid output is not shown as free", () => {

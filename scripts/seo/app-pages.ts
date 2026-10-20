@@ -15,8 +15,6 @@ export type AppPage = {
   breadcrumbs: Crumb[];
   /** Date the content last changed, for the sitemap; omitted when the data has no dates. */
   lastmod?: string;
-  /** False when the build couldn't load the page's data; the page is then noindex and left out of the sitemap. */
-  indexable: boolean;
 };
 
 /** Endpoint labels from provider_endpoints_support.json itself (e.g. "/chat/completions"), keyed by the provider field. */
@@ -54,7 +52,6 @@ export function homePage(
   return {
     breadcrumbs: crumbs(),
     lastmod,
-    indexable: true,
     body: `<h1>AI model pricing, context windows and providers</h1>
 <p>Prices, context windows and features for ${int(models)} AI models across ${int(hubs.length)} providers, from LiteLLM's open-source price file, as of ${longDate(lastmod)}. <a href="/models">Browse every model</a>, <a href="/compare">compare models side by side</a>, see <a href="/rankings">rankings by price</a> the <a href="/new-models">latest new models</a>, or use the <a href="/calculator">pricing calculator</a>.</p>
 <h2>Recently added models</h2>
@@ -96,7 +93,6 @@ export function providersPage(
   return {
     breadcrumbs: crumbs({ name: "Providers", path: "/providers" }),
     lastmod,
-    indexable: supported.length > 0,
     body: `${nav(crumbs({ name: "Providers", path: "/providers" }))}
 <h1>AI provider integrations</h1>
 <p>LiteLLM supports ${int(supported.length)} AI providers through one OpenAI-compatible API. ${int(hubs.length)} of them have model prices on this site. The table lists the endpoints LiteLLM supports for each provider and links its docs.</p>
@@ -132,7 +128,6 @@ export function cookbookPage(guides: CookbookGuide[] | null): AppPage {
   return {
     breadcrumbs: crumbs({ name: "Cookbook", path: "/cookbook" }),
     lastmod: dates[dates.length - 1],
-    indexable: list.length > 0,
     body: `${nav(crumbs({ name: "Cookbook", path: "/cookbook" }))}
 <h1>AI tool guides</h1>
 <p>${list.length ? `${int(list.length)} guides` : "Guides"} for using LiteLLM with AI coding tools and assistants, from the LiteLLM cookbook. See also the <a href="https://docs.litellm.ai">LiteLLM docs</a>.</p>
@@ -165,7 +160,6 @@ export function guardrailsPage(
     .join("");
   return {
     breadcrumbs: crumbs({ name: "Guardrails", path: "/guardrails" }),
-    indexable: list.length > 0,
     body: `${nav(crumbs({ name: "Guardrails", path: "/guardrails" }))}
 <h1>Custom code guardrails</h1>
 <p>${list.length ? `${int(list.length)} ready-made guardrails` : "Guardrails"} you can copy, customize and deploy on the LiteLLM AI Gateway to check requests and responses. See the <a href="https://docs.litellm.ai/docs/proxy/guardrails/custom_code_guardrail">custom code guardrails docs</a>.</p>

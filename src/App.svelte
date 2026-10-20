@@ -109,6 +109,7 @@
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
     query = urlParams.get("q") ?? "";
+    searchText = query;
 
     fetch("/models/slugs.json")
       .then((res) => (res.ok ? res.json() : {}))
@@ -209,11 +210,22 @@
     };
   };
 
-  const trackSearchDebounced = debounce((query: string, provider: string, resultsCount: number) => {
+  const trackSearchDebounced = debounce((query: string, provider: string) => {
     if (query) {
-      trackSearch(query, provider, resultsCount);
+      trackSearch(query, provider, results.length);
     }
   }, 1000);
+
+  const setQueryDebounced = debounce((value: string) => {
+    query = value;
+  }, 500);
+
+  $: setQueryDebounced(searchText);
+
+  function clearSearch() {
+    searchText = "";
+    query = "";
+  }
 
   const getIssueUrlForAdd = (query: string) => {
     const q = encodeURIComponent(query);
@@ -252,6 +264,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   let sha: string | null = null;
   let query = "";
+  let searchText = "";
   let lines: string[] = [];
   let index: Fuse<Item>;
   let results: ResultItem[] = [];
@@ -267,6 +280,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       filterResults(query, selectedProvider, maxInputTokens, maxOutputTokens);
     }
   }
+
+  $: if (index) trackSearchDebounced(searchText, selectedProvider, maxInputTokens, maxOutputTokens);
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -450,8 +465,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       loading = false;
 
       if (sortColumn) applySorting();
-
-      trackSearchDebounced(query, selectedProvider, results.length);
     }
   }
 </script>
@@ -533,7 +546,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         <input
           id="query"
           bind:this={searchInput}
-          bind:value={query}
+          bind:value={searchText}
           on:focus={() => { searchFocused = true; }}
           on:blur={() => { searchFocused = false; }}
           type="text"
@@ -543,12 +556,12 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
           placeholder="Search models... (e.g., gpt-4o, claude-3.5, gemini)"
           class="search-input"
         />
-        {#if query}
-          <button class="search-clear" on:click={() => { query = ""; }} type="button">
+        {#if searchText}
+          <button class="search-clear" on:click={clearSearch} type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         {/if}
-        {#if !query && !searchFocused}
+        {#if !searchText && !searchFocused}
           <kbd class="search-shortcut">⌘K</kbd>
         {/if}
       </div>
@@ -585,8 +598,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       <div class="results-meta">
         <span class="results-count">{results.length.toLocaleString()} models</span>
         <div class="results-meta-right">
-          {#if query || selectedProvider || maxInputTokens || maxOutputTokens}
-            <button class="clear-filters" on:click={() => { query = ""; selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
+          {#if searchText || selectedProvider || maxInputTokens || maxOutputTokens}
+            <button class="clear-filters" on:click={() => { clearSearch(); selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
               Clear all filters
             </button>
           {/if}
@@ -617,7 +630,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div>
   {:else}
-    {#if query != "" && results.length < 12}
+    {#if query != "" && query === searchText && results.length < 12}
       <div class="add-model-section">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         <a href={getIssueUrlForAdd(query)}>Can't find your model? Request it on GitHub</a>

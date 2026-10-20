@@ -345,75 +345,39 @@ response = completion(
 )`;
 }
 
-function curlStr(value: string): string {
-  return `<span class="code-str">${escapeHtml(value)}</span>`;
-}
-
 /** Syntax-highlighted HTML for the proxy curl tab. */
-export function getLiteLLmProxyCurlSnippetHtml(mode: string | undefined, model: string): string {
+export function getLiteLLmProxyCurlSnippetHtml(
+  mode: string | undefined,
+  model: string,
+): string {
   const m = (mode || "").toLowerCase();
-  const modelStr = escapeHtml(model);
+  const snippet = escapeHtml(getLiteLLmProxyCurlSnippet(mode, model)).replace(
+    /'[^']*'|&quot;[^\n]*?&quot;/g,
+    (value) => `<span class="code-str">${value}</span>`,
+  );
+  if (
+    m === "image_generation" ||
+    m === "image_edit" ||
+    m === "embedding" ||
+    m === "audio_transcription" ||
+    m === "audio_speech"
+  ) {
+    return snippet;
+  }
+  return `<span class="code-comment"># Start proxy: litellm --model ${escapeHtml(model)}</span>
 
-  if (m === "image_generation") {
-    return `curl http://0.0.0.0:4000/v1/images/generations \\
-  -H ${curlStr("Content-Type: application/json")} \\
-  -H ${curlStr("Authorization: Bearer sk-1234")} \\
-  -d ${curlStr(`{
-    "model": "${model}",
-    "prompt": "A cute baby sea otter",
-    "n": 1,
-    "size": "1024x1024"
-  }`)}`;
-  }
-  if (m === "image_edit") {
-    return `curl http://0.0.0.0:4000/v1/images/edits \\
-  -H ${curlStr("Authorization: Bearer sk-1234")} \\
-  -F model=${curlStr(model)} \\
-  -F image=@image.png \\
-  -F prompt=${curlStr("Describe your edit")}`;
-  }
-  if (m === "embedding") {
-    return `curl http://0.0.0.0:4000/v1/embeddings \\
-  -H ${curlStr("Content-Type: application/json")} \\
-  -H ${curlStr("Authorization: Bearer sk-1234")} \\
-  -d ${curlStr(`{
-    "model": "${model}",
-    "input": "hello world"
-  }`)}`;
-  }
-  if (m === "audio_transcription") {
-    return `curl http://0.0.0.0:4000/v1/audio/transcriptions \\
-  -H ${curlStr("Authorization: Bearer sk-1234")} \\
-  -F model=${curlStr(model)} \\
-  -F file=@audio.mp3`;
-  }
-  if (m === "audio_speech") {
-    return `curl http://0.0.0.0:4000/v1/audio/speech \\
-  -H ${curlStr("Content-Type: application/json")} \\
-  -H ${curlStr("Authorization: Bearer sk-1234")} \\
-  -d ${curlStr(`{
-    "model": "${model}",
-    "input": "Hello from LiteLLM",
-    "voice": "alloy"
-  }`)}`;
-  }
-  return `<span class="code-comment"># Start proxy: litellm --model ${modelStr}</span>
-
-curl http://0.0.0.0:4000/v1/chat/completions \\
-  -H ${curlStr("Content-Type: application/json")} \\
-  -H ${curlStr("Authorization: Bearer sk-1234")} \\
-  -d ${curlStr(`{
-    "model": "${model}",
-    "messages": [{"role": "user", "content": "Hello!"}]
-  }`)}`;
+${snippet}`;
 }
 
-export function getLiteLLmProxyCurlSnippet(mode: string | undefined, model: string): string {
+export function getLiteLLmProxyCurlSnippet(
+  mode: string | undefined,
+  model: string,
+): string {
   const m = (mode || "").toLowerCase();
   if (m === "image_generation") {
     return `curl http://0.0.0.0:4000/v1/images/generations \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer sk-1234" \\
+  -H "Authorization: Bearer $LITELLM_API_KEY" \\
   -d '{
     "model": "${model}",
     "prompt": "A cute baby sea otter",
@@ -423,7 +387,7 @@ export function getLiteLLmProxyCurlSnippet(mode: string | undefined, model: stri
   }
   if (m === "image_edit") {
     return `curl http://0.0.0.0:4000/v1/images/edits \\
-  -H "Authorization: Bearer sk-1234" \\
+  -H "Authorization: Bearer $LITELLM_API_KEY" \\
   -F model="${model}" \\
   -F image=@image.png \\
   -F prompt="Describe your edit"`;
@@ -431,7 +395,7 @@ export function getLiteLLmProxyCurlSnippet(mode: string | undefined, model: stri
   if (m === "embedding") {
     return `curl http://0.0.0.0:4000/v1/embeddings \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer sk-1234" \\
+  -H "Authorization: Bearer $LITELLM_API_KEY" \\
   -d '{
     "model": "${model}",
     "input": "hello world"
@@ -439,14 +403,14 @@ export function getLiteLLmProxyCurlSnippet(mode: string | undefined, model: stri
   }
   if (m === "audio_transcription") {
     return `curl http://0.0.0.0:4000/v1/audio/transcriptions \\
-  -H "Authorization: Bearer sk-1234" \\
+  -H "Authorization: Bearer $LITELLM_API_KEY" \\
   -F model="${model}" \\
   -F file=@audio.mp3`;
   }
   if (m === "audio_speech") {
     return `curl http://0.0.0.0:4000/v1/audio/speech \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer sk-1234" \\
+  -H "Authorization: Bearer $LITELLM_API_KEY" \\
   -d '{
     "model": "${model}",
     "input": "Hello from LiteLLM",
@@ -455,7 +419,7 @@ export function getLiteLLmProxyCurlSnippet(mode: string | undefined, model: stri
   }
   return `curl http://0.0.0.0:4000/v1/chat/completions \\
   -H "Content-Type: application/json" \\
-  -H "Authorization: Bearer sk-1234" \\
+  -H "Authorization: Bearer $LITELLM_API_KEY" \\
   -d '{
     "model": "${model}",
     "messages": [{"role": "user", "content": "Hello!"}]

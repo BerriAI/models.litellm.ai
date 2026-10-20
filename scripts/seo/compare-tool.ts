@@ -123,12 +123,13 @@ export const TOOL_CSS = `.ct{overflow-x:auto;border:1px solid var(--rule);border
 .ct .pick{display:grid;gap:6px;justify-items:start}.ct .pick .note{font-size:13px;font-weight:400;color:var(--muted)}
 .ct .rm{height:24px;font-size:12px;padding:0 8px;color:var(--muted)}
 .ct td.best{font-weight:650;color:var(--fg)}.ct .lnk{font-size:13px;padding:12px 14px;display:flex;flex-wrap:wrap;gap:6px 14px}
-.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}
+.ct tbody th[scope=row],.ct thead th:first-child{position:sticky;left:0;z-index:1;background:var(--bg)}.ct tr.grp th{background:var(--bg3)}
 .cb-list{position:fixed;z-index:50;max-height:340px;overflow:auto;list-style:none;margin:0;padding:4px;background:var(--bg);color:var(--fg);border:1px solid var(--rule2);border-radius:12px;box-shadow:0 12px 32px rgba(8,11,38,.18)}
 .cb-list li{display:grid;gap:1px;padding:8px 10px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500}
 .cb-list li small{font-size:12px;font-weight:400;color:var(--muted)}
 .cb-list li[aria-selected=true],.cb-list li:hover{background:var(--bg3)}
-.cb-list .cb-none{cursor:default;color:var(--muted);font-weight:400}`;
+.cb-list .cb-none{cursor:default;color:var(--muted);font-weight:400}
+@media (max-width:600px){.ct table{min-width:0}.ct th[scope=col]{min-width:140px}.ct tbody th[scope=row],.ct thead th:first-child{white-space:normal;overflow-wrap:anywhere;width:96px;min-width:96px}}`;
 
 /** Client side: reads /compare/models.json, renders columns, keeps ?models= in the URL. */
 export const TOOL_JS = `<script>(function(){
@@ -213,7 +214,7 @@ addEventListener("resize",follow);addEventListener("scroll",follow,true);if(type
 root.addEventListener("click",function(e){var b=e.target.closest("[data-rm]");if(!b)return;picked.splice(+b.getAttribute("data-rm"),1);save();render()});
 fetch("/compare/models.json").then(function(r){return r.json()}).then(function(d){
   data=d.models;asOf=d.asOf||null;(d.pairs||[]).forEach(function(k){pairs[k]=1});
-  picked=picked.filter(function(s){return data[s]});
+  picked=picked.filter(function(s){return Object.prototype.hasOwnProperty.call(data,s)});
   save();render();
 }).catch(function(){root.innerHTML='<p class="note">Couldn\\'t load the model list. See the <a href="/compare">comparison pages</a>.</p>'});
 })()</script>`;

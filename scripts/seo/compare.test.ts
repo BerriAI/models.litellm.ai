@@ -328,6 +328,11 @@ describe("comparison copy", () => {
       "Acme Low Blend is cheaper at 3 input tokens per output token: $2.50 per 1M tokens blended ($2.00 input, $4.00 output), versus $5.75 ($1.00 and $20.00) for Acme Low Input, as of October 20, 2026.",
     );
     expect(cheaperNote(p)).toBe("Acme Low Blend is cheaper");
+    const copy = compareCopy(p, "2026-10-20");
+    expect(copy.answer).toBe(
+      "Acme Low Blend is cheaper at 3 input tokens per output token, though it costs 100% more per input token than Acme Low Input ($2.00 vs $1.00 per 1M), and both have a 128K-token context window.",
+    );
+    expect(copy.description).toMatch(/^Acme Low Blend is cheaper/);
   });
 
   test("context windows that round to the same short form are written out", () => {
@@ -705,5 +710,14 @@ describe("comparison tool page", () => {
     );
     expect(plain).toContain("Claude Opus 5.5");
     expect(plain).not.toContain("Epoch AI");
+  });
+
+  test("an id that is not a model in the list is dropped instead of breaking the tool", async () => {
+    const html = await renderTool(
+      toolData(views(), () => null, new Set()),
+      ["constructor", "claude-opus-5-5"],
+    );
+    expect(html).toContain('href="/models/claude-opus-5-5"');
+    expect(html).not.toContain("Couldn't load the model list");
   });
 });
