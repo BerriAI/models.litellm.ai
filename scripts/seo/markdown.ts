@@ -5,11 +5,11 @@
  */
 import { getLiteLLmSdkSnippet } from "../../src/modelPresentation";
 import type { PageCopy } from "./copy";
-import { int, longDate, tokensShort, usd } from "./format";
+import { int, longDate, tokensShort, unescapeHtml, usd } from "./format";
 import type { ModelView } from "./model-view";
 import { PRICE_FILE_URL, abs, modelPath } from "./site";
 import { comparePath } from "./compare";
-import { CALC_DEFAULTS, calcCost, calcMoney } from "./calculator";
+import { CALC_DEFAULTS, calcCost, calcMoney, onCalculator } from "./calculator";
 import { leadsWithTokens } from "./pricing";
 import type { CompareView, NewModelRow, RankRow } from "./html";
 
@@ -78,7 +78,7 @@ export function modelMarkdown(
     lines.push(
       "## Cost calculator",
       "",
-      `${d.requests.toLocaleString("en-US")} requests a day with ${d.input.toLocaleString("en-US")} input and ${d.output.toLocaleString("en-US")} output tokens each, at ${h.providerName}'s price: ${calcMoney(r.perRequest)} per request, ${calcMoney(r.perDay)} per day, ${calcMoney(r.perMonth)} per month (30 days).${v.status === "retired" ? "" : ` Try other numbers at ${abs(`/calculator?model=${v.slug}`)}`}`,
+      `${d.requests.toLocaleString("en-US")} requests a day with ${d.input.toLocaleString("en-US")} input and ${d.output.toLocaleString("en-US")} output tokens each, at ${h.providerName}'s price: ${calcMoney(r.perRequest)} per request, ${calcMoney(r.perDay)} per day, ${calcMoney(r.perMonth)} per month (30 days).${onCalculator(v) ? ` Try other numbers at ${abs(`/calculator?model=${v.slug}`)}` : ""}`,
       "",
     );
   }
@@ -92,7 +92,7 @@ export function modelMarkdown(
 /** Markdown copy of a comparison page, served at /compare/<slug>.md and for `Accept: text/markdown`. */
 export function compareMarkdown(c: CompareView): string {
   const { a, b, copy } = c;
-  const strip = (s: string) => s.replace(/<[^>]+>/g, "");
+  const strip = (s: string) => unescapeHtml(s.replace(/<[^>]+>/g, ""));
   const lines = [`# ${copy.h1}`, "", `As of ${longDate(c.buildDate)}, ${copy.answer}`, ""];
   lines.push(`- Page: ${abs(comparePath(c.slug))}`, `- ${a.name}: ${abs(modelPath(a.slug))}`, `- ${b.name}: ${abs(modelPath(b.slug))}`, "");
   lines.push("## Side by side", "", `| | ${pipe(a.name)} | ${pipe(b.name)} |`, "|---|---|---|");

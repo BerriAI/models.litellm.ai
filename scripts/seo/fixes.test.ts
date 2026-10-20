@@ -90,6 +90,18 @@ describe("price range prose", () => {
     expect(rangeMismatch(html)).toBeNull();
   });
 
+  test("a listing with a $0 input price and paid output starts the range at $0", () => {
+    const zeroInput: CostMap = {
+      "o4-mini": chat("openai", 1.1, 4.4),
+      "vercel_ai_gateway/openai/o4-mini": chat("vercel_ai_gateway", 0, 4.4),
+    };
+    const v = view(zeroInput, "o-4-mini");
+    const copy = pageCopy(v, "2026-10-20");
+    expect(copy.answer).toContain("ranges from $0 to $1.10");
+    const html = `<p>${copy.answer}</p>${modelBody(v, copy, ctx)}`;
+    expect(rangeMismatch(html)).toBeNull();
+  });
+
   test("the check fails when prose and table disagree", () => {
     const v = view(costMap, "claude-opus-5-5");
     const copy = pageCopy(v, "2026-10-20");
@@ -229,6 +241,14 @@ describe("per-output prices", () => {
       label: "per generation",
     });
     expect(pageCopy(v, "2026-10-20").title).toContain("$0.08 per Generation");
+  });
+
+  test("a model with $0 input but paid output is not shown as free", () => {
+    const v = view(
+      { "together_ai/acme/acme-2": chat("together_ai", 0, 4.4) },
+      "acme-2",
+    );
+    expect(v.free).toBe(false);
   });
 
   test("a model with only $0 prices is still free", () => {
@@ -416,6 +436,18 @@ describe("model page calculator", () => {
     const retired = view(costMap, "claude-sonnet-3-7");
     expect(retired.status).toBe("retired");
     expect(calcSection(retired)).not.toContain("/calculator");
+  });
+
+  test("links /calculator only for models the calculator lists", () => {
+    const inputOnly = view(
+      { "together_ai/acme/acme-classify": chat("together_ai", 1, 0) },
+      "acme-classify",
+    );
+    expect(calcSection(inputOnly)).toContain("cost calculator");
+    expect(calcSection(inputOnly)).not.toContain("/calculator");
+    expect(
+      modelMarkdown(inputOnly, pageCopy(inputOnly, "2026-10-20"), "2026-10-20"),
+    ).not.toContain("/calculator");
   });
 });
 

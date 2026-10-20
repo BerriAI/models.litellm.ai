@@ -24,13 +24,13 @@ import { llmsTxt, robotsTxt, rssFeed, sitemapIndex, urlset, type SitemapEntry } 
 import { escapeHtml as esc, int, longDate, monthYear, shortDate, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
 import { calculatorBody, type CalcModel } from "./html";
-import { CALC_JS } from "./calculator";
+import { CALC_JS, onCalculator } from "./calculator";
 import { newModelsHubBody, newModelsMonthBody, rankingBody, rankingHubBody, type NewModelRow, type RankRow } from "./html";
 import { buildRankings, indexableRanking, rankingAnswer, rankingPath, rankingTitle, type Ranking } from "./rankings";
 import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, type IndexRow } from "./html";
 import { toolBody, toolData, TOOL_JS } from "./compare-tool";
-import { benchRows, cheapestRow, comparable, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
-import { benchmarksFor, loadBenchmarks, type BenchmarkData } from "./benchmarks";
+import { benchRows, cheaperNote, cheapestRow, comparable, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
+import { benchmarksFor, latestBenchmarkDate, loadBenchmarks, type BenchmarkData } from "./benchmarks";
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
 import { fetchBytes, fetchText } from "./fetch";
@@ -421,10 +421,7 @@ ${cheapestOnProvider(h.name, list)}
       [v.slug, ...[v.headline, ...v.rows].flatMap((r) => (r ? [r.modelString.split("/").pop()!] : []))],
       [v.name, ...v.alsoKnownAs],
     );
-  const benchDate = (pair: Pair) => {
-    const dates = [benchFor(pair.a), benchFor(pair.b)].flatMap((x) => x?.scores.map((s) => s.date ?? "") ?? []).filter(Boolean).sort();
-    return dates[dates.length - 1] ?? null;
-  };
+  const benchDate = (pair: Pair) => latestBenchmarkDate([benchFor(pair.a), benchFor(pair.b)]);
   const introUntil = (v: ModelView) => (v.intro ? `introductory until ${longDate(v.intro.until)}` : null);
   const priceFrom = (v: ModelView) => [esc(v.headline!.providerName), introUntil(v)].filter(Boolean).join(", ");
   const yesNo = (v: ModelView, label: string) => {
@@ -495,10 +492,7 @@ ${cheapestOnProvider(h.name, list)}
     label: KIND_LABELS[kind],
     items: pairs
       .filter((p) => p.kind === kind)
-      .map((p) => {
-        const cheaper = p.a.headline!.prices.input! <= p.b.headline!.prices.input! ? p.a : p.b;
-        return { slug: p.slug, title: `${p.a.name} vs ${p.b.name}`, note: p.a.headline!.prices.input === p.b.headline!.prices.input ? "Same input price" : `${cheaper.name} is cheaper` };
-      }),
+      .map((p) => ({ slug: p.slug, title: `${p.a.name} vs ${p.b.name}`, note: cheaperNote(p) })),
   }));
   const hubTitle = `AI Model Comparisons: Prices, Context Windows and Benchmarks | LiteLLM`;
   const hubDescription = `${pairs.length} side-by-side AI model comparisons: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file.`;
@@ -646,7 +640,7 @@ ${cheapestOnProvider(h.name, list)}
 
   // Cost calculator for every model still sold and priced per input and output token.
   const calcModels: CalcModel[] = views
-    .filter((v) => v.status !== "retired" && v.headline && leadsWithTokens(v.headline.mode, v.headline.prices, v.headline.metric) && (v.headline.prices.input ?? 0) > 0 && (v.headline.prices.output ?? 0) > 0)
+    .filter(onCalculator)
     .sort((a, b) => b.providers.length - a.providers.length || a.name.localeCompare(b.name))
     .map((v) => ({
       slug: v.slug,

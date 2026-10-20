@@ -2,6 +2,9 @@
  * Cost calculator: the same arithmetic in the build (for the static default result crawlers read) and in the
  * page script (for readers who change the numbers). Prices are per 1M tokens.
  */
+import type { ModelView } from "./model-view";
+import { leadsWithTokens } from "./pricing";
+
 export const CALC_DEFAULTS = { input: 1000, output: 500, requests: 10_000 };
 export const DAYS_PER_MONTH = 30;
 
@@ -10,6 +13,18 @@ export type CalcResult = {
   perDay: number;
   perMonth: number;
 };
+
+/** Whether /calculator lists the model: still sold, and paid per input and output token at its headline price. */
+export function onCalculator(v: ModelView): boolean {
+  const h = v.headline;
+  return (
+    v.status !== "retired" &&
+    !!h &&
+    leadsWithTokens(h.mode, h.prices, h.metric) &&
+    (h.prices.input ?? 0) > 0 &&
+    (h.prices.output ?? 0) > 0
+  );
+}
 
 export function calcCost(
   inputPer1M: number,
@@ -28,10 +43,11 @@ export function calcCost(
 
 /** Same rule as CALC_JS's `fmt`: whole dollars from $100, cents from $0.10, otherwise four significant digits. */
 export function calcMoney(n: number): string {
-  if (n >= 100) return `$${Math.round(n).toLocaleString("en-US")}`;
-  if (n >= 0.1) return `$${n.toFixed(2)}`;
-  if (n === 0) return "$0";
-  return `$${Number(n.toPrecision(4))}`;
+  const c = Number(n.toPrecision(12));
+  if (c >= 100) return `$${Math.round(c).toLocaleString("en-US")}`;
+  if (c >= 0.1) return `$${c.toFixed(2)}`;
+  if (c === 0) return "$0";
+  return `$${Number(c.toPrecision(4))}`;
 }
 
 /**
@@ -40,7 +56,7 @@ export function calcMoney(n: number): string {
  * to the URL so a result can be shared. Usage is reported to PostHog once per page when it's loaded.
  */
 export const CALC_JS = `<script>(function(){
-var fmt=function(n){return n>=100?"$"+Math.round(n).toLocaleString("en-US"):n>=0.1?"$"+n.toFixed(2):n===0?"$0":"$"+Number(n.toPrecision(4))};
+var fmt=function(n){var c=Number(n.toPrecision(12));return c>=100?"$"+Math.round(c).toLocaleString("en-US"):c>=0.1?"$"+c.toFixed(2):c===0?"$0":"$"+Number(c.toPrecision(4))};
 document.querySelectorAll("[data-calc]").forEach(function(box){
   var get=function(n){return box.querySelector('[name="'+n+'"]')};
   var prices=null,list=null,used=false;

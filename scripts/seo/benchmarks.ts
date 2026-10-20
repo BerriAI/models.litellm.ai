@@ -6,8 +6,10 @@
  *
  * Matching is exact, never fuzzy: an Epoch model version (`gpt-6-astra_max`) is
  * our model id plus a reasoning setting, so the id before `_` must equal one of a
- * page's ids after normalizing dots to dashes. A wrong match would put a score on
- * the wrong model, so anything that doesn't match exactly is left out.
+ * page's ids after normalizing dots to dashes. The one stand-in is a dated snapshot
+ * (`gpt-6-astra-2026-09-01`) for an undated id Epoch has no run of, and then only
+ * the newest one. A wrong match would put a score on the wrong model, so anything
+ * else that doesn't match exactly is left out.
  */
 import { unzipSync, strFromU8 } from "fflate";
 
@@ -144,8 +146,10 @@ export type ModelBenchmarks = {
 };
 
 export type BenchmarkData = {
-  /** Normalized model id -> Epoch's best run per benchmark. */
+  /** Normalized model id, snapshot date included -> Epoch's best run per benchmark. */
   runs: Map<string, Map<string, Score>>;
+  /** Undated model id -> its dated snapshots' ids in `runs`, newest first. */
+  snapshots: Map<string, string[]>;
   /** Lowercased display name -> Epoch Capabilities Index. */
   eci: Map<string, { score: number; date: string | null }>;
 };
@@ -189,16 +193,20 @@ export function parseCsv(text: string): Record<string, string>[] {
 
 export const normalizeId = (id: string) => id.toLowerCase().replace(/\./g, "-");
 
-/** `gpt-5.4-2026-03-05_xhigh` -> { id: "gpt-5-4", setting: "xhigh" }; dated snapshots match their undated page. */
+/** `gpt-5.4-2026-03-05_xhigh` -> { id: "gpt-5-4-2026-03-05", model: "gpt-5-4", snapshot: "20260305", setting: "xhigh" }. */
 export function splitVersion(version: string): {
   id: string;
+  model: string;
+  snapshot: string | null;
   setting: string | null;
 } {
-  const [id, setting] = version.split("_");
+  const [raw, setting] = version.split("_");
+  const id = normalizeId(raw);
+  const dated = /^(.+)-(\d{4})-?(\d{2})-?(\d{2})$/.exec(id);
   return {
-    id: normalizeId(
-      id.replace(/-\d{4}-\d{2}-\d{2}$/, "").replace(/-\d{8}$/, ""),
-    ),
+    id,
+    model: dated ? dated[1] : id,
+    snapshot: dated ? dated.slice(2).join("") : null,
     setting: setting && setting !== "unknown" ? setting : null,
   };
 }
@@ -260,14 +268,21 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
     if (row.Model && Number.isFinite(score))
       eci.set(row.Model.toLowerCase(), { score, date: row.date || null });
   }
-  return { runs, eci };
+  const snapshots = new Map<string, string[]>();
+  for (const v of [...runs.keys()]
+    .map(splitVersion)
+    .filter((v) => v.snapshot)
+    .sort((x, y) => y.snapshot!.localeCompare(x.snapshot!)))
+    snapshots.set(v.model, [...(snapshots.get(v.model) ?? []), v.id]);
+  return { runs, snapshots, eci };
 }
 
 /**
  * Scores for one model page. `ids` are the page's model ids, most specific first (its slug, the headline
  * listing's bare id, then each other listing's); each benchmark takes the first id Epoch has a score for, so
- * an older or newer snapshot sharing the page never stands in for the model itself. `names` are its display
- * names. Returns null when Epoch has nothing for it.
+ * an older or newer snapshot sharing the page never stands in for the model itself. An undated id Epoch has no
+ * run of falls back to its newest dated snapshot. `names` are its display names. Returns null when Epoch has
+ * nothing for it.
  */
 export function benchmarksFor(
   data: BenchmarkData | null,
@@ -276,7 +291,11 @@ export function benchmarksFor(
 ): ModelBenchmarks | null {
   if (!data) return null;
   const scores = new Map<string, Score>();
-  for (const id of new Set(ids.map(normalizeId))) {
+  const candidates = [...new Set(ids.map(normalizeId))].flatMap((id) => [
+    id,
+    ...(data.runs.has(id) ? [] : (data.snapshots.get(id) ?? []).slice(0, 1)),
+  ]);
+  for (const id of candidates) {
     for (const [name, s] of data.runs.get(id) ?? []) {
       if (!scores.has(name)) scores.set(name, s);
     }
@@ -290,6 +309,17 @@ export function benchmarksFor(
       (a, b) => order.indexOf(a.benchmark) - order.indexOf(b.benchmark),
     ),
   };
+}
+
+/** The newest date in the Epoch data shown for these models, Capabilities Index included. */
+export function latestBenchmarkDate(
+  models: (ModelBenchmarks | null)[],
+): string | null {
+  const dates = models
+    .flatMap((m) => [m?.eci?.date, ...(m?.scores ?? []).map((s) => s.date)])
+    .filter((d): d is string => !!d)
+    .sort();
+  return dates.at(-1) ?? null;
 }
 
 export async function loadBenchmarks(

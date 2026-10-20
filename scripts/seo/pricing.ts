@@ -133,11 +133,13 @@ export function rowPrices(row: CostRow): RowPrices {
 
 /** The one number that best answers "how much does this model cost" for its mode. */
 export function primaryMetric(mode: string, p: RowPrices): Metric | null {
-  // A positive price beats a zero one: Lyria lists $0 tokens next to its real per-clip price.
+  // A $0 price gives way only to a paid one in another unit: Lyria lists $0 tokens next to its real per-clip
+  // price, while a $0 input price with paid output stays the $0 input price the table shows.
   const pick = (...candidates: [number | undefined, MetricUnit][]): Metric | null => {
-    for (const [value, unit] of candidates) if (value !== undefined && value > 0) return { value, unit };
-    for (const [value, unit] of candidates) if (value !== undefined) return { value, unit };
-    return null;
+    const defined = candidates.flatMap(([value, unit]) => (value === undefined ? [] : [{ value, unit }]));
+    const first = defined[0];
+    if (!first || first.value > 0) return first ?? null;
+    return defined.find((m) => m.value > 0 && m.unit !== first.unit) ?? first;
   };
   if (IMAGE_MODES.has(mode)) {
     return pick(
