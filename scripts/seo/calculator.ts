@@ -61,7 +61,7 @@ document.querySelectorAll("[data-calc]").forEach(function(box){
     var hide=function(){ul.hidden=true;pickEl.setAttribute("aria-expanded","false");pickEl.removeAttribute("aria-activedescendant")};
     var choose=function(s){if(!s)return;get("model").value=s;pickEl.value=list[s][0];hide();box.dispatchEvent(new Event("input",{bubbles:true}))};
     var mv=function(d){if(!opts.length)return;act=act<0?(d>0?0:opts.length-1):(act+d+opts.length)%opts.length;[].forEach.call(ul.children,function(li,i){li.setAttribute("aria-selected",i===act)});var el=ul.children[act];if(el)el.scrollIntoView({block:"nearest"});pickEl.setAttribute("aria-activedescendant","calc-opt-"+act)};
-    pickEl.addEventListener("focus",function(){pickEl.select();show("")});
+    pickEl.addEventListener("focus",function(){pickEl.placeholder=list[get("model").value][0];pickEl.value="";show("")});
     pickEl.addEventListener("input",function(e){e.stopPropagation();show(pickEl.value)});
     pickEl.addEventListener("keydown",function(e){if(e.key==="ArrowDown"){e.preventDefault();if(ul.hidden)show(pickEl.value);else mv(1)}else if(e.key==="ArrowUp"){e.preventDefault();mv(-1)}else if(e.key==="Enter"){e.preventDefault();if(!ul.hidden&&act>=0)choose(opts[act])}else if(e.key==="Escape"){hide();pickEl.value=list[get("model").value][0]}});
     pickEl.addEventListener("blur",function(){setTimeout(function(){hide();pickEl.value=list[get("model").value][0]},120)});
