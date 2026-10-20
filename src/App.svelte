@@ -210,11 +210,11 @@
     };
   };
 
-  const trackSearchDebounced = debounce((query: string, provider: string, resultsCount: number) => {
+  const trackSearchDebounced = debounce((query: string, provider: string) => {
     if (query) {
-      trackSearch(query, provider, resultsCount);
+      trackSearch(query, provider, results.length);
     }
-  }, 500);
+  }, 1000);
 
   const setQueryDebounced = debounce((value: string) => {
     query = value;
@@ -280,6 +280,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       filterResults(query, selectedProvider, maxInputTokens, maxOutputTokens);
     }
   }
+
+  $: if (index) trackSearchDebounced(searchText, selectedProvider, maxInputTokens, maxOutputTokens);
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -463,8 +465,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       loading = false;
 
       if (sortColumn) applySorting();
-
-      trackSearchDebounced(query, selectedProvider, results.length);
     }
   }
 </script>
@@ -630,7 +630,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div>
   {:else}
-    {#if query != "" && results.length < 12}
+    {#if searchText != "" && results.length < 12}
       <div class="add-model-section">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         <a href={getIssueUrlForAdd(searchText)}>Can't find your model? Request it on GitHub</a>
