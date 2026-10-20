@@ -82,6 +82,7 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:8px;paddin
 .src ul{padding-left:18px}
 .intro{font-size:14px;color:var(--fg2)}
 .tag{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);border:1px solid currentColor;border-radius:999px;padding:1px 10px}
+th[scope=row]{text-transform:none;letter-spacing:0;font-size:14px;font-weight:500;color:var(--fg2);background:transparent;white-space:normal}
 .jump{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px}.jump span{color:var(--muted)}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:999px;background:var(--bg3);color:var(--fg2)}
 .warnbox{border:1px solid var(--warn);border-radius:8px;padding:10px 14px;color:var(--fg);max-width:75ch}
@@ -280,6 +281,8 @@ export type ModelPageContext = {
   history: { date: string; price: string }[];
   /** Provider pages that exist, so rows only link to real pages. */
   hubs: Set<string>;
+  /** Comparison pages this model is on. */
+  comparisons?: { slug: string; other: string }[];
 };
 
 type Stat = { label: string; value: string; lead?: boolean; tag?: string };
@@ -412,6 +415,11 @@ ${codeBlock("curl", "Call the proxy", getLiteLLmProxyCurlSnippet(mode, v.slug))}
     .map((f) => `<div><h3>${esc(f.q)}</h3><p>${esc(f.a)}</p></div>`)
     .join("")}</div></section>`);
 
+  if (ctx.comparisons?.length) {
+    parts.push(`<section id="compare"><h2>Compare ${esc(v.name)}</h2><ul class="links">${ctx.comparisons
+      .map((c) => `<li><a href="/compare/${c.slug}">${esc(v.name)} vs ${esc(c.other)}</a></li>`)
+      .join("")}</ul><p><a href="/compare">All model comparisons</a></p></section>`);
+  }
   if (ctx.related.length) {
     parts.push(`<section id="related"><h2>${v.lab ? `More ${esc(v.lab)} models` : "Related models"}</h2>
 <ul class="links">${ctx.related
@@ -462,4 +470,98 @@ export function labSections(rows: IndexRow[]): string {
 export function notFoundBody(): string {
   return `<div class="head"><h1>Page not found</h1><p class="answer">This page doesn't exist. Search the catalog or browse every model.</p>
 <p><a href="/">Search the model catalog</a> · <a href="/models">Browse all models</a></p></div>`;
+}
+
+// ---- Comparison pages ------------------------------------------------------------------------------------
+
+export type CompareView = {
+  slug: string;
+  a: ModelView;
+  b: ModelView;
+  copy: import("./compare").CompareCopy;
+  rows: [string, string, string][];
+  bench: import("./compare").BenchRow[];
+  benchDate: string | null;
+  cheapest: { model: ModelView; row: RowView | null }[];
+  related: { slug: string; title: string }[];
+  buildDate: string;
+  hubs: Set<string>;
+};
+
+export function compareBody(c: CompareView): string {
+  const { a, b, copy } = c;
+  const head = `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/compare">Compare</a><span>›</span><span>${esc(copy.h1)}</span></nav>
+<h1>${esc(copy.h1)}</h1>
+<p class="answer">As of ${longDate(c.buildDate)}, ${esc(copy.answer)}</p>
+<div class="meta"><span>Prices from LiteLLM's price file</span><span>Checked <time datetime="${c.buildDate}">${longDate(c.buildDate)}</time></span></div></div>`;
+  const table = `<section id="side-by-side"><h2>${esc(a.name)} vs ${esc(b.name)} side by side</h2><div class="tbl" data-track="compare-table" data-page-kind="compare" data-page-id="${c.slug}"><table><caption>Headline prices in US dollars per 1M tokens: each model's own lab where it sells it, otherwise its cheapest provider. Source: LiteLLM model price file, as of ${longDate(c.buildDate)}.</caption><thead><tr><th></th><th><a href="${modelPath(a.slug)}">${esc(a.name)}</a></th><th><a href="${modelPath(b.slug)}">${esc(b.name)}</a></th></tr></thead><tbody>${c.rows
+    .map(([k, x, y]) => `<tr><th scope="row">${esc(k)}</th><td>${x}</td><td>${y}</td></tr>`)
+    .join("")}</tbody></table></div></section>`;
+  const buy = `<section id="providers"><h2>Cheapest provider for each</h2><ul>${c.cheapest
+    .map(({ model, row }) => (row ? `<li><a href="${modelPath(model.slug)}">${esc(model.name)}</a>: ${row.hub && c.hubs.has(row.hub) ? `<a href="${providerPath(row.hub)}">${esc(row.providerName)}</a>` : esc(row.providerName)} at ${usd(row.prices.input!)} input and ${row.prices.output !== undefined ? usd(row.prices.output) : "–"} output per 1M tokens (<code>${esc(row.modelString)}</code>)</li>` : ""))
+    .join("")}</ul></section>`;
+  const bench = c.bench.length
+    ? `<section id="benchmarks"><h2>Benchmark scores</h2><div class="tbl"><table><caption>Run by Epoch AI at each model's best reported reasoning setting (shown in brackets)${c.benchDate ? `, data as of ${longDate(c.benchDate)}` : ""}. Higher is better. Source: <a href="https://epoch.ai/benchmarks">Epoch AI Benchmarking Hub</a>, CC BY 4.0. Only benchmarks Epoch ran on both models are shown.</caption><thead><tr><th>Benchmark</th><th>${esc(a.name)}</th><th>${esc(b.name)}</th></tr></thead><tbody>${c.bench
+        .map((r) => `<tr><th scope="row"><a href="${esc(r.url)}">${esc(r.name)}</a></th><td>${esc(r.a)}</td><td>${esc(r.b)}</td></tr>`)
+        .join("")}</tbody></table></div></section>`
+    : "";
+  const picks = copy.pickA.length || copy.pickB.length
+    ? `<section id="when"><h2>When to pick which</h2><div class="grid2">${[
+        [a, copy.pickA],
+        [b, copy.pickB],
+      ]
+        .filter(([, list]) => (list as string[]).length)
+        .map(([m, list]) => `<div><h3>Pick ${esc((m as ModelView).name)} for</h3><ul>${(list as string[]).map((x) => `<li>${esc(x)}</li>`).join("")}</ul></div>`)
+        .join("")}</div><p class="note">From differences in the data above only; where the data is equal, no reason is given.</p></section>`
+    : "";
+  const sa = a.headline!.modelString;
+  const sb = b.headline!.modelString;
+  const sdk = `from litellm import completion
+
+messages = [{"role": "user", "content": "Hello!"}]
+
+# ${a.name}
+response = completion(model="${sa}", messages=messages)
+
+# ${b.name}
+response = completion(model="${sb}", messages=messages)
+
+# ${a.name}, falling back to ${b.name} if the call fails
+response = completion(model="${sa}", messages=messages, fallbacks=["${sb}"])`;
+  const code = `<section id="code"><h2>Call ${esc(a.name)} or ${esc(b.name)} with LiteLLM</h2><p>Both use the OpenAI format through LiteLLM, so switching is a model name change. Set each provider's API key in the environment first.</p>${codeBlock(`sdk-${c.slug}`, "Python SDK", sdk)}</section>`;
+  const faq = `<section id="faq"><h2>FAQ</h2><div class="faq">${copy.faq.map((f) => `<div><h3>${esc(f.q)}</h3><p>${esc(f.a)}</p></div>`).join("")}</div></section>`;
+  const more = `<section id="related"><h2>More comparisons</h2><ul class="links">${[
+    `<li><a href="${modelPath(a.slug)}">${esc(a.name)} pricing<span>All providers</span></a></li>`,
+    `<li><a href="${modelPath(b.slug)}">${esc(b.name)} pricing<span>All providers</span></a></li>`,
+    ...c.related.map((r) => `<li><a href="/compare/${r.slug}">${esc(r.title)}</a></li>`),
+    `<li><a href="/compare">All comparisons</a></li>`,
+  ].join("")}</ul></section>`;
+  return [head, table, buy, bench, picks, code, faq, more].join("\n");
+}
+
+export function compareHubBody(groups: { label: string; items: { slug: string; title: string; note: string }[] }[], count: number, buildDate: string): string {
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Compare</span></nav>
+<h1>AI model comparisons</h1>
+<p class="answer">As of ${longDate(buildDate)}, ${int(count)} side-by-side comparisons of AI models: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file. New models get compared when they're added.</p></div>
+${groups
+  .filter((g) => g.items.length)
+  .map((g) => `<section><h2>${esc(g.label)}</h2><ul class="links">${g.items.map((i) => `<li><a href="/compare/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`)
+  .join("\n")}`;
+}
+
+/** A static redirect: instant refresh plus a canonical to the target, which search engines treat as permanent. */
+export function redirectPage(to: string, title: string, message: string): string {
+  const url = abs(to);
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>${esc(title)}</title>
+<link rel="canonical" href="${esc(url)}">
+<meta name="robots" content="noindex,follow">
+<meta http-equiv="refresh" content="0; url=${esc(to)}">
+</head>
+<body><p>${esc(message)} <a href="${esc(to)}">Continue to ${esc(url)}</a>.</p></body>
+</html>
+`;
 }

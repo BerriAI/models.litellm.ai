@@ -1,0 +1,332 @@
+import { strToU8, zipSync } from "fflate";
+import { describe, expect, test } from "vitest";
+import middleware from "../../middleware";
+import {
+  benchmarksFor,
+  parseBenchmarkZip,
+  parseCsv,
+  splitVersion,
+} from "./benchmarks";
+import {
+  WEEKLY_CAP,
+  answerLine,
+  benchRows,
+  compareSlug,
+  contextPair,
+  indexable,
+  reasonsToPick,
+  selectPairs,
+  successorOf,
+  type Pair,
+} from "./compare";
+import {
+  assignSlugs,
+  groupCostMap,
+  type CostMap,
+  type Overrides,
+} from "./group";
+import { buildModelView, type ModelView } from "./model-view";
+
+const chat = (
+  provider: string,
+  input: number,
+  output: number,
+  context: number,
+  extra: Record<string, unknown> = {},
+) => ({
+  litellm_provider: provider,
+  mode: "chat",
+  input_cost_per_token: input / 1e6,
+  output_cost_per_token: output / 1e6,
+  max_input_tokens: context,
+  ...extra,
+});
+
+const COST_MAP: CostMap = {
+  "claude-opus-5-5": chat("anthropic", 4, 20, 1_000_000, {
+    supports_function_calling: true,
+  }),
+  "anthropic.claude-opus-5-5": chat("bedrock_converse", 4, 20, 1_000_000),
+  "claude-opus-5": chat("anthropic", 5, 25, 1_000_000),
+  "gpt-6-astra": chat("openai", 10, 50, 922_000, {
+    supports_function_calling: false,
+  }),
+  "azure/gpt-6-astra": chat("azure", 10, 50, 922_000),
+  "gemini/gemini-2.0-flash": chat("gemini", 0.1, 0.4, 1_000_000, {
+    deprecation_date: "2026-06-01",
+  }),
+  "gemini/gemini-3.8-flash": chat("gemini", 0.75, 3.75, 1_048_576),
+};
+
+const ADDED: Record<string, string> = {
+  "claude-opus-5-5": "2026-09-22",
+  "claude-opus-5": "2026-07-24",
+  "gpt-6-astra": "2026-09-03",
+  "gemini-2-0-flash": "2025-02-01",
+  "gemini-3-8-flash": "2026-09-02",
+};
+
+function views(costMap = COST_MAP, overrides: Overrides = {}): ModelView[] {
+  const groups = groupCostMap(costMap, overrides);
+  const slugs = assignSlugs(groups, overrides);
+  return groups.map((g) =>
+    buildModelView(
+      g,
+      slugs.get(g.pageKey)!,
+      overrides,
+      {},
+      ADDED[g.pageKey] ?? null,
+      "2026-10-20",
+    ),
+  );
+}
+
+const bySlug = (vs: ModelView[], slug: string) =>
+  vs.find((v) => v.slug === slug)!;
+const pair = (
+  vs: ModelView[],
+  x: string,
+  y: string,
+  kind: Pair["kind"] = "flagship",
+  reviewed = true,
+): Pair => {
+  const [a, b] = [bySlug(vs, x), bySlug(vs, y)].sort((p, q) =>
+    p.slug.localeCompare(q.slug),
+  );
+  return { slug: compareSlug(x, y), a, b, kind, reviewed };
+};
+
+describe("pair selection", () => {
+  const families = {
+    "claude-opus": "^claude-opus-\\d+(-\\d+)?$",
+    "gemini-flash": "^gemini-\\d+(\\.\\d+)?-flash$",
+  };
+
+  test("one URL per pair, alphabetical, whichever order the pair is listed in", () => {
+    expect(compareSlug("gpt-6-astra", "claude-opus-5-5")).toBe(
+      "claude-opus-5-5-vs-gpt-6-astra",
+    );
+    const vs = views();
+    const { pairs } = selectPairs(
+      vs,
+      { compare: { pairs: [["gpt-6-astra", "claude-opus-5-5", "flagship"]] } },
+      {},
+      "2026-10-20",
+    );
+    const reviewed = pairs.find((p) => p.reviewed)!;
+    expect([reviewed.slug, reviewed.a.slug, reviewed.b.slug]).toEqual([
+      "claude-opus-5-5-vs-gpt-6-astra",
+      "claude-opus-5-5",
+      "gpt-6-astra",
+    ]);
+  });
+
+  test("the reverse order redirects to that URL, markdown copies included", () => {
+    const res = middleware(
+      new Request(
+        "https://models.litellm.ai/compare/gpt-6-astra-vs-claude-opus-5-5",
+      ),
+    )!;
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toBe(
+      "https://models.litellm.ai/compare/claude-opus-5-5-vs-gpt-6-astra",
+    );
+    const md = middleware(
+      new Request(
+        "https://models.litellm.ai/compare/gpt-6-astra-vs-claude-opus-5-5.md",
+      ),
+    )!;
+    expect(md.headers.get("location")).toBe(
+      "https://models.litellm.ai/compare/claude-opus-5-5-vs-gpt-6-astra.md",
+    );
+    expect(
+      middleware(
+        new Request(
+          "https://models.litellm.ai/compare/claude-opus-5-5-vs-gpt-6-astra",
+        ),
+      ),
+    ).toBeUndefined();
+  });
+
+  test("adds each model's family predecessor, and leaves retired models out", () => {
+    const vs = views();
+    const { pairs } = selectPairs(vs, { families }, {}, "2026-10-20");
+    const slugs = pairs.map((p) => p.slug);
+    expect(slugs).toContain("claude-opus-5-vs-claude-opus-5-5");
+    expect(slugs.some((s) => s.includes("gemini-2.0-flash"))).toBe(false);
+  });
+
+  test("releases at most WEEKLY_CAP new automatic pairs a week, counting reviewed ones", () => {
+    const vs = views();
+    const recent = Object.fromEntries(
+      Array.from({ length: WEEKLY_CAP }, (_, i) => [
+        `x-${i}-vs-y`,
+        { firstSeen: "2026-10-18", kind: "new" as const },
+      ]),
+    );
+    expect(
+      selectPairs(vs, { families }, recent, "2026-10-20").pairs,
+    ).toHaveLength(0);
+    expect(
+      selectPairs(vs, { families }, {}, "2026-10-20").pairs.length,
+    ).toBeGreaterThan(0);
+  });
+
+  test("a published automatic pair stays, with its first-published date", () => {
+    const vs = views();
+    const prev = {
+      "claude-opus-5-vs-claude-opus-5-5": {
+        firstSeen: "2026-09-25",
+        kind: "successor" as const,
+      },
+    };
+    const { published } = selectPairs(vs, { families }, prev, "2026-10-20");
+    expect(published["claude-opus-5-vs-claude-opus-5-5"]).toEqual({
+      firstSeen: "2026-09-25",
+      kind: "successor",
+    });
+  });
+
+  test("a retired model points at its family's newest active model", () => {
+    const vs = views();
+    expect(
+      successorOf(bySlug(vs, "gemini-2.0-flash"), vs, families)?.slug,
+    ).toBe("gemini-3.8-flash");
+    expect(successorOf(bySlug(vs, "gpt-6-astra"), vs, families)).toBeNull();
+  });
+});
+
+describe("comparison copy", () => {
+  test("answer line: the pricier model, its premium, and both context windows", () => {
+    const vs = views();
+    expect(answerLine(pair(vs, "claude-opus-5-5", "gpt-6-astra"))).toBe(
+      "GPT-6 Astra costs 150% more per input token than Claude Opus 5.5 ($10.00 vs $4.00 per 1M) and has a 922K-token context window versus 1M.",
+    );
+  });
+
+  test("context windows that round to the same short form are written out", () => {
+    expect(contextPair(1_000_000, 1_048_576)).toEqual([
+      "1,000,000",
+      "1,048,576",
+    ]);
+    expect(contextPair(1_000_000, 922_000)).toEqual(["1M", "922K"]);
+  });
+
+  test("'when to pick' bullets come only from real differences, with the right percentage", () => {
+    const vs = views();
+    const opus = bySlug(vs, "claude-opus-5-5");
+    const astra = bySlug(vs, "gpt-6-astra");
+    const forOpus = reasonsToPick(opus, astra);
+    expect(forOpus[0]).toBe(
+      "Costs 60% less per input token: $4.00 vs $10.00 per 1M.",
+    );
+    expect(forOpus).toContain(
+      "Supports function calling, which GPT-6 Astra doesn't list.",
+    );
+    expect(reasonsToPick(astra, opus)).toEqual([]);
+    const same = views({
+      "a-model-1": chat("openai", 2, 10, 200_000),
+      "b-model-1": chat("anthropic", 2, 10, 200_000),
+    });
+    expect(reasonsToPick(same[0], same[1])).toEqual([]);
+  });
+
+  test("automatic pairs that say nothing new aren't indexed; reviewed and successor pairs are", () => {
+    const same = views({
+      "a-model-1": chat("openai", 2, 10, 200_000),
+      "b-model-1": chat("anthropic", 2, 10, 200_000),
+    });
+    const p: Pair = {
+      slug: "a-model-1-vs-b-model-1",
+      a: same[0],
+      b: same[1],
+      kind: "new",
+      reviewed: false,
+    };
+    expect(indexable(p)).toBe(false);
+    expect(indexable({ ...p, reviewed: true })).toBe(true);
+    expect(indexable({ ...p, kind: "successor" })).toBe(true);
+  });
+});
+
+describe("Epoch AI benchmarks", () => {
+  const csv = (rows: string[][]) =>
+    rows
+      .map((r) =>
+        r
+          .map((c) => (/[",\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c))
+          .join(","),
+      )
+      .join("\n");
+  const zip = zipSync({
+    "gpqa_diamond.csv": strToU8(
+      csv([
+        ["Model version", "Best score (across scorers)", "Started at"],
+        ["gpt-6-astra_max", "0.958", "2026-09-10T00:00:00Z"],
+        ["gpt-6-astra_low", "0.80", "2026-09-10T00:00:00Z"],
+        ["claude-opus-5-5_max", "0.906", "2026-09-25T00:00:00Z"],
+        ["claude-opus-5-5-preview_max", "0.99", "2026-09-25T00:00:00Z"],
+      ]),
+    ),
+    "swe_bench_verified.csv": strToU8(
+      csv([
+        ["Model version", "Best score (across scorers)", "Started at"],
+        ["gpt-6-astra_max", "0.7", "2026-09-10"],
+      ]),
+    ),
+    "epoch_capabilities_index/eci_scores.csv": strToU8(
+      csv([
+        ["Model", "eci", "date"],
+        ["GPT-6 Astra", "166.41", "2026-09-03"],
+        ["Claude Opus 5.5", "166.82", "2026-09-22"],
+      ]),
+    ),
+  });
+  const data = parseBenchmarkZip(zip);
+
+  test("matches model ids exactly, keeps each model's best setting, and ignores near-misses", () => {
+    expect(
+      benchmarksFor(data, ["claude-opus-5-5"], ["Claude Opus 5.5"]),
+    ).toEqual({
+      eci: { score: 166.82, date: "2026-09-22" },
+      scores: [
+        {
+          benchmark: "GPQA Diamond",
+          url: "https://epoch.ai/benchmarks/gpqa-diamond",
+          score: 0.906,
+          setting: "max",
+          date: "2026-09-25",
+        },
+      ],
+    });
+    expect(
+      benchmarksFor(data, ["gpt-6-astra"], ["GPT-6 Astra"])!.scores[0],
+    ).toMatchObject({ score: 0.958, setting: "max" });
+    expect(
+      benchmarksFor(data, ["claude-opus-5"], ["Claude Opus 5"]),
+    ).toBeNull();
+  });
+
+  test("comparison rows only show benchmarks both models have", () => {
+    const rows = benchRows(
+      benchmarksFor(data, ["claude-opus-5-5"], ["Claude Opus 5.5"]),
+      benchmarksFor(data, ["gpt-6-astra"], ["GPT-6 Astra"]),
+    );
+    expect(rows.map((r) => [r.name, r.a, r.b])).toEqual([
+      ["Epoch Capabilities Index", "166.8", "166.4"],
+      ["GPQA Diamond", "90.6% (max)", "95.8% (max)"],
+    ]);
+  });
+
+  test("dated snapshots match their undated model; quoted CSV fields parse", () => {
+    expect(splitVersion("gpt-5.4-2026-03-05_xhigh")).toEqual({
+      id: "gpt-5-4",
+      setting: "xhigh",
+    });
+    expect(splitVersion("glm-5.3_unknown")).toEqual({
+      id: "glm-5-3",
+      setting: null,
+    });
+    expect(parseCsv('a,b\n"x, ""y""",2\n')).toEqual([{ a: 'x, "y"', b: "2" }]);
+  });
+});

@@ -8,6 +8,8 @@ Only LiteLLM's own data goes on the site: `model_prices_and_context_window.json`
 
 One exception: an `introPricing` entry in `overrides.json` may carry a hand-typed end date (`until`), because the price file can't say a price is temporary. It must cite the lab's own pricing page as an https `source`, and the build rejects it otherwise. Add `providers` when the introductory price applies to sellers other than the lab's own API. The price itself always comes from the price file.
 
+A second exception: comparison pages show benchmark scores from Epoch AI's Benchmarking Hub (CC BY 4.0), credited on the page with a link and the date. Use only Epoch's own runs and Capabilities Index, never its `*_external.csv` files, and match models exactly by id, never by fuzzy name matching. Never turn scores into a verdict ("better", "best", "winner"), and never rank models by them.
+
 ### Running the dev server
 
 ```bash

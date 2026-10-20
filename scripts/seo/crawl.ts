@@ -44,6 +44,7 @@ export function llmsTxt(
   models: { name: string; slug: string; summary: string }[],
   providers: { name: string; hub: string; count: number }[],
   limit?: number,
+  comparisons: { title: string; slug: string }[] = [],
 ): string {
   const listed = limit ? models.slice(0, limit) : models;
   const lines = [
@@ -62,6 +63,15 @@ export function llmsTxt(
     "",
     ...providers.map((p) => `- [${p.name}](${SITE_URL}/providers/${p.hub}): ${p.count} models`),
     "",
+    ...(comparisons.length
+      ? [
+          "## Model comparisons",
+          "",
+          `- [All comparisons](${SITE_URL}/compare): side-by-side prices, context windows, features and benchmark scores`,
+          ...comparisons.slice(0, 50).map((x) => `- [${x.title}](${SITE_URL}/compare/${x.slug}.md)`),
+          "",
+        ]
+      : []),
     limit ? `## Newest ${listed.length} models` : "## Models",
     "",
     ...listed.map((m) => `- [${m.name}](${SITE_URL}/models/${m.slug}.md): ${m.summary}`),

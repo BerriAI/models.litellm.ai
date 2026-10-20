@@ -8,6 +8,8 @@ import type { PageCopy } from "./copy";
 import { int, longDate, tokensShort, usd } from "./format";
 import type { ModelView } from "./model-view";
 import { PRICE_FILE_URL, abs, modelPath } from "./site";
+import { comparePath } from "./compare";
+import type { CompareView } from "./html";
 
 const cell = (n: number | undefined) => (n === undefined ? "–" : usd(n));
 const pipe = (s: string) => s.replace(/\|/g, "\\|");
@@ -63,5 +65,35 @@ export function modelMarkdown(v: ModelView, copy: PageCopy, lastChanged: string)
   lines.push("## FAQ", "");
   for (const f of copy.faq) lines.push(`### ${f.q}`, "", f.a, "");
   lines.push(`Source: LiteLLM model price file, ${PRICE_FILE_URL}. Maintainers update it from each provider's published pricing, and this page is usually rebuilt within 20 minutes of every change.`, "");
+  return lines.join("\n");
+}
+
+/** Markdown copy of a comparison page, served at /compare/<slug>.md and for `Accept: text/markdown`. */
+export function compareMarkdown(c: CompareView): string {
+  const { a, b, copy } = c;
+  const strip = (s: string) => s.replace(/<[^>]+>/g, "");
+  const lines = [`# ${copy.h1}`, "", `As of ${longDate(c.buildDate)}, ${copy.answer}`, ""];
+  lines.push(`- Page: ${abs(comparePath(c.slug))}`, `- ${a.name}: ${abs(modelPath(a.slug))}`, `- ${b.name}: ${abs(modelPath(b.slug))}`, "");
+  lines.push("## Side by side", "", `| | ${pipe(a.name)} | ${pipe(b.name)} |`, "|---|---|---|");
+  for (const [k, x, y] of c.rows) lines.push(`| ${pipe(k)} | ${pipe(strip(x))} | ${pipe(strip(y))} |`);
+  lines.push("", "Headline prices in USD per 1M tokens, from LiteLLM's model price file.", "");
+  const cheapest = c.cheapest.filter((x) => x.row);
+  if (cheapest.length) {
+    lines.push("## Cheapest provider for each", "");
+    for (const { model, row } of cheapest) lines.push(`- ${model.name}: ${row!.providerName} at ${usd(row!.prices.input!)} input per 1M tokens (\`${row!.modelString}\`)`);
+    lines.push("");
+  }
+  if (c.bench.length) {
+    lines.push("## Benchmark scores", "", `| Benchmark | ${pipe(a.name)} | ${pipe(b.name)} |`, "|---|---|---|");
+    for (const r of c.bench) lines.push(`| ${pipe(r.name)} | ${r.a} | ${r.b} |`);
+    lines.push("", "Run by Epoch AI (https://epoch.ai/benchmarks), CC BY 4.0. Higher is better.", "");
+  }
+  if (copy.pickA.length || copy.pickB.length) {
+    lines.push("## When to pick which", "");
+    for (const [m, list] of [[a, copy.pickA], [b, copy.pickB]] as const) for (const x of list) lines.push(`- ${m.name}: ${x}`);
+    lines.push("");
+  }
+  lines.push("## FAQ", "");
+  for (const f of copy.faq) lines.push(`### ${f.q}`, "", f.a, "");
   return lines.join("\n");
 }

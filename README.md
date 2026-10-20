@@ -20,6 +20,8 @@ The generator writes:
 | Path | What it is |
 |---|---|
 | `/models/<model-id>` | One page per model, grouping every provider's listing of it, with prices, context window, features, code samples, FAQ and JSON-LD |
+| `/compare/<a>-vs-<b>` | Two models side by side: answer line, prices, features, cheapest provider for each, Epoch AI benchmark scores, "when to pick" from real differences, code, FAQ; markdown copy at `.md`. Model slugs in alphabetical order; the reverse order redirects |
+| `/compare` | Every comparison, grouped by kind |
 | `/models/<model-id>.md` | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts` |
 | `/models` | Every active model, grouped by lab with a jump menu, newest first within each lab |
 | `/providers/<provider>` | Every model one provider sells, at that provider's price |
@@ -39,6 +41,14 @@ Every page's `og:image` points at `/og/<kind>/<id>.png?v=<hash>`. `vercel.json` 
 ```bash
 npm run og:preview -- models/claude-opus-5-5 providers/bedrock pages/home
 ```
+
+## Comparisons
+
+`scripts/seo/compare.ts` picks the pairs and writes every sentence on a comparison page from the price file. Reviewed pairs live in `overrides.json` under `compare.pairs` and are always built. The build also adds pairs by itself so new models get compared on launch day: each model with its predecessor in its family (`families` in `overrides.json`, a regex on the page slug), and models added in the last 45 days against the two closest models from other labs. New automatic pairs are released in weekly waves of at most 40 (`WEEKLY_CAP`), counted from `compare` in the manifest. An automatic pair whose prices, context and features barely differ, or whose models have fewer than 3 providers, is built with noindex; reviewed and successor pairs are always indexed.
+
+Benchmark scores come from [Epoch AI's Benchmarking Hub](https://epoch.ai/benchmarks) (CC BY 4.0, credited on every page), downloaded at build time by `scripts/seo/benchmarks.ts`. Only Epoch's own runs and its Capabilities Index are used, never the hub's third-party `*_external.csv` files. Scores match a model only when Epoch's model id (before the `_<setting>` suffix) equals one of the page's ids; anything else is left out. A comparison shows only benchmarks both models have, at each model's best reported setting. If the download fails, pages are built without scores. `EPOCH_FILE` reads the zip from disk.
+
+A retired model with a newer active model in its family becomes a redirect to it (an instant refresh plus a canonical, which search engines treat as permanent); the list is in `/compare/redirects.json`.
 
 ## Model grouping
 

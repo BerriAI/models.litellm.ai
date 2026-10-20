@@ -23,13 +23,15 @@ import { pageCopy } from "./copy";
 import { llmsTxt, robotsTxt, sitemapIndex, urlset, type SitemapEntry } from "./crawl";
 import { escapeHtml as esc, int, longDate, monthYear, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, catalogSlugs, groupCostMap, type CostMap, type Overrides } from "./group";
-import { indexTable, labSections, layout, modelBody, notFoundBody, type IndexRow } from "./html";
-import { breadcrumb, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
+import { compareBody, compareHubBody, indexTable, labSections, layout, modelBody, notFoundBody, redirectPage, type IndexRow } from "./html";
+import { benchRows, cheapestRow, compareCopy, comparePath, indexable as compareIndexable, KIND_LABELS, selectPairs, successorOf, type Pair } from "./compare";
+import { benchmarksFor, loadBenchmarks, type BenchmarkData } from "./benchmarks";
+import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
 import { cookbookPage, guardrailsPage, homePage, providersPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
-import { modelMarkdown } from "./markdown";
-import { copyCardFonts, modelCard, providerCard, writeCard } from "./og";
+import { compareMarkdown, modelMarkdown } from "./markdown";
+import { compareCard, copyCardFonts, modelCard, providerCard, writeCard } from "./og";
 import { appShell } from "./shell";
 import type { CardInput } from "./og-card";
 import { buildModelView, type ModelView, type RowView } from "./model-view";
@@ -129,7 +131,7 @@ function addedLabel(date: string | null): string | null {
 
 async function main(): Promise<void> {
   // Start clean so pages for regrouped or renamed models never linger.
-  for (const dir of ["models", "providers", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
+  for (const dir of ["models", "providers", "compare", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
   // raw.githubusercontent.com serves `main` from a cache for up to five minutes, so a deploy
   // triggered right after a price change could rebuild the old file. A commit URL is never stale.
   const lastCommit = await github<{ sha?: string; commit?: { committer?: { date?: string } } }[]>(
@@ -206,7 +208,18 @@ async function main(): Promise<void> {
   const changed: string[] = [];
   /** Share images of changed pages; the refresh workflow loads them once so the CDN has them cached. */
   const changedImages: string[] = [];
+  /** Retired models that now point at their successor. */
+  const redirects: { from: string; to: string }[] = [];
   const slugMap = catalogSlugs(groups, slugs);
+
+  // Comparison pairs come first so each model page can link its comparisons.
+  const families = overrides.families ?? {};
+  const { pairs, published } = selectPairs(views, overrides, previous?.compare ?? {}, BUILD_DATE);
+  manifest.compare = published;
+  const pairsByModel = new Map<string, { slug: string; other: string }[]>();
+  for (const p of pairs) {
+    for (const [x, y] of [[p.a, p.b], [p.b, p.a]] as const) pairsByModel.set(x.slug, [...(pairsByModel.get(x.slug) ?? []), { slug: p.slug, other: y.name }]);
+  }
 
   for (const v of views) {
     const copy = pageCopy(v, BUILD_DATE);
@@ -226,11 +239,14 @@ async function main(): Promise<void> {
 
     const thin = !v.headline && !v.context;
     const related = relatedFor(v, byLab, byFamily).map((o) => ({ name: o.name, slug: o.slug, price: shortPrice(o.headline) }));
-    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet });
+    const body = modelBody(v, copy, { buildDate: BUILD_DATE, lastChanged, related, history: history.slice(-20), hubs: hubSet, comparisons: pairsByModel.get(v.slug) });
     const image = writeCard(OUT, "models", v.slug, modelCard(v));
+    // A retired model with a newer model in its family sends readers there; search engines treat an
+    // instant refresh plus a canonical to the target as a permanent redirect.
+    const successor = v.status === "retired" ? successorOf(v, views, families) : null;
     write(
       `models/${v.slug}.html`,
-      layout({
+      successor ? redirectPage(modelPath(successor.slug), `${v.name} has been retired`, `${v.name} is retired. Its successor is ${successor.name}.`) : layout({
         title: copy.title,
         description: copy.description,
         path: modelPath(v.slug),
@@ -245,6 +261,7 @@ async function main(): Promise<void> {
 
     // Retired models keep their page for reference but leave the sitemap.
     if (!thin && v.status !== "retired") modelEntries.push({ path: modelPath(v.slug), lastmod: lastChanged });
+    if (successor) redirects.push({ from: modelPath(v.slug), to: modelPath(successor.slug) });
     // Compare with the previous build, not the date: a second build on the same day
     // must not report every page that changed earlier that day.
     if (!unchanged && !thin) {
@@ -324,7 +341,7 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
       jsonLd: listGraph("/models", indexTitle, indexDescription, latestChange, [{ name: "Models", path: "/models" }], rows.map((r) => ({ name: r.name, path: modelPath(r.slug) }))),
       body: `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>Models</span></nav>
 <h1>AI model API pricing</h1>
-<p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM tracks prices for ${int(rows.length)} models across ${hubList.length} providers. Each model page lists every provider's price, the context window, and the code to call it through LiteLLM. Most recently added models first.</p></div>
+<p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM tracks prices for ${int(rows.length)} models across ${hubList.length} providers. Each model page lists every provider's price, the context window, and the code to call it through LiteLLM. <a href="/compare">Compare models side by side</a>.</p></div>
 <section><h2>Browse by provider</h2><ul class="links">${hubList
         .map((h) => `<li><a href="${providerPath(h.hub)}">${esc(h.name)}<span>${h.list.length} models</span></a></li>`)
         .join("")}</ul></section>
@@ -381,6 +398,103 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
     );
     providerEntries.push({ path: providerPath(h.hub), lastmod: hubChanged });
   }
+
+  // Comparison pages, their hub and sitemap.
+  const benchData: BenchmarkData | null = await loadBenchmarks(async (url) =>
+    process.env.EPOCH_FILE ? new Uint8Array(readFileSync(process.env.EPOCH_FILE)) : new Uint8Array(await (await fetch(url, { signal: AbortSignal.timeout(30_000) })).arrayBuffer()),
+  );
+  const benchFor = (v: ModelView) =>
+    benchmarksFor(benchData, [v.slug, ...v.rows.map((r) => r.modelString.split("/").pop()!)], [v.name, ...v.alsoKnownAs]);
+  const benchDate = (pair: Pair) => {
+    const dates = [benchFor(pair.a), benchFor(pair.b)].flatMap((x) => x?.scores.map((s) => s.date ?? "") ?? []).filter(Boolean).sort();
+    return dates[dates.length - 1] ?? null;
+  };
+  const yesNo = (v: ModelView, label: string) => {
+    const c = v.capabilities.find((x) => x.label === label)?.supported;
+    return c === undefined ? "–" : c ? "Yes" : "No";
+  };
+  const money = (n: number | undefined) => (n === undefined ? "–" : usd(n));
+  const compareEntries: SitemapEntry[] = [];
+  for (const pair of pairs) {
+    const { a, b } = pair;
+    const copy = compareCopy(pair, BUILD_DATE);
+    const pa = a.headline!.prices;
+    const pb = b.headline!.prices;
+    const rows: [string, string, string][] = [
+      ["Input, per 1M tokens", money(pa.input), money(pb.input)],
+      ["Output, per 1M tokens", money(pa.output), money(pb.output)],
+      ["Cache read, per 1M tokens", money(pa.cacheRead), money(pb.cacheRead)],
+      ["Cache write, per 1M tokens", money(pa.cacheWrite), money(pb.cacheWrite)],
+      ["Context window", `${int(a.context!)} tokens`, `${int(b.context!)} tokens`],
+      ["Max output", a.maxOutput ? `${int(a.maxOutput)} tokens` : "–", b.maxOutput ? `${int(b.maxOutput)} tokens` : "–"],
+      ["Image input", yesNo(a, "Image input"), yesNo(b, "Image input")],
+      ["Tool calling", yesNo(a, "Function calling"), yesNo(b, "Function calling")],
+      ["Structured output (JSON)", yesNo(a, "Structured output"), yesNo(b, "Structured output")],
+      ["Prompt caching", yesNo(a, "Prompt caching"), yesNo(b, "Prompt caching")],
+      ["Reasoning", yesNo(a, "Reasoning"), yesNo(b, "Reasoning")],
+      ["Providers on LiteLLM", String(a.providers.length), String(b.providers.length)],
+      ["Price shown is from", esc(a.headline!.providerName), esc(b.headline!.providerName)],
+      ["Added to LiteLLM", a.addedDate ? longDate(a.addedDate) : "–", b.addedDate ? longDate(b.addedDate) : "–"],
+    ];
+    const related = pairs
+      .filter((o) => o !== pair && (o.a === a || o.b === a || o.a === b || o.b === b))
+      .slice(0, 5)
+      .map((o) => ({ slug: o.slug, title: `${o.a.name} vs ${o.b.name}` }));
+    const view = {
+      slug: pair.slug,
+      a,
+      b,
+      copy,
+      rows,
+      bench: benchRows(benchFor(a), benchFor(b)),
+      benchDate: benchDate(pair),
+      cheapest: [a, b].map((m) => ({ model: m, row: cheapestRow(m) })),
+      related,
+      buildDate: BUILD_DATE,
+      hubs: hubSet,
+    };
+    const path = comparePath(pair.slug);
+    const index = compareIndexable(pair);
+    write(
+      `compare/${pair.slug}.html`,
+      layout({
+        title: copy.title,
+        description: copy.description,
+        path,
+        body: compareBody(view),
+        jsonLd: compareGraph(path, copy.title, copy.description, BUILD_DATE, copy.h1, copy.faq),
+        markdownPath: `${path}.md`,
+        noindex: !index,
+        image: writeCard(OUT, "compare", pair.slug, compareCard(a, b)),
+      }),
+    );
+    write(`compare/${pair.slug}.md`, compareMarkdown(view));
+    if (index) compareEntries.push({ path, lastmod: BUILD_DATE });
+    if (!previous?.compare?.[pair.slug]) changed.push(abs(path));
+  }
+  const groupsByKind = (Object.keys(KIND_LABELS) as (keyof typeof KIND_LABELS)[]).map((kind) => ({
+    label: KIND_LABELS[kind],
+    items: pairs
+      .filter((p) => p.kind === kind)
+      .map((p) => {
+        const cheaper = p.a.headline!.prices.input! <= p.b.headline!.prices.input! ? p.a : p.b;
+        return { slug: p.slug, title: `${p.a.name} vs ${p.b.name}`, note: p.a.headline!.prices.input === p.b.headline!.prices.input ? "Same input price" : `${cheaper.name} is cheaper` };
+      }),
+  }));
+  const hubTitle = `AI Model Comparisons: Prices, Context Windows and Benchmarks | LiteLLM`;
+  const hubDescription = `${pairs.length} side-by-side AI model comparisons: prices per 1M tokens, context windows, features and benchmark scores, from LiteLLM's price file.`;
+  write(
+    "compare.html",
+    layout({
+      title: hubTitle,
+      description: hubDescription,
+      path: "/compare",
+      body: compareHubBody(groupsByKind, pairs.length, BUILD_DATE),
+      jsonLd: listGraph("/compare", hubTitle, hubDescription, BUILD_DATE, [{ name: "Compare", path: "/compare" }], pairs.map((p) => ({ name: `${p.a.name} vs ${p.b.name}`, path: comparePath(p.slug) }))),
+      image: writeCard(OUT, "pages", "compare", { kicker: "LiteLLM Model Catalog", title: "AI model comparisons", subtitle: "Prices, context windows and benchmarks side by side", stats: [{ value: int(pairs.length), label: "comparisons" }] }),
+    }),
+  );
+  write("compare/redirects.json", JSON.stringify(redirects));
 
   write("404.html", layout({ title: "Page not found | LiteLLM", description: "This page doesn't exist.", path: "/404", body: notFoundBody(), noindex: true }));
 
@@ -460,16 +574,18 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
     console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");
   }
   // Crawl files, after the app routes so their entries reflect whether their data loaded.
-  const pageEntries: SitemapEntry[] = [{ path: "/", lastmod: latestChange }, { path: "/models", lastmod: latestChange }, ...appEntries];
+  const pageEntries: SitemapEntry[] = [{ path: "/", lastmod: latestChange }, { path: "/models", lastmod: latestChange }, { path: "/compare", lastmod: BUILD_DATE }, ...appEntries];
   write("sitemaps/pages.xml", urlset(pageEntries));
   write("sitemaps/models.xml", urlset(modelEntries.sort((a, b) => (b.lastmod ?? "").localeCompare(a.lastmod ?? ""))));
   write("sitemaps/providers.xml", urlset(providerEntries));
+  write("sitemaps/compare.xml", urlset(compareEntries));
   write(
     "sitemap.xml",
     sitemapIndex([
       { path: "/sitemaps/pages.xml", lastmod: latestChange },
       { path: "/sitemaps/models.xml", lastmod: latestChange },
       { path: "/sitemaps/providers.xml", lastmod: latestChange },
+      { path: "/sitemaps/compare.xml", lastmod: BUILD_DATE },
     ]),
   );
   write("robots.txt", robotsTxt());
@@ -481,8 +597,9 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
       .join(", "),
   }));
   const llmsProviders = hubList.map((h) => ({ name: h.name, hub: h.hub, count: h.list.length }));
-  write("llms.txt", llmsTxt(llmsModels, llmsProviders, 100));
-  write("llms-full.txt", llmsTxt(llmsModels, llmsProviders));
+  const llmsCompare = pairs.filter(compareIndexable).map((p) => ({ title: `${p.a.name} vs ${p.b.name}`, slug: p.slug }));
+  write("llms.txt", llmsTxt(llmsModels, llmsProviders, 100, llmsCompare));
+  write("llms-full.txt", llmsTxt(llmsModels, llmsProviders, undefined, llmsCompare));
 
 
   write("models/manifest.json", JSON.stringify(manifest));

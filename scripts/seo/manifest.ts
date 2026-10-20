@@ -12,7 +12,14 @@ export type ManifestModel = {
   retiredOn?: string;
 };
 
-export type Manifest = { version: 1; buildDate: string; costMapHash: string; models: Record<string, ManifestModel> };
+export type Manifest = {
+  version: 1;
+  buildDate: string;
+  costMapHash: string;
+  models: Record<string, ManifestModel>;
+  /** Comparison pages and when each was first published; caps how many new ones each week releases. */
+  compare?: Record<string, { firstSeen: string; kind: string }>;
+};
 
 const isJson = (res: Response) => res.headers.get("content-type")?.includes("application/json") ?? false;
 

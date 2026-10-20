@@ -67,6 +67,10 @@ export type Overrides = {
   introPricing?: Record<string, IntroPricing>;
   /** Page key -> status, when the price file's deprecation dates are missing or wrong. */
   status?: Record<string, "active" | "deprecated" | "retired">;
+  /** Family name -> regex on the page slug; one model family per line of versions (see compare.ts). */
+  families?: Record<string, string>;
+  /** Reviewed comparison pairs: [slug, slug, kind]. Always built; the build adds more on its own. */
+  compare?: { pairs: [string, string, string][] };
 };
 
 /**
