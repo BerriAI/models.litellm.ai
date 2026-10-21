@@ -8,6 +8,7 @@
   import { buildInfo, formatStars } from "./buildInfo";
   import CatalogStats from "./CatalogStats.svelte";
   import QuickStartBox from "./QuickStartBox.svelte";
+  import { IS_MAC, isFindShortcut } from "./shortcuts";
   import {
     fetchAllCatalogModels,
   } from "./catalogApi";
@@ -95,8 +96,10 @@
     if (e.key === "Escape" && document.activeElement === searchInput) {
       searchInput?.blur();
     }
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
-      renderAllRows = true;
+    if (isFindShortcut(e, IS_MAC) && document.activeElement !== searchInput) {
+      e.preventDefault();
+      searchInput?.focus();
+      searchInput?.select();
     }
   }
 
@@ -258,6 +261,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   const CELL_COLUMN_COUNT = 6;
   let rowHeights = new Map<string, number>();
+  let detailHeights = new Map<string, number>();
   let typicalRowHeight = 64;
   let rowsTop: HTMLElement | null = null;
   let viewTop = 0;
@@ -266,9 +270,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   let renderAllRows = false;
   let viewFrame = 0;
 
-  $: results, (renderAllRows = false);
   $: offsets = rowOffsets(
-    results.map(({ item }) => rowHeights.get(item.name) ?? typicalRowHeight),
+    results.map(
+      ({ item }) =>
+        (rowHeights.get(item.name) ?? typicalRowHeight) +
+        (expandedRows.has(item.name) ? (detailHeights.get(item.name) ?? 0) : 0),
+    ),
+  );
+  $: rowNumbers = rowOffsets(
+    results.map(({ item }) => (expandedRows.has(item.name) ? 2 : 1)),
   );
   $: shownRange = renderAllRows
     ? { start: 0, end: results.length }
@@ -310,6 +320,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     if (window.innerWidth !== measuredWidth) {
       measuredWidth = window.innerWidth;
       rowHeights = new Map();
+      detailHeights = new Map();
     }
     if (!rowsTop) return;
     const top = rowsTop.getBoundingClientRect().top;
@@ -320,15 +331,20 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   const rowHeightObserver = new ResizeObserver((entries) => {
     let changed = false;
     for (const entry of entries) {
-      const name = (entry.target as HTMLElement).dataset.name;
+      const { name, detailOf } = (entry.target as HTMLElement).dataset;
       const height =
         entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height;
-      if (!name || !height || rowHeights.get(name) === height) continue;
-      rowHeights.set(name, height);
-      if (!expandedRows.has(name)) typicalRowHeight = height;
+      const heights = name ? rowHeights : detailHeights;
+      const key = name ?? detailOf;
+      if (!key || !height || heights.get(key) === height) continue;
+      heights.set(key, height);
+      if (name) typicalRowHeight = height;
       changed = true;
     }
-    if (changed) rowHeights = rowHeights;
+    if (changed) {
+      rowHeights = rowHeights;
+      detailHeights = detailHeights;
+    }
   });
 
   function measureRowHeight(node: HTMLElement) {
@@ -495,6 +511,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   on:scroll={scheduleViewUpdate}
   on:resize={scheduleViewUpdate}
   on:beforeprint={() => (renderAllRows = true)}
+  on:afterprint={() => (renderAllRows = false)}
 />
 
 <main class="container">
@@ -664,9 +681,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     {/if}
 
     <div class="table-container">
-      <table>
+      <table aria-rowcount={rowNumbers[results.length] + 1}>
         <thead>
-          <tr>
+          <tr aria-rowindex="1">
             <th class="th-model">Model</th>
             <th class="th-sortable" on:click={() => handleSort("released")}>
               Released
@@ -705,26 +722,25 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             <td class="cost-cell td-hide-mobile">{sizerCells[5]}</td>
           </tr>
         </tbody>
-        {#if rowsAbovePx > 0}
-          <tbody class="row-spacer rows-above" aria-hidden="true">
-            <tr><td colspan="7" style:height="{rowsAbovePx}px"></td></tr>
-          </tbody>
-        {/if}
-        {#each shownResults as { item }, shownIndex (item.name)}
-          {@const name = item.name}
-          {@const mode = item.mode}
-          {@const litellm_provider = item.litellm_provider}
-          {@const max_input_tokens = item.max_input_tokens}
-          {@const max_output_tokens = item.max_output_tokens}
-          <tbody
-            class="model-group"
-            class:last-group={shownStart + shownIndex === results.length - 1}
-            data-name={name}
-            use:measureRowHeight
-          >
+        <tbody>
+          {#if rowsAbovePx > 0}
+            <tr class="row-spacer rows-above" aria-hidden="true">
+              <td colspan="7" style:height="{rowsAbovePx}px"></td>
+            </tr>
+          {/if}
+          {#each shownResults as { item }, shownIndex (item.name)}
+            {@const name = item.name}
+            {@const mode = item.mode}
+            {@const litellm_provider = item.litellm_provider}
+            {@const max_input_tokens = item.max_input_tokens}
+            {@const max_output_tokens = item.max_output_tokens}
+            {@const rowNumber = rowNumbers[shownStart + shownIndex] + 2}
             <tr
               class="model-row"
               class:expanded={expandedRows.has(name)}
+              aria-rowindex={rowNumber}
+              data-name={name}
+              use:measureRowHeight
               on:click={() => toggleRow(name)}
             >
               <td class="model-name">
@@ -795,7 +811,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               <td class="cost-cell td-hide-mobile">{tableCacheWriteCell(item)}</td>
             </tr>
             {#if expandedRows.has(name)}
-              <tr class="expanded-content" transition:fly={{ y: -10, duration: 200 }}>
+              <tr
+                class="expanded-content"
+                aria-rowindex={rowNumber + 1}
+                data-detail-of={name}
+                use:measureRowHeight
+                transition:fly={{ y: -10, duration: 200 }}
+              >
                 <td colspan="7">
                   <div class="detail-panel">
                     <div class="detail-grid">
@@ -939,13 +961,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                 </td>
               </tr>
             {/if}
-          </tbody>
-        {/each}
-        {#if rowsBelowPx > 0}
-          <tbody class="row-spacer" aria-hidden="true">
-            <tr><td colspan="7" style:height="{rowsBelowPx}px"></td></tr>
-          </tbody>
-        {/if}
+          {/each}
+          {#if rowsBelowPx > 0}
+            <tr class="row-spacer" aria-hidden="true">
+              <td colspan="7" style:height="{rowsBelowPx}px"></td>
+            </tr>
+          {/if}
+        </tbody>
       </table>
     </div>
   {/if}
@@ -1360,10 +1382,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     box-shadow: inset 3px 0 0 var(--litellm-primary);
   }
   tbody tr.model-row.expanded { background-color: var(--bg-secondary); }
-  tbody.last-group tr.model-row:last-child { border-bottom: none; }
+  tbody tr.model-row:last-child { border-bottom: none; }
   .column-sizer tr { visibility: collapse; }
   .row-spacer td { padding: 0; border: none; }
-  .rows-above tr { border-bottom: 1px solid var(--border-color); }
+  tr.rows-above { border-bottom: 1px solid var(--border-color); }
 
   tbody tr.expanded-content { border-bottom: 1px solid var(--border-color); }
   tbody tr.expanded-content td { padding: 0; }
