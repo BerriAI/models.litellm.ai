@@ -333,7 +333,10 @@
 
   .app-container {
     min-height: 100vh;
-    background: var(--aurora-mesh) no-repeat, var(--bg-color);
+    background-color: var(--bg-color);
+    background-image: var(--aurora-mesh);
+    background-repeat: no-repeat;
+    background-size: 100% 100vh;
   }
 
   /* Header */
