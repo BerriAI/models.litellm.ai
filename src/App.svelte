@@ -162,8 +162,12 @@
         searcher = createModelSearcher(
           items,
           (message) => searchWorker.postMessage(message),
-          (found) => (matches = found),
+          (found) => {
+            matches = found;
+            searching = false;
+          },
         );
+        if (searchWorkerFailed) searcher.workerFailed();
       });
     };
 
@@ -260,8 +264,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   let lines: string[] = [];
   let searcher: ModelSearcher<Item> | null = null;
   let matches: Item[] | null = null;
+  let searching = false;
+  let searchWorkerFailed = false;
   const searchWorker = new SearchWorker();
   searchWorker.onmessage = (event: MessageEvent<SearchReply>) => searcher?.receive(event.data);
+  searchWorker.onerror = searchWorker.onmessageerror = () => {
+    searchWorkerFailed = true;
+    searcher?.workerFailed();
+  };
   onDestroy(() => searchWorker.terminate());
   let results: ResultItem[] = [];
   let loading = true;
@@ -372,6 +382,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       minInputTokens: maxInputTokens,
       minOutputTokens: maxOutputTokens,
     });
+    searching = ready === null;
     if (ready) matches = ready;
   }
 
@@ -683,7 +694,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div>
   {:else}
-    {#if query != "" && results.length < 12}
+    {#if query != "" && !searching && results.length < 12}
       <div class="add-model-section">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         <a href={getIssueUrlForAdd(query)}>Can't find your model? Request it on GitHub</a>

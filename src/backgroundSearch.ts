@@ -18,6 +18,7 @@ export type SearchReply = { seq: number; positions: number[] };
 export type ModelSearcher<T> = {
   search(query: string, filters: ModelFilters): T[] | null;
   receive(reply: SearchReply): void;
+  workerFailed(): void;
 };
 
 const positioned = (item: SearchableModel, position: number): PositionedModel => ({
@@ -54,6 +55,8 @@ export function createModelSearcher<T extends SearchableModel>(
   let latestSeq = 0;
   let waiting = false;
   let queued: SearchMessage | null = null;
+  let unanswered: { query: string; filters: ModelFilters } | null = null;
+  let pageIndex: ModelIndex<T> | null = null;
 
   const send = (message: SearchMessage) => {
     if (waiting) {
@@ -69,20 +72,35 @@ export function createModelSearcher<T extends SearchableModel>(
   return {
     search(query, filters) {
       latestSeq += 1;
-      if (query) {
-        send({ type: "search", seq: latestSeq, query, filters });
-        return null;
+      if (!query) {
+        queued = null;
+        unanswered = null;
+        return items.filter((item) => passesFilters(item, filters));
       }
-      queued = null;
-      return items.filter((item) => passesFilters(item, filters));
+      if (pageIndex) return searchModels(pageIndex, query, filters);
+      unanswered = { query, filters };
+      send({ type: "search", seq: latestSeq, query, filters });
+      return null;
     },
     receive(reply) {
       waiting = false;
-      if (reply.seq === latestSeq) show(reply.positions.map((position) => items[position]));
+      if (reply.seq === latestSeq && unanswered) {
+        unanswered = null;
+        show(reply.positions.map((position) => items[position]));
+      }
       if (!queued) return;
       const next = queued;
       queued = null;
       send(next);
+    },
+    workerFailed() {
+      if (pageIndex) return;
+      pageIndex = indexModels(items);
+      queued = null;
+      if (!unanswered) return;
+      const { query, filters } = unanswered;
+      unanswered = null;
+      show(searchModels(pageIndex, query, filters));
     },
   };
 }

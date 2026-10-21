@@ -115,4 +115,27 @@ describe("searching through the worker", () => {
     worker.deliverNext();
     expect(worker.shown.map(names)).toEqual([names(searchModels(direct, "nova", noFilters))]);
   });
+
+  it("searches on the page once the worker fails, starting with the query it never answered", () => {
+    const worker = connectWorker();
+    const filters = { ...noFilters, provider: "delta" };
+    worker.searcher.search("orbit", noFilters);
+    worker.searcher.search("nova", filters);
+    worker.searcher.workerFailed();
+    expect(worker.shown.map(names)).toEqual([names(searchModels(direct, "nova", filters))]);
+    expect(names(worker.searcher.search("orbit-4o", noFilters) ?? [])).toEqual(
+      names(searchModels(direct, "orbit-4o", noFilters)),
+    );
+    worker.deliverNext();
+    expect(worker.shown).toHaveLength(1);
+    expect(worker.outbox).toEqual([]);
+  });
+
+  it("ignores the answer a failed worker sends late", () => {
+    const worker = connectWorker();
+    worker.searcher.search("orbit", noFilters);
+    worker.searcher.workerFailed();
+    worker.deliverNext();
+    expect(worker.shown.map(names)).toEqual([names(searchModels(direct, "orbit", noFilters))]);
+  });
 });
