@@ -134,10 +134,10 @@
   <!-- svelte-ignore a11y-click-events-have-key-events -->
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="modal-backdrop" on:click={handleBackdropClick}>
-    <div class="modal-content">
+    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="request-support-title">
       <div class="modal-header">
         <div>
-          <h2>Request Support</h2>
+          <h2 id="request-support-title">Request Support</h2>
           <p class="subtitle">Help us prioritize what to add next. We'll notify you when it's live!</p>
         </div>
         <button class="close-button" on:click={closeModal} type="button">

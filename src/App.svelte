@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { afterUpdate, onMount } from "svelte";
+  import { afterUpdate, onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
 
   import { getProviderInitial, getProviderLogo } from "./providers";
@@ -8,7 +8,7 @@
   import { buildInfo, formatStars } from "./buildInfo";
   import CatalogStats from "./CatalogStats.svelte";
   import QuickStartBox from "./QuickStartBox.svelte";
-  import { IS_MAC, isFindShortcut } from "./shortcuts";
+  import { IS_MAC, opensSiteSearch } from "./shortcuts";
   import {
     fetchAllCatalogModels,
   } from "./catalogApi";
@@ -42,7 +42,9 @@
     loadModelsDevIndex,
     type ModelsDevIndex,
   } from "./modelMeta";
-  import { indexModels, searchModels, tokenLimitValue, type ModelIndex } from "./modelSearch";
+  import { tokenLimitValue } from "./modelSearch";
+  import { createModelSearcher, type ModelSearcher, type SearchReply } from "./backgroundSearch";
+  import SearchWorker from "./searchWorker?worker";
   import { longestPerColumn, rowOffsets, rowsInView } from "./rowWindow";
 
   type Item = {
@@ -96,7 +98,7 @@
     if (e.key === "Escape" && document.activeElement === searchInput) {
       searchInput?.blur();
     }
-    if (isFindShortcut(e, IS_MAC) && document.activeElement !== searchInput) {
+    if (opensSiteSearch(e, IS_MAC, document, searchInput)) {
       e.preventDefault();
       searchInput?.focus();
       searchInput?.select();
@@ -152,10 +154,11 @@
         ];
         providers.sort();
 
-        modelIndex = indexModels(items);
-
-        results = items.map((item, refIndex) => ({ item, refIndex }));
-        loading = false;
+        searcher = createModelSearcher(
+          items,
+          (message) => searchWorker.postMessage(message),
+          (found) => (matches = found),
+        );
       });
     };
 
@@ -250,7 +253,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   let sha: string | null = null;
   let query = "";
   let lines: string[] = [];
-  let modelIndex: ModelIndex<Item> | null = null;
+  let searcher: ModelSearcher<Item> | null = null;
+  let matches: Item[] | null = null;
+  const searchWorker = new SearchWorker();
+  searchWorker.onmessage = (event: MessageEvent<SearchReply>) => searcher?.receive(event.data);
+  onDestroy(() => searchWorker.terminate());
   let results: ResultItem[] = [];
   let loading = true;
   let loadError: string | null = null;
@@ -333,7 +340,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     for (const entry of entries) {
       const { name, detailOf } = (entry.target as HTMLElement).dataset;
       const height =
-        entry.borderBoxSize[0]?.blockSize ?? entry.contentRect.height;
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
       const heights = name ? rowHeights : detailHeights;
       const key = name ?? detailOf;
       if (!key || !height || heights.get(key) === height) continue;
@@ -354,9 +361,21 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   afterUpdate(scheduleViewUpdate);
 
-  $: if (modelIndex) results = filterResults(modelIndex, query, selectedProvider, maxInputTokens, maxOutputTokens);
+  $: if (searcher) {
+    const ready = searcher.search(query, {
+      provider: selectedProvider,
+      minInputTokens: maxInputTokens,
+      minOutputTokens: maxOutputTokens,
+    });
+    if (ready) matches = ready;
+  }
 
-  $: if (modelIndex) trackSearchDebounced(query, selectedProvider, maxInputTokens, maxOutputTokens);
+  $: if (matches) {
+    results = sortResults(matches.map((item, refIndex) => ({ item, refIndex })));
+    loading = false;
+  }
+
+  $: if (searcher) trackSearchDebounced(query, selectedProvider, maxInputTokens, maxOutputTokens);
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -490,20 +509,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     return labels[mode] || mode;
   }
 
-  function filterResults(
-    index: ModelIndex<Item>,
-    query: string,
-    selectedProvider: string,
-    maxInputTokens: number | null,
-    maxOutputTokens: number | null,
-  ): ResultItem[] {
-    const matches = searchModels(index, query, {
-      provider: selectedProvider,
-      minInputTokens: maxInputTokens,
-      minOutputTokens: maxOutputTokens,
-    });
-    return sortResults(matches.map((item, refIndex) => ({ item, refIndex })));
-  }
 </script>
 
 <svelte:window

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { isFindShortcut, type ShortcutKey } from "./shortcuts";
+// @vitest-environment happy-dom
+import { afterEach, describe, expect, it } from "vitest";
+import { isFindShortcut, opensSiteSearch, type ShortcutKey } from "./shortcuts";
 
 const press = (overrides: Partial<ShortcutKey>): ShortcutKey => ({
   key: "f",
@@ -38,5 +39,50 @@ describe("isFindShortcut", () => {
   it("follows the letter, not the key position, on a Latin layout like Dvorak", () => {
     expect(isFindShortcut(press({ ctrlKey: true, key: "f", code: "KeyY" }), false)).toBe(true);
     expect(isFindShortcut(press({ ctrlKey: true, key: "u", code: "KeyF" }), false)).toBe(false);
+  });
+});
+
+describe("opensSiteSearch", () => {
+  const ctrlF = press({ ctrlKey: true });
+
+  function page(html: string) {
+    document.body.innerHTML = html;
+    return {
+      searchInput: document.getElementById("query") ?? undefined,
+      focus: (id: string) => document.getElementById(id)?.focus(),
+    };
+  }
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("moves Ctrl+F from the page and from the token filters to the site search", () => {
+    const { searchInput, focus } = page('<input id="query"><input id="maxInputTokens" type="number">');
+    expect(opensSiteSearch(ctrlF, false, document, searchInput)).toBe(true);
+    focus("maxInputTokens");
+    expect(opensSiteSearch(ctrlF, false, document, searchInput)).toBe(true);
+  });
+
+  it("lets a second Ctrl+F in the site search reach the browser's find bar", () => {
+    const { searchInput, focus } = page('<input id="query">');
+    focus("query");
+    expect(opensSiteSearch(ctrlF, false, document, searchInput)).toBe(false);
+  });
+
+  it("leaves Ctrl+F to the browser while a modal dialog is open", () => {
+    const { searchInput, focus } = page(
+      '<input id="query"><div role="dialog" aria-modal="true"><textarea id="request"></textarea></div>',
+    );
+    focus("request");
+    expect(opensSiteSearch(ctrlF, false, document, searchInput)).toBe(false);
+    focus("query");
+    document.getElementById("query")?.blur();
+    expect(opensSiteSearch(ctrlF, false, document, searchInput)).toBe(false);
+  });
+
+  it("ignores keys that are not the find shortcut", () => {
+    const { searchInput } = page('<input id="query">');
+    expect(opensSiteSearch(press({ ctrlKey: true, key: "g", code: "KeyG" }), false, document, searchInput)).toBe(false);
   });
 });

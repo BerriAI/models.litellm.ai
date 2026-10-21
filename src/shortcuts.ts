@@ -14,3 +14,16 @@ export function isFindShortcut(event: ShortcutKey, isMac: boolean): boolean {
     ? event.key.toLowerCase() === "f"
     : event.code === "KeyF";
 }
+
+export function opensSiteSearch(
+  event: ShortcutKey,
+  isMac: boolean,
+  page: Document,
+  searchInput: Element | undefined,
+): boolean {
+  return (
+    isFindShortcut(event, isMac) &&
+    page.activeElement !== searchInput &&
+    !page.querySelector('[aria-modal="true"]')
+  );
+}
