@@ -20,6 +20,7 @@ export type RowView = {
   outlier: boolean;
   firstParty: boolean;
   standard: boolean;
+  fineTuned: boolean;
   context?: number;
   maxOutput?: number;
   deprecation?: string;
@@ -27,6 +28,24 @@ export type RowView = {
 };
 
 export type Capability = { label: string; supported: boolean };
+
+export type ModelStatus = "active" | "deprecated" | "retired";
+
+/**
+ * Status from the price file's deprecation dates. One dated snapshot or regional listing doesn't deprecate a model
+ * that is still sold normally (Claude Opus 5.5 has dated Azure rows), so only the headline listing, or all of them, counts.
+ */
+export function modelStatus(
+  rows: { deprecation?: string; metric?: unknown }[],
+  headline: { deprecation?: string } | null,
+  today: string | undefined,
+): ModelStatus {
+  const priced = rows.filter((r) => r.metric);
+  const allDated = priced.length > 0 && priced.every((r) => r.deprecation);
+  if (today && allDated && priced.every((r) => r.deprecation! <= today)) return "retired";
+  if (headline?.deprecation || allDated) return "deprecated";
+  return "active";
+}
 
 export type ModelView = {
   pageKey: string;
@@ -45,6 +64,11 @@ export type ModelView = {
   /** When the model first appeared in LiteLLM's price file: YYYY-MM-DD, or YYYY-MM for older models. */
   addedDate: string | null;
   deprecation?: string;
+  /**
+   * active: still sold normally. deprecated: its headline listing, or every listing, has a shutdown date.
+   * retired: every priced listing's date has passed. overrides.json `status` corrects the data.
+   */
+  status: ModelStatus;
   /** Set while the headline price is an introductory one, from overrides.json. */
   intro?: IntroPricing;
   capabilities: Capability[];
@@ -52,7 +76,7 @@ export type ModelView = {
   outputModalities: string[];
   sources: string[];
   docs: { name: string; url: string }[];
-  /** Range of the primary price across standard rows from different providers. */
+  /** Range of the primary price across every row the price table shows, outliers aside. */
   range?: { min: number; max: number; minProvider: string };
   free: boolean;
 };
@@ -226,6 +250,7 @@ export function buildModelView(
       outlier: false,
       firstParty: FIRST_PARTY_PROVIDERS.has(m.provider) && isLabProvider(m.provider, lab),
       standard: isStandard(m),
+      fineTuned: Boolean(m.flags.fineTune),
       context: intOf(m.row.max_input_tokens) ?? intOf(m.row.max_tokens),
       maxOutput: intOf(m.row.max_output_tokens),
       deprecation,
@@ -265,10 +290,13 @@ export function buildModelView(
   }
   const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
 
-  const standardPriced = rows.filter((r) => r.metric && !r.outlier && r.standard && r.metric.unit === headline?.metric?.unit);
+  // The prose quotes this range, so it comes from the same rows the table renders (regional and
+  // GovCloud rows included). Flagged outliers and fine-tuned models, a product of their own, stay out,
+  // and the table marks both.
+  const priced = rows.filter((r) => r.metric && !r.outlier && !r.fineTuned && r.metric.unit === headline?.metric?.unit);
   let range: ModelView["range"];
-  if (new Set(standardPriced.map((r) => r.providerName)).size > 1) {
-    const sorted = [...standardPriced].sort((a, b) => a.metric!.value - b.metric!.value);
+  if (new Set(priced.map((r) => r.providerName)).size > 1) {
+    const sorted = [...priced].sort((a, b) => a.metric!.value - b.metric!.value);
     range = {
       min: sorted[0].metric!.value,
       max: sorted[sorted.length - 1].metric!.value,
@@ -284,14 +312,15 @@ export function buildModelView(
   }
 
   const introEntry = overrides.introPricing?.[group.pageKey];
-  const intro = introEntry && headline && (!today || introEntry.until >= today) ? introEntry : undefined;
+  // The note describes one seller's price: show it only when the headline comes from that seller.
+  const introSeller = headline && (introEntry?.providers ? introEntry.providers.includes(headline.provider) : headline.firstParty);
+  const intro = introEntry && introSeller && (!today || introEntry.until >= today) ? introEntry : undefined;
 
-  const p = headline?.prices;
+  // Free only when nothing on the headline row costs money: Lyria has $0 tokens but charges per clip.
   const free =
     !!headline &&
     (CHAT_MODES.has(mode) || mode === "embedding") &&
-    p?.input === 0 &&
-    (p?.output === 0 || p?.output === undefined);
+    !Object.values(headline.prices).some((x) => typeof x === "number" && x > 0);
 
   return {
     pageKey: group.pageKey,
@@ -308,6 +337,7 @@ export function buildModelView(
     maxOutput: headline?.maxOutput ?? rows.find((r) => r.maxOutput)?.maxOutput,
     addedDate,
     deprecation: headline?.deprecation,
+    status: overrides.status?.[group.pageKey] ?? modelStatus(rows, headline, today),
     intro,
     capabilities,
     inputModalities: strings(capRow.supported_modalities),

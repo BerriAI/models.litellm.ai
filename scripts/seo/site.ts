@@ -6,6 +6,8 @@ export const DOCS_URL = "https://docs.litellm.ai";
 export const GITHUB_URL = "https://github.com/BerriAI/litellm";
 export const PRICE_FILE_URL = "https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json";
 export const COST_MAP_RAW_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
+export const COOKBOOK_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/cookbook/ai_coding_tool_guides/index.json";
+export const GUARDRAILS_URL = "https://raw.githubusercontent.com/BerriAI/litellm-guardrails/main/guardrails.json";
 export const PROVIDER_SUPPORT_RAW_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/provider_endpoints_support.json";
 
 export const modelPath = (slug: string) => `/models/${slug}`;

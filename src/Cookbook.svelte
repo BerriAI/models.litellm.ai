@@ -5,7 +5,7 @@
     title: string;
     description: string;
     url: string;
-    date: string;
+    date?: string;
     version: string;
     tags: string[];
   }
@@ -35,7 +35,9 @@
       loading = true;
       error = null;
 
-      const response = await fetch(INDEX_URL);
+      // The site's own list (docs tutorials plus the cookbook index, built by scripts/seo/cookbook.ts); the raw index if it's missing, as in dev.
+      let response = await fetch("/cookbook.json").catch(() => null);
+      if (!response?.ok || !(response.headers.get("content-type") ?? "").includes("json")) response = await fetch(INDEX_URL);
       if (!response.ok) {
         throw new Error(`Failed to fetch guides: ${response.statusText}`);
       }
@@ -48,7 +50,7 @@
         guides = [data];
       }
 
-      guides = guides.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      guides = guides.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
       loading = false;
     } catch (err) {
@@ -204,7 +206,7 @@
               <p class="guide-description">{guide.description}</p>
             </div>
             <div class="guide-footer">
-              <span class="guide-date" title={formatDate(guide.date)}>{getRelativeDate(guide.date)}</span>
+              {#if guide.date}<span class="guide-date" title={formatDate(guide.date)}>{getRelativeDate(guide.date)}</span>{/if}
               <div class="guide-tags-preview">
                 {#each guide.tags.slice(0, 2) as tag}
                   <span class="tag-small">{tag}</span>

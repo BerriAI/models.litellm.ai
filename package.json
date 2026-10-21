@@ -17,6 +17,7 @@
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.0.2",
     "@tsconfig/svelte": "^5.0.4",
+    "happy-dom": "20.14.5",
     "prettier": "^3.3.1",
     "prettier-plugin-svelte": "^3.2.3",
     "svelte": "^4.2.12",
@@ -29,6 +30,7 @@
   },
   "dependencies": {
     "@resvg/resvg-js": "2.6.2",
+    "fflate": "0.8.2",
     "fuse.js": "^7.0.0",
     "marked": "^17.0.1",
     "mixpanel-browser": "^2.73.0",

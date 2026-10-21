@@ -6,6 +6,7 @@
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { rangeMismatch } from "./consistency";
 import { OG_ID } from "./og-card";
 import { SITE_URL } from "./site";
 
@@ -39,7 +40,21 @@ const APP_PAGES: [string, string][] = [
   ["guardrails.html", "/guardrails"],
 ];
 const pages: [string, string][] = [
-  ...[...htmlFiles("models"), ...htmlFiles("providers"), "models.html"].map((rel): [string, string] => [rel, `/${rel.replace(/\.html$/, "")}`]),
+  ...[
+    ...htmlFiles("models"),
+    ...htmlFiles("providers"),
+    ...htmlFiles("compare"),
+    ...htmlFiles("rankings"),
+    ...htmlFiles("new-models"),
+    "models.html",
+    "compare.html",
+    "rankings.html",
+    "new-models.html",
+    "calculator.html",
+  ].map((rel): [string, string] => [
+    rel,
+    `/${rel.replace(/\.html$/, "")}`,
+  ]),
   ...APP_PAGES,
 ];
 const titles = new Map<string, string>();
@@ -84,6 +99,10 @@ for (const [rel, urlPath] of pages) {
   for (const m of html.matchAll(/href="(\/[^"]*)"/g)) {
     if (!fileFor(m[1])) errors.push(`${rel}: broken link ${m[1]}`);
   }
+  if (rel.startsWith("models/")) {
+    const mismatch = rangeMismatch(html);
+    if (mismatch) errors.push(`${rel}: ${mismatch}`);
+  }
 }
 
 for (const font of ["Geist-Medium.ttf", "Geist-SemiBold.ttf", "Geist-Bold.ttf"]) {
@@ -103,7 +122,7 @@ for (const slug of new Set(Object.values(slugs))) {
   if (!existsSync(path.join(OUT, "models", `${slug}.md`))) errors.push(`missing markdown copy for ${slug}`);
 }
 
-for (const map of ["sitemaps/pages.xml", "sitemaps/models.xml", "sitemaps/providers.xml"]) {
+for (const map of ["sitemaps/pages.xml", "sitemaps/models.xml", "sitemaps/providers.xml", "sitemaps/compare.xml", "sitemaps/rankings.xml", "sitemaps/new-models.xml"]) {
   const xml = readFileSync(path.join(OUT, map), "utf8");
   for (const m of xml.matchAll(/<loc>([^<]*)<\/loc>/g)) {
     if (!m[1].startsWith(SITE_URL) || !fileFor(m[1].slice(SITE_URL.length) || "/")) errors.push(`${map}: ${m[1]} has no page`);

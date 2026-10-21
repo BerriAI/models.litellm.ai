@@ -4,12 +4,14 @@
  * share image. Without these every route served the home page's head with a
  * canonical pointing at /, so search engines folded them into the home page.
  *
- * Each copy also carries a <noscript> summary with real links, for crawlers
- * that don't run JavaScript (most AI search crawlers). The app replaces nothing
- * and hides nothing: browsers with JavaScript never render <noscript>.
+ * Each copy also carries the route's content as plain HTML in #seo-shell, for
+ * crawlers that don't run JavaScript (most AI search crawlers). It is the same
+ * content the app renders: an inline script hides it as soon as JavaScript
+ * runs, and src/main.ts removes it when the app mounts.
  */
 import { escapeHtml as esc } from "./format";
 import { imageTags } from "./html";
+import { jsonLdScript } from "./jsonld";
 import type { OgImage } from "./og";
 import { abs } from "./site";
 
@@ -18,9 +20,14 @@ export type ShellPage = {
   title: string;
   description: string;
   image: OgImage;
-  /** HTML shown to clients without JavaScript. */
-  noscript: string;
+  /** The route's content as plain HTML, read by crawlers that don't run JavaScript. */
+  body: string;
+  jsonLd?: Record<string, unknown>;
+  noindex?: boolean;
 };
+
+const SHELL_HEAD = `<script>document.documentElement.classList.add("js")</script>
+<style>.js #seo-shell{display:none}#seo-shell{max-width:1000px;margin:0 auto;padding:24px 16px;font:16px/1.6 system-ui,sans-serif}#seo-shell table{border-collapse:collapse;width:100%}#seo-shell th,#seo-shell td{text-align:left;padding:6px 8px;border-bottom:1px solid #e6e7ee;vertical-align:top}</style>`;
 
 function replaceOnce(
   html: string,
@@ -71,19 +78,12 @@ export function appShell(indexHtml: string, page: ShellPage): string {
   html = replaceOnce(
     html,
     /<\/head>/,
-    `<!-- seo:start -->\n${imageTags(page.image)}\n<!-- seo:end -->\n</head>`,
+    `<!-- seo:start -->\n${page.noindex ? '<meta name="robots" content="noindex,follow">\n' : ""}${imageTags(page.image)}\n${SHELL_HEAD}\n${page.jsonLd ? jsonLdScript(page.jsonLd) : ""}\n<!-- seo:end -->\n</head>`,
   );
   html = replaceOnce(
     html,
     /<div id="app"><\/div>/,
-    `<div id="app"></div><!-- seo:start --><noscript>${page.noscript}</noscript><!-- seo:end -->`,
+    `<!-- seo:start --><div id="seo-shell"><main>${page.body}</main></div><!-- seo:end --><div id="app"></div>`,
   );
   return html;
-}
-
-/** A plain list of links for the <noscript> summaries. */
-export function linkList(
-  items: { href: string; text: string; note?: string }[],
-): string {
-  return `<ul>${items.map((i) => `<li><a href="${esc(i.href)}">${esc(i.text)}</a>${i.note ? `: ${esc(i.note)}` : ""}</li>`).join("")}</ul>`;
 }

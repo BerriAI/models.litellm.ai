@@ -263,14 +263,14 @@ describe("app route pages", () => {
       title: "Providers | LiteLLM",
       description: "d",
       image,
-      noscript: "<p>hi</p>",
+      body: "<p>hi</p>",
     });
     const twice = appShell(once, {
       path: "/providers",
       title: "Providers | LiteLLM",
       description: "d",
       image,
-      noscript: "<p>hi</p>",
+      body: "<p>hi</p>",
     });
     expect(twice).toBe(once);
     expect(once).toContain("<title>Providers | LiteLLM</title>");
@@ -280,7 +280,10 @@ describe("app route pages", () => {
     expect(once).toContain(
       '<meta name="twitter:card" content="summary_large_image">',
     );
-    expect(once).toContain("<noscript><p>hi</p></noscript>");
+    // Content sits in the page itself (not <noscript>) and comes before the app's mount point.
+    expect(once).toContain('<div id="seo-shell"><main><p>hi</p></main></div>');
+    expect(once.indexOf("seo-shell")).toBeLessThan(once.indexOf('<div id="app">'));
+    expect(once).not.toContain("<noscript>");
   });
 });
 

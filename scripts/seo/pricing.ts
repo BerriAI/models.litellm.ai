@@ -36,6 +36,8 @@ export type RowPrices = {
 export type MetricUnit =
   | "per_1m_tokens"
   | "per_image"
+  /** `output_cost_per_image` on a model that doesn't make images, such as Lyria's music clips. */
+  | "per_output"
   | "per_megapixel"
   | "per_second"
   | "per_minute"
@@ -48,6 +50,7 @@ export type Metric = { value: number; unit: MetricUnit };
 export const UNIT_LABEL: Record<MetricUnit, string> = {
   per_1m_tokens: "per 1M tokens",
   per_image: "per image",
+  per_output: "per generation",
   per_megapixel: "per megapixel",
   per_second: "per second",
   per_minute: "per minute",
@@ -130,9 +133,13 @@ export function rowPrices(row: CostRow): RowPrices {
 
 /** The one number that best answers "how much does this model cost" for its mode. */
 export function primaryMetric(mode: string, p: RowPrices): Metric | null {
+  // A $0 price gives way only to a paid one in another unit: Lyria lists $0 tokens next to its real per-clip
+  // price, while a $0 input price with paid output stays the $0 input price the table shows.
   const pick = (...candidates: [number | undefined, MetricUnit][]): Metric | null => {
-    for (const [value, unit] of candidates) if (value !== undefined) return { value, unit };
-    return null;
+    const defined = candidates.flatMap(([value, unit]) => (value === undefined ? [] : [{ value, unit }]));
+    const first = defined[0];
+    if (!first || first.value > 0) return first ?? null;
+    return defined.find((m) => m.value > 0 && m.unit !== first.unit) ?? first;
   };
   if (IMAGE_MODES.has(mode)) {
     return pick(
@@ -145,7 +152,7 @@ export function primaryMetric(mode: string, p: RowPrices): Metric | null {
   }
   if (mode === "video_generation") return pick([p.perSecond, "per_second"], [p.perImage, "per_image"]);
   if (mode === "audio_speech") {
-    return pick([p.per1MChars, "per_1m_chars"], [p.perSecond, "per_second"], [p.output, "per_1m_tokens"]);
+    return pick([p.per1MChars, "per_1m_chars"], [p.perSecond, "per_second"], [p.output, "per_1m_tokens"], [p.perImage, "per_output"]);
   }
   if (mode === "audio_transcription") {
     return pick([p.perMinute, "per_minute"], [p.input, "per_1m_tokens"], [p.audioInput, "per_1m_tokens"]);
@@ -155,9 +162,14 @@ export function primaryMetric(mode: string, p: RowPrices): Metric | null {
   return pick(
     [p.input, "per_1m_tokens"],
     [p.output, "per_1m_tokens"],
-    [p.perImage, "per_image"],
+    [p.perImage, "per_output"],
     [p.perSecond, "per_second"],
   );
+}
+
+/** Whether a row's headline is its token prices, rather than a per-output price on a $0-token row. */
+export function leadsWithTokens(mode: string, p: RowPrices, metric: Metric | null | undefined): boolean {
+  return CHAT_MODES.has(mode) && p.input !== undefined && p.output !== undefined && metric?.unit === "per_1m_tokens";
 }
 
 export function isTokenPriced(mode: string): boolean {

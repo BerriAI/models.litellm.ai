@@ -12,6 +12,7 @@ import { int, shortDate, tokensShort, usd, usdShort } from "./format";
 import type { ModelView } from "./model-view";
 import {
   OG_FONTS,
+  OG_KINDS,
   OG_HEIGHT,
   OG_WIDTH,
   cardHash,
@@ -29,7 +30,7 @@ export type OgImage = {
 
 export function writeCard(
   out: string,
-  kind: "models" | "providers" | "pages",
+  kind: (typeof OG_KINDS)[number],
   id: string,
   input: CardInput,
 ): OgImage {
@@ -127,5 +128,20 @@ export function providerCard(
     title: name,
     subtitle: `Every ${name} model and price on LiteLLM`,
     stats,
+  };
+}
+
+/** Two models, side by side: each one's input / output price, then both context windows. */
+export function compareCard(a: ModelView, b: ModelView): CardInput {
+  const price = (v: ModelView) => `${usdShort(v.headline!.prices.input!)} / ${usdShort(v.headline!.prices.output!)}`;
+  return {
+    kicker: "Model comparison",
+    title: `${a.name} vs ${b.name}`,
+    subtitle: "Price per 1M input / output tokens",
+    stats: [
+      { value: price(a), label: a.name },
+      { value: price(b), label: b.name },
+      { value: `${tokensShort(a.context!)} vs ${tokensShort(b.context!)}`, label: "context window" },
+    ],
   };
 }

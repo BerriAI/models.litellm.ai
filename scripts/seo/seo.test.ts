@@ -139,7 +139,8 @@ describe("model view", () => {
     expect(v.headline?.key).toBe("claude-opus-5-5");
     expect(v.headlineBasis).toBe("first_party");
     expect(v.rows.find((r) => r.provider === "openrouter")?.outlier).toBe(true);
-    expect(v.range).toMatchObject({ min: 4, max: 4.00001 });
+    // The range covers every row the table shows (the $4.80 GovCloud row too); only the 100x outlier is out.
+    expect(v.range).toMatchObject({ min: 4, max: 4.8 });
   });
 
   test("only the model's own lab counts as first-party", () => {
