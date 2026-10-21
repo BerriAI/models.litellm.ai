@@ -1388,7 +1388,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
   tbody tr.model-row.expanded { background-color: var(--bg-secondary); }
   tbody tr.model-row:last-child { border-bottom: none; }
-  .column-sizer tr { visibility: collapse; }
+  .column-sizer tr { visibility: collapse; border: none; }
+  .column-sizer td { padding-top: 0; padding-bottom: 0; line-height: 0; }
   .row-spacer td { padding: 0; border: none; }
   tr.rows-above { border-bottom: 1px solid var(--border-color); }
 
