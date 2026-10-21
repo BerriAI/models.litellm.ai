@@ -90,17 +90,22 @@
   let searchInput: HTMLInputElement;
   let searchFocused = false;
 
+  function focusSiteSearch() {
+    searchInput?.focus({ preventScroll: true });
+    searchInput?.scrollIntoView({ block: "center" });
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
-      searchInput?.focus();
+      focusSiteSearch();
     }
     if (e.key === "Escape" && document.activeElement === searchInput) {
       searchInput?.blur();
     }
     if (opensSiteSearch(e, IS_MAC, document, searchInput)) {
       e.preventDefault();
-      searchInput?.focus();
+      focusSiteSearch();
       searchInput?.select();
     }
   }
