@@ -1,14 +1,14 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { afterUpdate, onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
 
-  import Fuse from "fuse.js";
   import { getProviderInitial, getProviderLogo } from "./providers";
   import ProviderDropdown from "./ProviderDropdown.svelte";
   import { trackSearch } from "./analytics";
   import { buildInfo, formatStars } from "./buildInfo";
   import CatalogStats from "./CatalogStats.svelte";
   import QuickStartBox from "./QuickStartBox.svelte";
+  import { IS_MAC, opensSiteSearch } from "./shortcuts";
   import {
     fetchAllCatalogModels,
   } from "./catalogApi";
@@ -42,6 +42,10 @@
     loadModelsDevIndex,
     type ModelsDevIndex,
   } from "./modelMeta";
+  import { tokenLimitValue } from "./modelSearch";
+  import { createModelSearcher, type ModelSearcher, type SearchReply } from "./backgroundSearch";
+  import SearchWorker from "./searchWorker?worker";
+  import { longestPerColumn, rowOffsets, rowsInView } from "./rowWindow";
 
   type Item = {
     name: string;
@@ -49,13 +53,6 @@
     release_date: string | null;
     [key: string]: any;
   };
-
-  const SEARCH_KEYS = [
-    { name: "name", weight: 1.5 },
-    { name: "display_name", weight: 1.5 },
-    "mode",
-    "litellm_provider",
-  ];
 
   type ResultItem = {
     refIndex: number;
@@ -93,13 +90,23 @@
   let searchInput: HTMLInputElement;
   let searchFocused = false;
 
+  function focusSiteSearch() {
+    searchInput?.focus({ preventScroll: true });
+    searchInput?.scrollIntoView({ block: "center" });
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
-      searchInput?.focus();
+      focusSiteSearch();
     }
     if (e.key === "Escape" && document.activeElement === searchInput) {
       searchInput?.blur();
+    }
+    if (opensSiteSearch(e, IS_MAC, document, searchInput)) {
+      e.preventDefault();
+      focusSiteSearch();
+      searchInput?.select();
     }
   }
 
@@ -109,7 +116,6 @@
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
     query = urlParams.get("q") ?? "";
-    searchText = query;
 
     fetch("/models/slugs.json")
       .then((res) => (res.ok ? res.json() : {}))
@@ -153,13 +159,15 @@
         ];
         providers.sort();
 
-        index = new Fuse(items, {
-          threshold: 0.3,
-          keys: SEARCH_KEYS,
-        });
-
-        results = items.map((item, refIndex) => ({ item, refIndex }));
-        loading = false;
+        searcher = createModelSearcher(
+          items,
+          (message) => searchWorker.postMessage(message),
+          (found) => {
+            matches = found;
+            searching = false;
+          },
+        );
+        if (searchWorkerFailed) searcher.workerFailed();
       });
     };
 
@@ -216,17 +224,6 @@
     }
   }, 1000);
 
-  const setQueryDebounced = debounce((value: string) => {
-    query = value;
-  }, 500);
-
-  $: setQueryDebounced(searchText);
-
-  function clearSearch() {
-    searchText = "";
-    query = "";
-  }
-
   const getIssueUrlForAdd = (query: string) => {
     const q = encodeURIComponent(query);
     const body = encodeURIComponent(
@@ -264,9 +261,18 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   let sha: string | null = null;
   let query = "";
-  let searchText = "";
   let lines: string[] = [];
-  let index: Fuse<Item>;
+  let searcher: ModelSearcher<Item> | null = null;
+  let matches: Item[] | null = null;
+  let searching = false;
+  let searchWorkerFailed = false;
+  const searchWorker = new SearchWorker();
+  searchWorker.onmessage = (event: MessageEvent<SearchReply>) => searcher?.receive(event.data);
+  searchWorker.onerror = searchWorker.onmessageerror = () => {
+    searchWorkerFailed = true;
+    searcher?.workerFailed();
+  };
+  onDestroy(() => searchWorker.terminate());
   let results: ResultItem[] = [];
   let loading = true;
   let loadError: string | null = null;
@@ -275,13 +281,117 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   /** Cost-map key -> static model page slug, written by scripts/seo/generate.ts at build time. */
   let modelPages: Record<string, string> = {};
 
-  $: {
-    if (index) {
-      filterResults(query, selectedProvider, maxInputTokens, maxOutputTokens);
-    }
+  const CELL_COLUMN_COUNT = 6;
+  let rowHeights = new Map<string, number>();
+  let detailHeights = new Map<string, number>();
+  let typicalRowHeight = 64;
+  let rowsTop: HTMLElement | null = null;
+  let viewTop = 0;
+  let viewBottom = window.innerHeight;
+  let measuredWidth = window.innerWidth;
+  let renderAllRows = false;
+  let viewFrame = 0;
+
+  $: offsets = rowOffsets(
+    results.map(
+      ({ item }) =>
+        (rowHeights.get(item.name) ?? typicalRowHeight) +
+        (expandedRows.has(item.name) ? (detailHeights.get(item.name) ?? 0) : 0),
+    ),
+  );
+  $: rowNumbers = rowOffsets(
+    results.map(({ item }) => (expandedRows.has(item.name) ? 2 : 1)),
+  );
+  $: shownRange = renderAllRows
+    ? { start: 0, end: results.length }
+    : rowsInView(offsets, viewTop, viewBottom);
+  $: shownStart = shownRange.start;
+  $: shownEnd = shownRange.end;
+  $: shownResults = results.slice(shownStart, shownEnd);
+  $: rowsAbovePx = offsets[shownStart];
+  $: rowsBelowPx = offsets[results.length] - offsets[shownEnd];
+  $: sizerCells = longestPerColumn(
+    results.map(({ item }) => cellTexts(item)),
+    CELL_COLUMN_COUNT,
+  );
+
+  const cellTextCache = new WeakMap<Item, string[]>();
+
+  function cellTexts(item: Item): string[] {
+    const cached = cellTextCache.get(item);
+    if (cached) return cached;
+    const cells = [
+      formatReleaseMonth(item.release_date),
+      formatContext(item.max_input_tokens),
+      tableInputCell(item),
+      tableOutputCell(item),
+      tableCacheReadCell(item),
+      tableCacheWriteCell(item),
+    ];
+    cellTextCache.set(item, cells);
+    return cells;
   }
 
-  $: if (index) trackSearchDebounced(searchText, selectedProvider, maxInputTokens, maxOutputTokens);
+  function scheduleViewUpdate() {
+    if (viewFrame) return;
+    viewFrame = requestAnimationFrame(updateView);
+  }
+
+  function updateView() {
+    viewFrame = 0;
+    if (window.innerWidth !== measuredWidth) {
+      measuredWidth = window.innerWidth;
+      rowHeights = new Map();
+      detailHeights = new Map();
+    }
+    if (!rowsTop) return;
+    const top = rowsTop.getBoundingClientRect().top;
+    viewTop = -top - window.innerHeight;
+    viewBottom = 2 * window.innerHeight - top;
+  }
+
+  const rowHeightObserver = new ResizeObserver((entries) => {
+    let changed = false;
+    for (const entry of entries) {
+      const { name, detailOf } = (entry.target as HTMLElement).dataset;
+      const height =
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      const heights = name ? rowHeights : detailHeights;
+      const key = name ?? detailOf;
+      if (!key || !height || heights.get(key) === height) continue;
+      heights.set(key, height);
+      if (name) typicalRowHeight = height;
+      changed = true;
+    }
+    if (changed) {
+      rowHeights = rowHeights;
+      detailHeights = detailHeights;
+    }
+  });
+
+  function measureRowHeight(node: HTMLElement) {
+    rowHeightObserver.observe(node);
+    return { destroy: () => rowHeightObserver.unobserve(node) };
+  }
+
+  afterUpdate(scheduleViewUpdate);
+
+  $: if (searcher) {
+    const ready = searcher.search(query, {
+      provider: selectedProvider,
+      minInputTokens: maxInputTokens,
+      minOutputTokens: maxOutputTokens,
+    });
+    searching = ready === null;
+    if (ready) matches = ready;
+  }
+
+  $: if (matches) {
+    results = sortResults(matches.map((item, refIndex) => ({ item, refIndex })));
+    loading = false;
+  }
+
+  $: if (searcher) trackSearchDebounced(query, selectedProvider, maxInputTokens, maxOutputTokens);
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -352,9 +462,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     }
   }
 
-  function applySorting() {
-    if (!sortColumn || (query && !userSorted)) return;
-    const sorted = [...results].sort((a, b) => {
+  function sortResults(list: ResultItem[]): ResultItem[] {
+    if (!sortColumn || (query && !userSorted)) return list;
+    return [...list].sort((a, b) => {
       if (sortColumn === "released") {
         return compareReleaseDates(a.item.release_date, b.item.release_date, sortDirection);
       }
@@ -362,21 +472,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       const bVal = getSortValue(b.item, sortColumn);
       return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
     });
-    results = sorted;
   }
 
-  /** Coerce a max_input/output_tokens field to a finite number for filtering.
-   *  Accepts JS numbers and numeric strings (catalog payloads sometimes encode
-   *  limits as strings); returns null for non-numeric values. */
-  function tokenLimitValue(v: unknown): number | null {
-    if (typeof v === "number") return Number.isFinite(v) ? v : null;
-    if (typeof v === "string") {
-      const trimmed = v.trim();
-      if (trimmed === "") return null;
-      const n = Number(trimmed);
-      return Number.isFinite(n) ? n : null;
-    }
-    return null;
+  function applySorting() {
+    results = sortResults(results);
   }
 
   function formatDetailTokenField(v: unknown): string {
@@ -426,50 +525,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     return labels[mode] || mode;
   }
 
-  function filterResults(
-    query: string,
-    selectedProvider: string,
-    maxInputTokens: number | null,
-    maxOutputTokens: number | null,
-  ) {
-    if (index) {
-      let filteredResults: Item[];
-
-      const allItems = index["_docs"] as Item[];
-
-      filteredResults = allItems.filter((item) => {
-        const providerOk =
-          !selectedProvider || item.litellm_provider === selectedProvider;
-        const inputLimit = tokenLimitValue(item.max_input_tokens);
-        const outputLimit = tokenLimitValue(item.max_output_tokens);
-        const inputOk =
-          maxInputTokens === null ||
-          (inputLimit !== null && inputLimit >= maxInputTokens);
-        const outputOk =
-          maxOutputTokens === null ||
-          (outputLimit !== null && outputLimit >= maxOutputTokens);
-        return providerOk && inputOk && outputOk;
-      });
-
-      if (query) {
-        const filteredIndex = new Fuse(filteredResults, {
-          threshold: 0.3,
-          keys: SEARCH_KEYS,
-        });
-
-        const searchResults = filteredIndex.search(query);
-        filteredResults = searchResults.map((result) => result.item);
-      }
-
-      results = filteredResults.map((item, refIndex) => ({ item, refIndex }));
-      loading = false;
-
-      if (sortColumn) applySorting();
-    }
-  }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window
+  on:keydown={handleKeydown}
+  on:scroll={scheduleViewUpdate}
+  on:resize={scheduleViewUpdate}
+  on:beforeprint={() => (renderAllRows = true)}
+  on:afterprint={() => (renderAllRows = false)}
+/>
 
 <main class="container">
   <!-- Hero Section -->
@@ -546,7 +610,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         <input
           id="query"
           bind:this={searchInput}
-          bind:value={searchText}
+          bind:value={query}
           on:focus={() => { searchFocused = true; }}
           on:blur={() => { searchFocused = false; }}
           type="text"
@@ -556,12 +620,12 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
           placeholder="Search models... (e.g., gpt-4o, claude-3.5, gemini)"
           class="search-input"
         />
-        {#if searchText}
-          <button class="search-clear" on:click={clearSearch} type="button">
+        {#if query}
+          <button class="search-clear" on:click={() => { query = ""; }} type="button">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         {/if}
-        {#if !searchText && !searchFocused}
+        {#if !query && !searchFocused}
           <kbd class="search-shortcut">⌘K</kbd>
         {/if}
       </div>
@@ -598,8 +662,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       <div class="results-meta">
         <span class="results-count">{results.length.toLocaleString()} models</span>
         <div class="results-meta-right">
-          {#if searchText || selectedProvider || maxInputTokens || maxOutputTokens}
-            <button class="clear-filters" on:click={() => { clearSearch(); selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
+          {#if query || selectedProvider || maxInputTokens || maxOutputTokens}
+            <button class="clear-filters" on:click={() => { query = ""; selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
               Clear all filters
             </button>
           {/if}
@@ -630,7 +694,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div>
   {:else}
-    {#if query != "" && query === searchText && results.length < 12}
+    {#if query != "" && !searching && results.length < 12}
       <div class="add-model-section">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         <a href={getIssueUrlForAdd(query)}>Can't find your model? Request it on GitHub</a>
@@ -638,9 +702,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     {/if}
 
     <div class="table-container">
-      <table>
+      <table aria-rowcount={rowNumbers[results.length] + 1}>
         <thead>
-          <tr>
+          <tr aria-rowindex="1">
             <th class="th-model">Model</th>
             <th class="th-sortable" on:click={() => handleSort("released")}>
               Released
@@ -668,16 +732,36 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             </th>
           </tr>
         </thead>
+        <tbody class="column-sizer" aria-hidden="true" bind:this={rowsTop}>
+          <tr>
+            <td class="model-name"></td>
+            <td class="released-cell">{sizerCells[0]}</td>
+            <td class="context-cell">{sizerCells[1]}</td>
+            <td class="cost-cell">{sizerCells[2]}</td>
+            <td class="cost-cell">{sizerCells[3]}</td>
+            <td class="cost-cell td-hide-mobile">{sizerCells[4]}</td>
+            <td class="cost-cell td-hide-mobile">{sizerCells[5]}</td>
+          </tr>
+        </tbody>
         <tbody>
-          {#each results as { item } (item.name)}
+          {#if rowsAbovePx > 0}
+            <tr class="row-spacer rows-above" aria-hidden="true">
+              <td colspan="7" style:height="{rowsAbovePx}px"></td>
+            </tr>
+          {/if}
+          {#each shownResults as { item }, shownIndex (item.name)}
             {@const name = item.name}
             {@const mode = item.mode}
             {@const litellm_provider = item.litellm_provider}
             {@const max_input_tokens = item.max_input_tokens}
             {@const max_output_tokens = item.max_output_tokens}
+            {@const rowNumber = rowNumbers[shownStart + shownIndex] + 2}
             <tr
               class="model-row"
               class:expanded={expandedRows.has(name)}
+              aria-rowindex={rowNumber}
+              data-name={name}
+              use:measureRowHeight
               on:click={() => toggleRow(name)}
             >
               <td class="model-name">
@@ -748,7 +832,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               <td class="cost-cell td-hide-mobile">{tableCacheWriteCell(item)}</td>
             </tr>
             {#if expandedRows.has(name)}
-              <tr class="expanded-content" transition:fly={{ y: -10, duration: 200 }}>
+              <tr
+                class="expanded-content"
+                aria-rowindex={rowNumber + 1}
+                data-detail-of={name}
+                use:measureRowHeight
+                transition:fly={{ y: -10, duration: 200 }}
+              >
                 <td colspan="7">
                   <div class="detail-panel">
                     <div class="detail-grid">
@@ -893,6 +983,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               </tr>
             {/if}
           {/each}
+          {#if rowsBelowPx > 0}
+            <tr class="row-spacer" aria-hidden="true">
+              <td colspan="7" style:height="{rowsBelowPx}px"></td>
+            </tr>
+          {/if}
         </tbody>
       </table>
     </div>
@@ -1309,6 +1404,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
   tbody tr.model-row.expanded { background-color: var(--bg-secondary); }
   tbody tr.model-row:last-child { border-bottom: none; }
+  .column-sizer tr { visibility: collapse; border: none; }
+  .column-sizer td { padding-top: 0; padding-bottom: 0; line-height: 0; }
+  .row-spacer td { padding: 0; border: none; }
+  tr.rows-above { border-bottom: 1px solid var(--border-color); }
 
   tbody tr.expanded-content { border-bottom: 1px solid var(--border-color); }
   tbody tr.expanded-content td { padding: 0; }

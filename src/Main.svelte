@@ -81,7 +81,7 @@
   });
 </script>
 
-<div class="app-container">
+<div class="app-container" class:viewport-glow={activeTab === "models"}>
   <!-- Header -->
   <header class="header">
     <div class="header-content">
@@ -334,6 +334,11 @@
   .app-container {
     min-height: 100vh;
     background: var(--aurora-mesh) no-repeat, var(--bg-color);
+  }
+
+  .app-container.viewport-glow {
+    background-repeat: no-repeat;
+    background-size: 100% 100vh;
   }
 
   /* Header */
