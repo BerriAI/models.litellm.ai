@@ -19,6 +19,27 @@ export type AppPage = {
   lastmod?: string;
 };
 
+export function evaluatePage(): AppPage {
+  return {
+    breadcrumbs: [{ name: "Home", path: "/" }, { name: "Evaluate", path: "/evaluate" }],
+    body: `<h1>Evaluate your gateway traffic</h1>
+<p>Find the right model for your traffic. Compare quality, speed, and cost using requests from your LiteLLM gateway.</p>
+<h2>Run locally</h2><p>Requires Git and Node.js 22 or later.</p>
+<pre><code>git clone https://github.com/BerriAI/models.litellm.ai.git &amp;&amp; cd models.litellm.ai &amp;&amp; npm ci &amp;&amp; npm run benchmark</code></pre>
+<h2>What happens when you run it</h2>
+<ol><li>Read gateway logs or a local export and sample by session.</li><li>Replay supported requests through your gateway to your selected models.</li><li>Infer checks from development requests and score held-out responses with local checks and a model judge.</li><li>Save an interactive HTML report on your device.</li></ol>
+<p>Evaluation calls may incur model charges. The spending target stops new calls; one in-flight call can exceed it. Tools are not executed. Keys and raw traffic are excluded from the report. Nothing is uploaded to this website.</p>
+<p><a href="/evaluate/sample">View sample report</a></p>`,
+  };
+}
+
+export function sampleReportPage(): AppPage {
+  return {
+    breadcrumbs: [{ name: "Home", path: "/" }, { name: "Evaluate", path: "/evaluate" }, { name: "Sample report", path: "/evaluate/sample" }],
+    body: `<h1>Sample evaluation report</h1><p>All models, traffic, costs, and scores in this example are fictional. They are not benchmark results or model recommendations.</p><p>Enable JavaScript to explore quality, speed, cost, workload allocation, and coverage in the interactive report.</p><p><a href="/evaluate">Run on your gateway traffic</a></p>`,
+  };
+}
+
 /** Endpoint labels from provider_endpoints_support.json itself (e.g. "/chat/completions"), keyed by the provider field. */
 function endpointLabels(support: ProviderSupport): Record<string, string> {
   const out: Record<string, string> = {};

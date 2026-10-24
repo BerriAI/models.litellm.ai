@@ -20,7 +20,7 @@
         ></span
       >
       <nav class="hf-primary-nav" aria-label="Report navigation">
-        <a href="#discover-title" aria-current="page">Discover</a>
+        <a href="#evaluate-title" aria-current="page">Evaluate</a>
       </nav>
       <div class="hf-header-actions">
         <span class="private">YOUR DATA · LOCAL REPORT</span><button

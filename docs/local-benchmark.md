@@ -13,6 +13,8 @@ npm run benchmark
 
 For an existing checkout, install its locked dependencies with `npm ci`, then run `npm run benchmark`. This command is part of the repository; there is no separately published CLI package.
 
+Open **Evaluate** in the site navigation, then choose **Run on your gateway traffic** to copy the command. **View sample report** opens a separate page at `/evaluate/sample` with explicitly fictional models and measurements. Discover contains only public discovery content.
+
 ## Run your first comparison
 
 1. Keep or replace the detected gateway URL. The runner checks `LITELLM_BASE_URL`, `LITELLM_API_BASE`, then `OPENAI_BASE_URL`.

@@ -32,7 +32,6 @@
   let volume = 200000;
   let runDialog: HTMLDialogElement;
   let methodDialog: HTMLDialogElement;
-  let evaluationWorkspace: HTMLDetailsElement;
   $: workloadIds = report
     ? report.workloads.map((w) => w.id)
     : ["extract", "code", "support", "search"];
@@ -146,40 +145,25 @@
     qualityFloor = report ? 95 : demoWorkloads[next as WorkloadId].floor;
     volume = report ? volume : demoWorkloads[next as WorkloadId].volume;
   }
-  function showDemo() {
-    source = "private";
-    evaluationWorkspace.open = true;
-    runDialog.close();
-  }
 </script>
 
 <div class="discover-page">
   <slot name="hero">
     <PageHero
-      id="discover"
-      title="DISCOVER"
-      eyebrow="THE OPEN MODEL CATALOG"
-      description="Find the right model for what you're building."
+      id="evaluate"
+      title="EVALUATE"
+      eyebrow="YOUR GATEWAY · LOCAL REPORT"
+      description="Quality, speed, and cost on your gateway traffic."
     />
   </slot>
-  <details
-    class="benchmarks ruled"
-    bind:this={evaluationWorkspace}
-    open={Boolean(report)}
-  >
-    <summary class="evaluation-summary"
-      ><span>{report ? "Your evaluation" : "Evaluation workspace"}</span><span
-        class="eyebrow version"
-        >{report ? (report.synthetic ? "Demo" : "Local report") : "Demo"}</span
-      ></summary
-    >
+  <section class="benchmarks ruled" aria-label="Evaluation report">
     <div class="section-heading">
       <div class="heading-pair">
         <h2 id="benchmarks-title">Benchmarks</h2>
         <span class="eyebrow version"
           >{report
             ? report.synthetic
-              ? "SYNTHETIC DEMO"
+              ? "SYNTHETIC SAMPLE"
               : "YOUR GATEWAY · " + report.status.toUpperCase()
             : "DEMO DATA"}</span
         >
@@ -400,7 +384,7 @@
         {qualityFloor}
         workload={measured}
       />{/if}
-  </details>
+  </section>
 
   {#if !report}<div class="explore-strip">
       <button class="explore-link" on:click={() => dispatch("browse", {})}
@@ -430,7 +414,8 @@
   <footer>
     <span>BUILT ON LITELLM</span><span
       >{report
-        ? "Local report · " + report.createdAt.slice(0, 10)
+        ? (report.synthetic ? "Sample report · " : "Local report · ") +
+          report.createdAt.slice(0, 10)
         : "Evaluation demo uses illustrative data"}</span
     ><a
       href="https://github.com/BerriAI/models.litellm.ai"
@@ -460,7 +445,7 @@
     terminal. Evaluation requests go through your gateway to the models you
     select. No results are uploaded to this website.
   </p>
-  <button class="method" on:click={showDemo}>Preview with demo data ↗</button>
+  <a class="method" href="/evaluate/sample">View sample report ↗</a>
 </dialog>
 <dialog bind:this={methodDialog} aria-labelledby="method-title">
   <div class="dialog-top">
@@ -521,32 +506,6 @@
     align-items: center;
     gap: 9px;
   }
-  .evaluation-summary {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 24px 0;
-    cursor: pointer;
-    font-size: 17px;
-    font-weight: 500;
-    list-style: none;
-  }
-  .evaluation-summary::-webkit-details-marker {
-    display: none;
-  }
-  .evaluation-summary::after {
-    content: "+";
-    margin-left: auto;
-    font-size: 23px;
-    font-weight: 400;
-    color: var(--hf-muted);
-  }
-  details[open] > .evaluation-summary::after {
-    content: "−";
-  }
-  details[open] > .evaluation-summary {
-    border-bottom: 1px solid var(--hf-line);
-  }
   .ruled {
     border-top: 1px solid var(--hf-line);
     position: relative;
@@ -601,7 +560,6 @@
   }
   button:focus-visible,
   a:focus-visible,
-  summary:focus-visible,
   input:focus-visible {
     outline: 2px solid var(--hf-ink);
     outline-offset: 4px;

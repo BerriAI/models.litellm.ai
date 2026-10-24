@@ -288,7 +288,7 @@ describe("coding benchmark results", () => {
     expect(chartRows("Quality")).toHaveLength(4);
   });
 
-  it("should embed real charts above the collapsed Discover demo and retain the standalone link", async () => {
+  it("should embed real charts without the Discover demo and retain the standalone link", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(fixture))),
@@ -297,12 +297,8 @@ describe("coding benchmark results", () => {
     await vi.waitFor(() => expect(chartRows("Quality")).toHaveLength(4));
     const demo = Array.from(document.getElementsByTagName("details")).find(
       (element) => element.textContent?.includes("Evaluation workspace"),
-    )!;
-    expect(demo.open).toBe(false);
-    expect(
-      panel("Quality").compareDocumentPosition(demo) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    );
+    expect(demo).toBeUndefined();
     const link = Array.from(document.getElementsByTagName("a")).find((a) =>
       a.textContent?.includes("Open benchmarks"),
     );
