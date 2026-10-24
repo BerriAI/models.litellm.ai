@@ -2,7 +2,7 @@
   import { afterUpdate, createEventDispatcher, onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
 
-  import { getProviderInitial, getProviderLogo } from "./providers";
+  import { getProviderDisplayName, getProviderInitial, getProviderLogo } from "./providers";
   import ProviderDropdown from "./ProviderDropdown.svelte";
   import { trackSearch } from "./analytics";
   import { buildInfo, formatStars } from "./buildInfo";
@@ -831,7 +831,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                     {#if getProviderLogo(litellm_provider)}
                       <img 
                         src={getProviderLogo(litellm_provider)} 
-                        alt={litellm_provider}
+                        alt={getProviderDisplayName(litellm_provider)}
                         class="provider-logo-img"
                         on:error={(e) => {
                           const image = e.currentTarget;
@@ -863,7 +863,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                         <span class="model-title" title={item.display_name}>{item.display_name}</span>
                       {/if}
                     </div>
-                    <span class="model-provider">{(litellm_provider || "").replace(/_/g, " ")}</span>
+                    <span class="model-provider">{getProviderDisplayName(litellm_provider)}</span>
                   </div>
                   <button
                     class="copy-button"
@@ -952,7 +952,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                           </div>
                           <div class="info-row">
                             <span class="info-label">Provider</span>
-                            <span class="info-value">{litellm_provider || "—"}</span>
+                            <span class="info-value">{getProviderDisplayName(litellm_provider)}</span>
                           </div>
                           <div class="info-row">
                             <span class="info-label">Mode</span>
@@ -1106,8 +1106,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .compact .filters-row { grid-template-columns: 1fr 1fr auto; }
   @media (max-width: 560px) { .search-intent, .hidden-matches { align-items: flex-start; flex-direction: column; gap: 8px; } .compact .filters-row { grid-template-columns: 1fr 1fr; } }
   .compact .provider-logo-img { filter: none; }
-  .compact :global(.provider-logo) { background: #fff; padding: 3px; width: 28px; height: 28px; border-radius: 3px; box-shadow: none; filter: none; }
-  .compact :global(.dropdown-trigger), .compact :global(.dropdown-menu) { border-radius: 0; }
 
   @media (min-width: 1600px) {
     .compact { padding-inline: 64px; }
@@ -1139,7 +1137,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .sidebar-clear { background: transparent; border: 0; padding: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; color: var(--muted-color); }
   .compact .catalog-sidebar .filters-row { display: flex; flex-direction: column; gap: 14px; }
   .compact .catalog-sidebar :global(.provider-dropdown) { width: 100%; min-width: 0; }
-  .compact .catalog-sidebar :global(.dropdown-trigger) { width: 100%; }
   .compact .catalog-sidebar .filter-input { width: 100%; }
   .output-tabs { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; padding: 6px 0 18px; border-bottom: 1px solid var(--border-color); }
   .output-tabs > span { font-family: "DM Sans", sans-serif; font-size: 11px; letter-spacing: 0; color: var(--muted-color); margin-right: 9px; }

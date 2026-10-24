@@ -6,6 +6,7 @@
  */
 import { escapeHtml as esc, int, longDate } from "./format";
 import { hubProvider, type ProviderSupport } from "./providers";
+import { PROVIDER_DISPLAY_NAMES } from "../../src/providers";
 import { modelPath, providerPath } from "./site";
 
 export type Crumb = { name: string; path: string };
@@ -94,7 +95,7 @@ export function providersPage(
   const labels = endpointLabels(support);
   const rows = supported
     .map(([id, p]) => {
-      const name = (p.display_name ?? id)
+      const name = (PROVIDER_DISPLAY_NAMES[id] ?? p.display_name ?? id)
         .replace(/\s*\(`[^`]*`\)\s*$/, "")
         .trim();
       const endpoints = [
