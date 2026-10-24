@@ -42,6 +42,7 @@ const PROVIDER_LOGOS: Record<string, string> = {
   anthropic: "anthropic.svg",
   bedrock: "bedrock-color.svg",
   bedrock_converse: "bedrock-color.svg",
+  bedrock_mantle: "bedrock-color.svg",
   vertex_ai: "google-color.svg",
   vertexai: "google-color.svg",
   cohere: "cohere-color.svg",

@@ -8,8 +8,13 @@
   let isOpen = false;
   let searchQuery = "";
 
-  $: filteredProviders = providers.filter(provider => 
-    provider.toLowerCase().includes(searchQuery.toLowerCase())
+  function normalizeProviderSearch(value: string): string {
+    return value.trim().toLowerCase().replace(/[_\s]+/g, " ");
+  }
+
+  $: normalizedQuery = normalizeProviderSearch(searchQuery);
+  $: filteredProviders = providers.filter(provider =>
+    normalizeProviderSearch(provider).includes(normalizedQuery)
   );
 
   function toggle() {

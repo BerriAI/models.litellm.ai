@@ -74,7 +74,7 @@ const PROVIDER_NAMES: Record<string, string> = {
 /** Route variants that belong to one provider hub. */
 export function hubProvider(provider: string): string {
   if (provider.startsWith("vertex_ai")) return "vertex_ai";
-  if (provider === "bedrock_converse" || provider === "bedrock_mantle") return "bedrock";
+  if (provider === "bedrock_converse") return "bedrock";
   if (provider === "fireworks_ai-embedding-models") return "fireworks_ai";
   if (provider === "text-completion-openai") return "openai";
   if (provider === "text-completion-inception") return "inception";
