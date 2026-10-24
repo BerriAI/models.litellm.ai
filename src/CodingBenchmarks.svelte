@@ -57,21 +57,6 @@
     .filter((run) => run.complete);
   $: charts = [
     {
-      id: "value",
-      title: "Tasks per dollar",
-      subtitle: "Successful tasks / USD",
-      max: Math.max(...rows.map((row) => row.tasksPerDollar ?? 0), 1),
-      rows: [...rows].sort(
-        (a, b) =>
-          (b.tasksPerDollar ?? -1) - (a.tasksPerDollar ?? -1) ||
-          harnessName(a.harness).localeCompare(harnessName(b.harness)) ||
-          a.modelName.localeCompare(b.modelName) ||
-          a.id.localeCompare(b.id),
-      ),
-      value: (row: (typeof rows)[number]) => row.tasksPerDollar,
-      format: (value: number) => value.toFixed(2),
-    },
-    {
       id: "quality",
       title: "Quality",
       subtitle: "Tasks resolved",
@@ -86,8 +71,25 @@
       value: (row: (typeof rows)[number]) => row.quality,
       format: (value: number) => value.toFixed(1) + "%",
     },
+    {
+      id: "value",
+      title: "Tasks per dollar",
+      subtitle: "Tasks solved ÷ total API spend",
+      max: Math.max(...rows.map((row) => row.tasksPerDollar ?? 0), 1),
+      rows: [...rows].sort(
+        (a, b) =>
+          (b.tasksPerDollar ?? -1) - (a.tasksPerDollar ?? -1) ||
+          harnessName(a.harness).localeCompare(harnessName(b.harness)) ||
+          a.modelName.localeCompare(b.modelName) ||
+          a.id.localeCompare(b.id),
+      ),
+      value: (row: (typeof rows)[number]) => row.tasksPerDollar,
+      format: (value: number) => value.toFixed(2),
+    },
   ];
   $: picked = rows.find((row) => row.id === selected);
+  const totalCost = (value: number) =>
+    "$" + value.toFixed(value > 0 && value < 0.01 ? 4 : 2);
   const usd = (value: number | null) =>
     value === null ? "Unavailable" : "$" + value.toFixed(4);
 </script>
@@ -171,6 +173,23 @@
                       : Math.min(100, (value / chart.max) * 100)) + "%"}
                   ></span></span
                 >
+                <span class="row-calculation">
+                  {#if chart.id === "quality"}
+                    {row.passed} / {row.attempts} solved · {row.cost === null
+                      ? "API cost unavailable"
+                      : totalCost(row.cost) +
+                        (row.costSource === "estimated" ? " estimated" : "") +
+                        " API total"}
+                  {:else if row.tasksPerDollar !== null && row.cost !== null}
+                    {row.passed} solved ÷ {totalCost(row.cost)} total ≈ {row.tasksPerDollar.toFixed(
+                      2,
+                    )} / $
+                  {:else}
+                    {row.passed} solved · {row.cost === null
+                      ? "API cost unavailable"
+                      : totalCost(row.cost) + " total · value unavailable"}
+                  {/if}
+                </span>
               </button>
             {/each}
           </div>
@@ -187,6 +206,8 @@
       </section>
     {/each}
   </div>
+
+  <p class="spend-note">API spend includes failed attempts.</p>
 
   {#if picked}
     <aside class="run-detail" aria-label="Selected result">
@@ -417,6 +438,14 @@
     height: 100%;
     background: var(--hf-accent);
   }
+  .row-calculation {
+    display: block;
+    margin-top: 7px;
+    color: var(--hf-muted);
+    font-size: 11px;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+  }
   .axis {
     display: flex;
     justify-content: space-between;
@@ -426,6 +455,11 @@
       10px "IBM Plex Mono",
       monospace;
     font-variant-numeric: tabular-nums;
+  }
+  .spend-note {
+    margin: 12px 0 0;
+    color: var(--hf-muted);
+    font-size: 11px;
   }
   .evidence {
     display: flex;

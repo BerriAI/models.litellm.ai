@@ -146,7 +146,9 @@ afterEach(() => {
 describe("coding benchmark results", () => {
   it("should render two results charts without filters, recommendations or demo controls", async () => {
     await mount();
-    expect(panels()).toHaveLength(2);
+    expect(
+      panels().map((section) => section.getAttribute("aria-label")),
+    ).toEqual(["Quality comparison", "Tasks per dollar comparison"]);
     expect(document.getElementsByTagName("h1")[0].textContent).toBe(
       "Coding benchmarks",
     );
@@ -185,6 +187,43 @@ describe("coding benchmark results", () => {
     }
   });
 
+  it("should show whole-run costs under quality and the arithmetic behind value", async () => {
+    await mount();
+    expect(chartRows("Quality")[1].textContent).toContain(
+      "2 / 6 solved · $8.00 estimated API total",
+    );
+    expect(chartRows("Tasks per dollar").at(-1)?.textContent).toContain(
+      "2 solved ÷ $8.00 total ≈ 0.25 / $",
+    );
+    expect(chartRows("Tasks per dollar")[1].textContent).toContain(
+      "1 solved ÷ $0.50 total ≈ 2.00 / $",
+    );
+    expect(panel("Tasks per dollar").textContent).toContain(
+      "Tasks solved ÷ total API spend",
+    );
+    expect(document.body.textContent).toContain(
+      "API spend includes failed attempts.",
+    );
+  });
+
+  it("should show zero total cost without dividing by zero", async () => {
+    await mount({
+      ...fixture,
+      runs: fixture.runs.map((run) =>
+        run.id === "codex" ? { ...run, apiCostUsd: 0 } : run,
+      ),
+    });
+    expect(chartRows("Quality")[0].textContent).toContain(
+      "4 / 6 solved · $0.00 estimated API total",
+    );
+    const row = chartRows("Tasks per dollar").at(-1)!;
+    expect(row.textContent).toContain(
+      "4 solved · $0.00 total · value unavailable",
+    );
+    expect(row.textContent).not.toContain("÷");
+    expect(row.textContent).not.toContain("Infinity");
+  });
+
   it("should keep unmeasured cost unavailable and exclude incomplete rows without creating a time chart", async () => {
     await mount({
       ...fixture,
@@ -197,6 +236,15 @@ describe("coding benchmark results", () => {
     expect(order("Tasks per dollar").at(-1)).toBe("Harness: Codex");
     expect(chartRows("Tasks per dollar").at(-1)?.textContent).toContain("—");
     expect(order("Quality")[0]).toBe("Harness: Codex");
+    expect(chartRows("Quality")[0].textContent).toContain(
+      "4 / 6 solved · API cost unavailable",
+    );
+    expect(chartRows("Tasks per dollar").at(-1)?.textContent).toContain(
+      "4 solved · API cost unavailable",
+    );
+    expect(chartRows("Tasks per dollar").at(-1)?.textContent).not.toContain(
+      "÷",
+    );
     expect(
       panels().some(
         (section) =>
