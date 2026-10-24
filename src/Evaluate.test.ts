@@ -1,7 +1,8 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { tick } from "svelte";
 import Main from "./Main.svelte";
+// Load compiled components before the mocked Svelte entry in the isolated runner.
+import { tick } from "svelte";
 import { PAGE_TITLES } from "./pageTitles";
 
 vi.mock("svelte", () =>

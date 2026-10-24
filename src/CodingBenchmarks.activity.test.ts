@@ -1,9 +1,10 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { tick } from "svelte";
 import CodingBenchmarks from "./CodingBenchmarks.svelte";
 import Home from "./Discover.svelte";
 import Main from "./Main.svelte";
+// Load compiled components before the mocked Svelte entry in the isolated runner.
+import { tick } from "svelte";
 import { PAGE_TITLES } from "./pageTitles";
 import { type BenchmarkResults, type BenchmarkRun } from "./codingBenchmarks";
 
