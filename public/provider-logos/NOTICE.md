@@ -1,10 +1,12 @@
 # Provider artwork attribution
 
-The active mapping is `src/providerLogos.json`. The October 24, 2026 audit covers all 214 provider identifiers in LiteLLM's endpoint-support and model-price catalogs, plus seven compatibility aliases. Assets in `upstream/` come from provider-owned websites, documentation, repositories, or provider-submitted integrations. [sources.json](./sources.json) records each source URL, official homepage, verification date, any transformations, and the SHA-256 of the bundled file. Existing artwork retained from LobeHub was checked against the corresponding upstream brand.
+The active mapping is `src/providerLogos.json`. The October 24, 2026 audit covers all 215 provider identifiers in LiteLLM's endpoint-support and model-price catalogs, plus seven compatibility aliases. Assets in `upstream/` come from provider-owned websites, documentation, repositories, or provider-submitted integrations. [sources.json](./sources.json) records each source URL, official homepage, verification date, any transformations, and the SHA-256 of the bundled file. Existing artwork retained from LobeHub was checked against the corresponding upstream brand.
 
 Six entries intentionally retain labeled initials: `auto_router`, `custom`, `custom_openai`, and `openai_like` describe generic adapters rather than independent brands; `infinity` and `pg_vector` have no published logo in their upstream repositories or documentation. LlamaGate's website was unavailable during the audit; its icon is the globe supplied by its maintainer in the linked Dify integration, not a newly invented brand mark.
 
 When adding a provider, add its verified artwork and provenance together, update the shared mapping and the audited catalog fixture in `scripts/provider-logo-catalog.json`, and run `npm test`, `npm run check`, and `npm run build`. The build validates the live provider lists, so an unaudited provider or a missing bundled file fails before deployment. All image URLs remain local; visitors do not contact upstream sites to load these marks.
+
+OpenCode Go uses the unchanged square light brand mark from the official OpenCode repository, pinned to the commit recorded in `sources.json`.
 
 ## Previously bundled artwork
 

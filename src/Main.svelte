@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import App from "./App.svelte";
   import Discover from "./Discover.svelte";
+  import CodingBenchmarks from "./CodingBenchmarks.svelte";
   import Providers from "./Providers.svelte";
   import Cookbook from "./Cookbook.svelte";
   import Guardrails from "./Guardrails.svelte";
@@ -11,7 +12,13 @@
   import { sanitizeSearchQuery } from "./searchQuery";
   import "./handoff.css";
 
-  type Tab = "discover" | "models" | "providers" | "cookbook" | "guardrails";
+  type Tab =
+    | "benchmarks"
+    | "discover"
+    | "models"
+    | "providers"
+    | "cookbook"
+    | "guardrails";
   type Theme = "light" | "dark";
   let activeTab: Tab = getTabFromLocation();
   let searchQuery = sanitizeSearchQuery(
@@ -27,6 +34,7 @@
 
   const tabPaths: Record<Tab, string> = {
     discover: "/",
+    benchmarks: "/benchmarks",
     models: "/search",
     providers: "/providers",
     cookbook: "/cookbook",
@@ -35,6 +43,7 @@
 
   function getTabFromLocation(): Tab {
     const path = window.location.pathname.replace(/\/$/, "") || "/";
+    if (path === "/benchmarks") return "benchmarks";
     if (path === "/search") return "models";
     if (path === "/providers") return "providers";
     if (path === "/cookbook") return "cookbook";
@@ -191,6 +200,11 @@
           aria-current={activeTab === "providers" ? "page" : undefined}
           on:click={(event) => navigate(event, "providers")}>Providers</a
         >
+        <a
+          href="/benchmarks"
+          aria-current={activeTab === "benchmarks" ? "page" : undefined}
+          on:click={(event) => navigate(event, "benchmarks")}>Coding benchmarks</a
+        >
       </nav>
 
       <form
@@ -309,6 +323,8 @@
     <div class="hf-route" class:hf-catalog-route={activeTab === "models"}>
       {#if activeTab === "discover"}
         <Discover on:browse={browseModels} />
+      {:else if activeTab === "benchmarks"}
+        <CodingBenchmarks />
       {:else if activeTab === "models"}
         <App compact on:querychange={handleQueryChange} />
       {:else if activeTab === "providers"}

@@ -1,0 +1,103 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-10-24T18:34:20.065494+00:00",
+  "status": "complete",
+  "message": "Completed runs from a six-task local pilot, one trial per task. Other campaign runs remain in progress. This is not an official full Terminal-Bench score or a stable overall model ranking. Timing comparisons are withheld because instrumentation and operational interruptions differed.",
+  "cohorts": [
+    {
+      "id": "tb4-local-a053489e33",
+      "label": "Local pilot \u00b7 6 tasks \u00b7 native output",
+      "dataset": "Terminal-Bench",
+      "version": "4.0.0",
+      "taskIds": [
+        "session-window-debug",
+        "mvcc-lsm-compaction",
+        "react-lead-form",
+        "wal-recovery-ordering",
+        "nextjs-performance",
+        "bun-sourcemap-leak"
+      ],
+      "repetitions": 1,
+      "scope": "subset",
+      "environment": "Local Apple Silicon / Colima Docker \u00b7 Linux arm64 \u00b7 8 CPU / 16 GB"
+    }
+  ],
+  "runs": [
+    {
+      "id": "result-a439b3ce51ef30117f166597",
+      "cohortId": "tb4-local-a053489e33",
+      "harness": "claude-code",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "modelName": "Claude Sonnet 5.5",
+      "providerName": "Anthropic",
+      "harnessVersion": "2.1.310",
+      "status": "complete",
+      "passed": 1,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 0.8243613,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun. One manually reviewed setup-only infrastructure recovery occurred before generation. Pinned native compatibility headers are preserved; one client marker lacks separately published semantics."
+    },
+    {
+      "id": "result-9f230c2b1439052081ef7001",
+      "cohortId": "tb4-local-a053489e33",
+      "harness": "codex",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "modelName": "GPT-6.1 Sol",
+      "providerName": "OpenAI",
+      "harnessVersion": "0.164.0",
+      "status": "complete",
+      "passed": 4,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 1.045999,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun."
+    },
+    {
+      "id": "result-89778962efe8659aa540094b",
+      "cohortId": "tb4-local-a053489e33",
+      "harness": "kimi-cli",
+      "provider": "moonshot",
+      "model": "kimi-k3",
+      "modelName": "Kimi K3",
+      "providerName": "Moonshot",
+      "harnessVersion": "2.3.1",
+      "status": "complete",
+      "passed": 2,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 7.9117104,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun. One manually reviewed setup-only infrastructure recovery occurred before generation."
+    },
+    {
+      "id": "result-f11ca227396a850ba5ede87a",
+      "cohortId": "tb4-local-a053489e33",
+      "harness": "pi",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "modelName": "Claude Sonnet 5.5",
+      "providerName": "Anthropic",
+      "harnessVersion": "1.4.0",
+      "status": "complete",
+      "passed": 1,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 0.610841,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun."
+    }
+  ]
+}
