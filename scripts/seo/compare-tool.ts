@@ -30,6 +30,8 @@ export type ToolModel = {
   add?: string;
   /** Benchmark name -> "54.6% (medium)". */
   b?: Record<string, string>;
+  /** Numeric scores and measured task costs for discovery; b remains the comparison display format. */
+  benchmarks?: ModelBenchmarks;
 };
 
 const noFloatNoise = (n: number) => Number(n.toPrecision(12));
@@ -96,6 +98,7 @@ export function toolData(
         : {}),
       ...(v.addedDate ? { add: v.addedDate } : {}),
       ...(Object.keys(b).length ? { b } : {}),
+      ...(bench ? { benchmarks: bench } : {}),
     };
   }
   const latest = latestBenchmarkDate(benches);

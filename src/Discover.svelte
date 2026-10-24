@@ -1,6 +1,5 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
-  import PageHero from "./PageHero.svelte";
   import DiscoveryUpdates from "./DiscoveryUpdates.svelte";
   import {
     demoModels,
@@ -18,6 +17,7 @@
   let volume = 200000;
   let runDialog: HTMLDialogElement;
   let methodDialog: HTMLDialogElement;
+  let evaluationWorkspace: HTMLDetailsElement;
   const workloadIds: WorkloadId[] = ["extract", "code", "support", "search"];
   const usd = (value: number) =>
     new Intl.NumberFormat("en-US", {
@@ -87,21 +87,19 @@
   }
   function showDemo() {
     source = "private";
+    evaluationWorkspace.open = true;
     runDialog.close();
   }
 </script>
 
 <div class="discover-page">
-  <PageHero
-    id="discover"
-    title="DISCOVER"
-    eyebrow="THE OPEN MODEL CATALOG"
-    description="Find the right model for what you're building."
-  />
-
   <DiscoveryUpdates />
 
-  <section class="benchmarks ruled" aria-labelledby="benchmarks-title">
+  <details class="benchmarks ruled" bind:this={evaluationWorkspace}>
+    <summary class="evaluation-summary">
+      <span>Evaluation workspace</span>
+      <span class="eyebrow version">Demo</span>
+    </summary>
     <div class="section-heading">
       <div class="heading-pair">
         <h2 id="benchmarks-title">Benchmarks</h2>
@@ -111,7 +109,7 @@
         <button
           class:active={source === "public"}
           aria-pressed={source === "public"}
-          on:click={() => (source = "public")}>Public benchmarks</button
+          on:click={() => (source = "public")}>Public benchmarks · demo</button
         >
         <button
           class:active={source === "private"}
@@ -286,7 +284,7 @@
         </div>
       </section>
     {/if}
-  </section>
+  </details>
 
   <div class="explore-strip">
     <button class="explore-link" on:click={() => dispatch("browse", {})}
@@ -307,14 +305,15 @@
           stroke-dasharray="2 2"
         /><path d="M18 17v13l9 5 10-5V17" /></svg
       ><span
-        ><span class="eyebrow">FROM BENCHMARK TO PRODUCTION</span><strong
-          >Find your next cost saving</strong
+        ><span class="eyebrow">EVALUATION WORKSPACE · DEMO</span><strong
+          >Preview quality and cost comparisons</strong
         ></span
       ><span class="arrow">↗</span></button
     >
   </div>
   <footer>
-    <span>BUILT ON LITELLM</span><span>Benchmark results are illustrative</span
+    <span>BUILT ON LITELLM</span><span
+      >Evaluation demo uses illustrative data</span
     ><a
       href="https://github.com/BerriAI/models.litellm.ai"
       target="_blank"
@@ -395,6 +394,32 @@
     align-items: center;
     gap: 9px;
   }
+  .evaluation-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 24px 0;
+    cursor: pointer;
+    font-size: 17px;
+    font-weight: 500;
+    list-style: none;
+  }
+  .evaluation-summary::-webkit-details-marker {
+    display: none;
+  }
+  .evaluation-summary::after {
+    content: "+";
+    margin-left: auto;
+    font-size: 23px;
+    font-weight: 400;
+    color: var(--hf-muted);
+  }
+  details[open] > .evaluation-summary::after {
+    content: "−";
+  }
+  details[open] > .evaluation-summary {
+    border-bottom: 1px solid var(--hf-line);
+  }
   .ruled {
     border-top: 1px solid var(--hf-line);
     position: relative;
@@ -449,6 +474,7 @@
   }
   button:focus-visible,
   a:focus-visible,
+  summary:focus-visible,
   input:focus-visible {
     outline: 2px solid var(--hf-ink);
     outline-offset: 4px;
