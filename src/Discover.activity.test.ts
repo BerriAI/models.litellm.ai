@@ -91,6 +91,58 @@ afterEach(() => {
 });
 
 describe("coding benchmark run activity", () => {
+  it("should not promote zero-success stacks when the quality floor is zero", async () => {
+    component.$destroy();
+    document.body.innerHTML = "";
+    const zeroResults: BenchmarkResults = {
+      ...fixture,
+      status: "complete",
+      runs: [2, 3].map((cost, index) => ({
+        ...baseRun,
+        id: `zero-${index}`,
+        modelName: `Zero fixture ${index + 1}`,
+        status: "complete",
+        attempts: 1,
+        apiCostUsd: cost,
+        costSource: "estimated",
+        totalSeconds: 60,
+        notes: "Completed fixture with no resolved tasks",
+      })),
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(zeroResults))),
+    );
+    component = new Discover({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("No successful tasks yet"),
+    );
+    const quality = Array.from(document.getElementsByTagName("input")).find(
+      (input) => input.getAttribute("aria-label") === "Minimum quality",
+    )!;
+    quality.value = "0";
+    quality.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    expect(quality.value).toBe("0");
+    expect(document.body.textContent).toContain("No successful tasks yet");
+    expect(document.body.textContent).not.toContain(
+      "Most tasks/$ in this pilot",
+    );
+    expect(document.body.textContent).not.toContain("Highest observed tasks/$");
+    expect(document.body.textContent).not.toContain("Cost data is missing");
+    const valueBars = Array.from(
+      document.getElementsByTagName("button"),
+    ).filter((button) =>
+      button.getAttribute("aria-label")?.includes("Tasks per dollar: 0.00"),
+    );
+    expect(valueBars).toHaveLength(2);
+    valueBars[0].click();
+    await tick();
+    expect(document.body.textContent).toContain("API spend");
+    expect(document.body.textContent).toContain("$2.00");
+    expect(document.body.textContent).toContain("0 / 1");
+  });
+
   it("should start collapsed with status counts and no repeated notes or run rows", () => {
     expect(activityButton().getAttribute("aria-expanded")).toBe("false");
     expect(activityButton().getAttribute("aria-controls")).toBe(

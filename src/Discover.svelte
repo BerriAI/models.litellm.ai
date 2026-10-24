@@ -101,7 +101,9 @@
     (row) =>
       row.quality !== null &&
       row.quality >= qualityFloor &&
-      row.tasksPerDollar !== null,
+      row.passed > 0 &&
+      row.tasksPerDollar !== null &&
+      row.tasksPerDollar > 0,
   );
   $: picked = rows.find((row) => row.id === selected);
   $: charts = [
@@ -302,6 +304,16 @@
         </div>
         <div class="summary-number">
           {leading.tasksPerDollar?.toFixed(2)}<span>successful tasks / $</span>
+        </div>
+      </div>
+    {:else if completed.length && completed.every((row) => row.passed === 0)}
+      <div class="value-summary">
+        <span class="summary-icon">—</span>
+        <div>
+          <strong>No successful tasks yet</strong><span
+            >Completed runs have not resolved a task. Their scores and costs
+            remain visible below.</span
+          >
         </div>
       </div>
     {:else if completed.length}
