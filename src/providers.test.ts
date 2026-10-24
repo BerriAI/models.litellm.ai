@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { getProviderDisplayName } from "./providers";
+import { getProviderDisplayName, getProviderLogo } from "./providers";
 
 describe("provider display names", () => {
   test.each([
@@ -30,4 +30,23 @@ describe("provider display names", () => {
       expect(getProviderDisplayName(provider)).toBe("—");
     },
   );
+});
+
+describe("provider logos", () => {
+  test.each(["zai", "ZAI", "Z.ai", "z.ai", " Z.ai "])(
+    "should reuse the bundled Z.ai artwork for %s",
+    (provider) => {
+      expect(getProviderLogo(provider)).toBe(
+        "/provider-logos/upstream/zai.svg",
+      );
+    },
+  );
+
+  test("should preserve other provider mappings and unknown-name fallbacks", () => {
+    expect(getProviderLogo("openai")).toBe(
+      "/provider-logos/upstream/openai.svg",
+    );
+    expect(getProviderLogo("Unknown lab")).toBeNull();
+    expect(getProviderLogo("constructor")).toBeNull();
+  });
 });

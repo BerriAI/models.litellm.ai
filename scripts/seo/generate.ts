@@ -47,6 +47,8 @@ import { CHAT_MODES, IMAGE_MODES, UNIT_LABEL, leadsWithTokens } from "./pricing"
 import { providerDocsUrl, providerName, type ProviderSupport } from "./providers";
 import { COOKBOOK_URL, COST_MAP_RAW_URL, GUARDRAILS_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, providerPath } from "./site";
 import { PAGE_TITLES } from "../../src/pageTitles";
+import { catalogModelId } from "../../src/litellmModelId";
+import { loadDiscoveryBenchmarkData } from "./discovery-benchmarks";
 import { validateProviderLogos } from "../provider-logos";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
@@ -291,10 +293,16 @@ async function main(): Promise<void> {
     manifest.models[v.slug] = {
       pageKey: v.pageKey,
       name: v.name,
+      modelId: catalogModelId(v, BUILD_DATE),
       lab: v.lab,
       price,
       context: v.context,
+      mode: v.mode,
+      inputModalities: v.inputModalities,
+      outputModalities: v.outputModalities,
       providers: v.providers.map((p) => p.name),
+      providerIds: v.providers.map((p) => p.hub),
+      status: v.status,
       hash,
       firstSeen,
       lastChanged,
@@ -518,6 +526,11 @@ ${cheapestOnProvider(h.name, list)}
   );
   // The comparison tool and its data, rebuilt with every price change so it never goes stale.
   write("compare/models.json", JSON.stringify(toolData(views, benchFor, new Set(pairs.map((p) => p.slug)))));
+  const discoveryBenchmarks = await loadDiscoveryBenchmarkData(benchData, views, {
+    snapshotFile: process.env.TERMINAL_BENCH_FILE,
+    previousSnapshotUrl: `${SITE_URL}/discovery/benchmarks.json`,
+  });
+  write("discovery/benchmarks.json", JSON.stringify(discoveryBenchmarks));
   write(
     "compare/custom.html",
     layout({

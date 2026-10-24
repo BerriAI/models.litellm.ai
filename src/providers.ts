@@ -129,11 +129,13 @@ export function getProviderInitial(provider: string): string {
 export function getProviderLogo(provider: string): string | null {
   if (!provider) return null;
 
-  const lowerProvider = provider.toLowerCase();
+  const lowerProvider = provider.trim().toLowerCase();
+  // Benchmark feeds use the lab's display name instead of the LiteLLM provider id.
+  const logoProvider = lowerProvider === "z.ai" ? "zai" : lowerProvider;
 
   const logos: Record<string, string | null> = providerLogos;
-  const logoFile = Object.hasOwn(logos, lowerProvider)
-    ? logos[lowerProvider]
+  const logoFile = Object.hasOwn(logos, logoProvider)
+    ? logos[logoProvider]
     : null;
   if (logoFile) {
     return `/provider-logos/${logoFile}`;

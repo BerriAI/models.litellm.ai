@@ -1,10 +1,19 @@
 export type ManifestModel = {
   pageKey: string;
   name: string;
+  /** Copyable LiteLLM route; absent in older manifests. */
+  modelId?: string | null;
   lab: string | null;
   price: string | null;
   context?: number;
+  /** Capability metadata is optional when reading an older published manifest. */
+  mode?: string;
+  inputModalities?: string[];
+  outputModalities?: string[];
   providers: string[];
+  /** Stable hub ids for clients; older manifests contain only provider labels. */
+  providerIds?: string[];
+  status?: "active" | "deprecated" | "retired";
   hash: string;
   firstSeen: string | null;
   lastChanged: string;

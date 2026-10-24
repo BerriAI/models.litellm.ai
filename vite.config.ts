@@ -1,5 +1,7 @@
 import { defineConfig, loadEnv } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -8,13 +10,59 @@ export default defineConfig(({ mode }) => {
     env.VITE_CATALOG_API_PROXY_TARGET || "http://127.0.0.1:8000";
 
   return {
-    plugins: [svelte()],
+    plugins: [
+      svelte(),
+      {
+        name: "generated-catalog-data",
+        configureServer(server) {
+          server.middlewares.use((request, response, next) => {
+            const pathname = request.url?.split("?")[0];
+            if (
+              pathname !== "/models/manifest.json" &&
+              pathname !== "/compare/models.json" &&
+              pathname !== "/discovery/benchmarks.json"
+            )
+              return next();
+            try {
+              const data = readFileSync(resolve("dist", pathname.slice(1)));
+              response.setHeader("Content-Type", "application/json");
+              response.end(data);
+            } catch {
+              // Before the first build, use the published catalog through the proxy.
+              next();
+            }
+          });
+        },
+      },
+    ],
     server: {
       // Enable SPA fallback for client-side routing
       historyApiFallback: true,
       // When VITE_USE_LOCAL_CATALOG_API=true, the app fetches /model_catalog (same origin);
       // proxy to litellm-model-catalog-api so the browser avoids CORS.
       proxy: {
+        // Static catalog pages are generated during the production build.
+        // Use the live catalog in development so discovery cards and dates work locally.
+        "/models/": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/providers/": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/new-models": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/compare/": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/discovery/": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
         "/model_catalog": {
           target: catalogProxyTarget,
           changeOrigin: true,

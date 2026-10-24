@@ -55,7 +55,7 @@ jobs:
           SH
           echo "BASH_ENV=$RUNNER_TEMP/indexnow.sh" >> "$GITHUB_ENV"
 
-      - name: Compare the live build with the price file
+      - name: Compare the live build with the price file and benchmark refresh age
         id: check
         run: |
           # raw.githubusercontent.com serves main from a cache for up to five minutes,
@@ -66,7 +66,14 @@ jobs:
           if [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then url="https://raw.githubusercontent.com/BerriAI/litellm/$commit/model_prices_and_context_window.json"; fi
           echo "Reading the price file at ${commit:-main}."
           latest=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
-          live=$(curl -fsSL "$SITE/build-info.json" | jq -r '.costMapHash // empty' || true)
+          build_info=$(curl -fsSL "$SITE/build-info.json" || echo '{}')
+          live=$(echo "$build_info" | jq -r '.costMapHash // empty')
+          built_at=$(echo "$build_info" | jq -r '.builtAt // empty')
+          echo "built_at=$built_at" >> "$GITHUB_OUTPUT"
+          benchmarks_due=false
+          built_epoch=$(date -d "$built_at" +%s 2>/dev/null || echo 0)
+          if [ "$(( $(date +%s) - built_epoch ))" -ge 86400 ]; then benchmarks_due=true; fi
+          echo "benchmarks_due=$benchmarks_due" >> "$GITHUB_OUTPUT"
           echo "live=$live" >> "$GITHUB_OUTPUT"
           if [ "$latest" = "$live" ]; then
             echo "Live site matches the price file."
@@ -77,16 +84,16 @@ jobs:
           fi
 
       - name: Trigger a production deploy
-        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        if: (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true') && env.DEPLOY_HOOK != ''
         run: curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null
 
       - name: Wait for the new build to go live
-        if: steps.check.outputs.changed == 'true' && env.DEPLOY_HOOK != ''
+        if: (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true') && env.DEPLOY_HOOK != ''
         run: |
           for _ in $(seq 1 40); do
             sleep 30
-            live=$(curl -fsSL "$SITE/build-info.json" | jq -r '.costMapHash // empty' || true)
-            if [ -n "$live" ] && [ "$live" != "${{ steps.check.outputs.live }}" ]; then exit 0; fi
+            built_at=$(curl -fsSL "$SITE/build-info.json" | jq -r '.builtAt // empty' || true)
+            if [ -n "$built_at" ] && [ "$built_at" != "${{ steps.check.outputs.built_at }}" ]; then exit 0; fi
           done
           echo "The new build did not go live within 20 minutes."
           exit 1
