@@ -1,5 +1,5 @@
 /**
- * Server-rendered content for the app's routes (/, /providers, /cookbook,
+ * Server-rendered content for the app's routes (/, /search, /providers, /cookbook,
  * /guardrails). shell.ts puts it in the page itself, not in <noscript>, so
  * crawlers that don't run JavaScript read the same content the app shows.
  * Every count comes from the data the app reads; nothing here is typed by hand.
@@ -43,6 +43,13 @@ const nav = (items: Crumb[]) =>
 export type Hub = { hub: string; name: string; count: number };
 export type RecentModel = { slug: string; name: string; price: string | null };
 
+function modelLists(hubs: Hub[], recent: RecentModel[]): string {
+  return `<h2>Recently added models</h2>
+<ul>${recent.map((m) => `<li><a href="${modelPath(m.slug)}">${esc(m.name)}</a>${m.price ? `: ${esc(m.price)}` : ""}</li>`).join("")}</ul>
+<h2>Pricing by provider</h2>
+<ul>${hubs.map((h) => `<li><a href="${providerPath(h.hub)}">${esc(h.name)} pricing</a>: ${int(h.count)} models</li>`).join("")}</ul>`;
+}
+
 export function homePage(
   models: number,
   hubs: Hub[],
@@ -52,12 +59,28 @@ export function homePage(
   return {
     breadcrumbs: crumbs(),
     lastmod,
-    body: `<h1>AI model pricing, context windows and providers</h1>
-<p>Prices, context windows and features for ${int(models)} AI models across ${int(hubs.length)} providers, from LiteLLM's open-source price file, as of ${longDate(lastmod)}. <a href="/models">Browse every model</a>, <a href="/compare">compare models side by side</a>, see <a href="/rankings">rankings by price</a> the <a href="/new-models">latest new models</a>, or use the <a href="/calculator">pricing calculator</a>.</p>
-<h2>Recently added models</h2>
-<ul>${recent.map((m) => `<li><a href="${modelPath(m.slug)}">${esc(m.name)}</a>${m.price ? `: ${esc(m.price)}` : ""}</li>`).join("")}</ul>
-<h2>Pricing by provider</h2>
-<ul>${hubs.map((h) => `<li><a href="${providerPath(h.hub)}">${esc(h.name)} pricing</a>: ${int(h.count)} models</li>`).join("")}</ul>`,
+    body: `<h1>Discover AI models</h1>
+<p>Explore ${int(models)} AI models across ${int(hubs.length)} providers, with prices and context windows from LiteLLM's open-source price file, as of ${longDate(lastmod)}.</p>
+<p><a href="/search">Search models</a>, <a href="/compare">compare models and published benchmarks</a>, browse <a href="/new-models">new models</a>, or estimate your costs with the <a href="/calculator">pricing calculator</a>.</p>
+${modelLists(hubs, recent)}`,
+  };
+}
+
+export function searchPage(
+  models: number,
+  hubs: Hub[],
+  recent: RecentModel[],
+  lastmod: string,
+): AppPage {
+  return {
+    lastmod,
+    breadcrumbs: crumbs({ name: "Search models", path: "/search" }),
+    body: `${nav(crumbs({ name: "Search models", path: "/search" }))}
+<h1>Search AI models</h1>
+<p>Search prices, context windows and features for ${int(models)} AI models across ${int(hubs.length)} providers.</p>
+<form action="/search" method="get"><label for="model-search">Model or provider</label> <input id="model-search" name="q" type="search" /> <button type="submit">Search</button></form>
+<p><a href="/models">Browse the full model catalog</a> or <a href="/rankings">see rankings by price and context window</a>.</p>
+${modelLists(hubs, recent)}`,
   };
 }
 

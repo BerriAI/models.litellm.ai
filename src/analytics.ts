@@ -29,12 +29,21 @@ export function trackPageView(page: string) {
 }
 
 // Track search
-export function trackSearch(query: string, provider?: string, resultsCount?: number) {
+export function trackSearch(query: string, provider?: string, resultsCount?: number, filters?: { minInputTokens: number | null; minOutputTokens: number | null; freeOnly?: boolean; hiddenCount?: number; output?: string; inputs?: string[]; toolsOnly?: boolean }) {
   if (MIXPANEL_TOKEN) {
     mixpanel.track('Search', {
       query: query,
       provider: provider || 'all',
       results_count: resultsCount || 0,
+      ...(filters ? {
+        min_input_tokens: filters.minInputTokens,
+        min_output_tokens: filters.minOutputTokens,
+        zero_listed_price: !!filters.freeOnly,
+        hidden_by_filters_count: filters.hiddenCount ?? 0,
+        output_modality: filters.output || "all",
+        input_modalities: filters.inputs ?? [],
+        tools_only: !!filters.toolsOnly,
+      } : {}),
       timestamp: new Date().toISOString()
     });
   }
