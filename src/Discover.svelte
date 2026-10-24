@@ -24,6 +24,8 @@
   let qualityFloor = 50;
   let basis: CostBasis = "api";
   let selected = "";
+  let activityOpen = false;
+  let activityRun = "";
   let methodDialog: HTMLDialogElement;
   let runDialog: HTMLDialogElement;
   let abort: AbortController;
@@ -88,6 +90,13 @@
       );
     });
   $: completed = rows.filter((row) => row.complete);
+  $: activityRuns = rows.filter((row) => !row.complete);
+  $: activityCounts = (["running", "queued", "blocked", "failed"] as const)
+    .map((status) => ({
+      status,
+      count: activityRuns.filter((run) => run.status === status).length,
+    }))
+    .filter(({ count }) => count > 0);
   $: leading = completed.find(
     (row) =>
       row.quality !== null &&
@@ -117,7 +126,7 @@
     {
       id: "time",
       title: "Task time",
-      subtitle: "Mean wall time · all attempts",
+      subtitle: "Mean agent time · all attempts",
       direction: "Lower is better",
       max: Math.max(...completed.map((r) => r.secondsPerTask ?? 0), 60),
       get: (r: (typeof rows)[number]) => r.secondsPerTask,
@@ -129,6 +138,8 @@
     cohortId = "";
     provider = "all";
     selected = "";
+    activityOpen = false;
+    activityRun = "";
   }
   const usd = (n: number) => "$" + n.toFixed(2);
 </script>
@@ -474,28 +485,107 @@
       </div>
     {/if}
 
-    {#if rows.some((row) => !row.complete)}
-      <div class="queue-section">
-        <div class="queue-heading">
-          <h3>Run activity</h3>
-          <span>Incomplete runs stay out of comparisons</span>
-        </div>
-        {#each rows.filter((row) => !row.complete) as row}<div
-            class="queue-row"
+    {#if activityRuns.length}
+      <section class="queue-section" aria-labelledby="run-activity-title">
+        <h3 id="run-activity-title">
+          <button
+            id="run-activity-toggle"
+            class="queue-heading"
+            aria-expanded={activityOpen}
+            aria-controls="run-activity-list"
+            on:click={() => {
+              activityOpen = !activityOpen;
+              activityRun = "";
+            }}
           >
-            <span class="queue-agent">{harnessName(row.harness)}</span><span
-              class="queue-model"
-              ><img
-                src={getProviderLogo(row.provider) ?? ""}
-                alt={row.providerName}
-              />{row.modelName}</span
-            ><span class="queue-progress"
-              >{row.attempts} / {row.plannedAttempts}</span
-            ><span class="run-status" class:running={row.status === "running"}
-              >{row.status}</span
-            >{#if row.notes}<p>{row.notes}</p>{/if}
-          </div>{/each}
-      </div>
+            <span class="queue-title"
+              >Run activity <span class="queue-total"
+                >{activityRuns.length}</span
+              ></span
+            >
+            <span class="queue-counts"
+              >{#each activityCounts as item, index}{index
+                  ? " · "
+                  : ""}{item.count}
+                {item.status}{/each}</span
+            >
+            <span class="queue-toggle"
+              >{activityOpen ? "Hide runs" : "Show runs"}
+              <span aria-hidden="true">{activityOpen ? "−" : "+"}</span></span
+            >
+          </button>
+        </h3>
+        <div id="run-activity-list" hidden={!activityOpen}>
+          {#if activityOpen}
+            <p class="queue-explanation">
+              These runs are excluded from comparisons. Open a run for its
+              validation and cost details.
+            </p>
+            {#each activityRuns as row, index (row.id)}
+              <div class="queue-row">
+                <span class="queue-agent">{harnessName(row.harness)}</span>
+                <span class="queue-model"
+                  ><img
+                    src={getProviderLogo(row.provider) ?? ""}
+                    alt={row.providerName}
+                  />{row.modelName}</span
+                >
+                <span
+                  class="queue-progress"
+                  aria-label={`${row.attempts} of ${row.plannedAttempts} attempts scored`}
+                  >{row.attempts} / {row.plannedAttempts}</span
+                >
+                <span
+                  class="run-status"
+                  class:running={row.status === "running"}
+                  >{row.status === "failed"
+                    ? "Failed · excluded"
+                    : row.status}</span
+                >
+                <button
+                  class="text-button queue-details-toggle"
+                  aria-label={`Details for ${harnessName(row.harness)}, ${row.modelName}, run ${index + 1}`}
+                  aria-expanded={activityRun === row.id}
+                  aria-controls={`run-activity-notes-${index}`}
+                  on:click={() =>
+                    (activityRun = activityRun === row.id ? "" : row.id)}
+                  >{activityRun === row.id ? "Less −" : "Details +"}</button
+                >
+                <div
+                  id={`run-activity-notes-${index}`}
+                  class="queue-details"
+                  hidden={activityRun !== row.id}
+                >
+                  {#if activityRun === row.id}
+                    <dl>
+                      <div>
+                        <dt>API spend</dt>
+                        <dd>
+                          {row.apiCostUsd === null
+                            ? "Unavailable"
+                            : usd(row.apiCostUsd)}{row.costSource ===
+                          "estimated"
+                            ? " · estimated"
+                            : ""}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt>Harness version</dt>
+                        <dd>{row.harnessVersion}</dd>
+                      </div>
+                      <div>
+                        <dt>Model</dt>
+                        <dd><code>{row.model}</code></dd>
+                      </div>
+                    </dl>
+                    {#if row.notes}<p>{row.notes}</p>{/if}
+                  {/if}
+                </div>
+              </div>
+            {/each}
+          {/if}
+        </div>
+      </section>
     {:else if !completed.length}
       <div class="awaiting">
         <div>
@@ -587,8 +677,8 @@
     <div>
       <dt>Time</dt>
       <dd>
-        Mean wall time across all attempts, including failed tasks. This is
-        elapsed task time, not tokens per second.
+        Mean agent execution time across all attempts, including failed tasks.
+        Setup and verification are excluded; this is not tokens per second.
       </dd>
     </div>
     <div>
@@ -650,8 +740,8 @@
     </li>
     <li>
       <strong>Measure every attempt</strong><span
-        >Record passes, failures, retries, wall time and API usage. Capture
-        compute separately. Compare identical cohorts.</span
+        >Record passes, failures, retries, agent execution time and API usage.
+        Capture compute separately. Compare identical cohorts.</span
       >
     </li>
   </ol>
@@ -1128,22 +1218,54 @@
   }
   .queue-heading {
     display: flex;
-    justify-content: space-between;
-    gap: 20px;
+    width: 100%;
+    gap: 16px;
     align-items: center;
-    padding: 15px 18px;
-    border-bottom: 1px solid var(--hf-line);
+    padding: 16px 18px;
+    border: 0;
+    background: transparent;
+    text-align: left;
   }
-  .queue-heading h3 {
+  .queue-heading:hover {
+    background: var(--hf-faint);
+  }
+  .queue-title {
     font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
   }
-  .queue-heading > span {
-    font-size: 10px;
+  .queue-total {
+    color: var(--hf-muted);
+    font-size: 11px;
+    margin-left: 6px;
+    font-variant-numeric: tabular-nums;
+  }
+  .queue-counts {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--hf-muted);
+    line-height: 1.6;
+  }
+  .queue-toggle {
+    margin-left: auto;
+    font-size: 11px;
+    font-weight: 400;
+    white-space: nowrap;
+    color: var(--hf-muted);
+  }
+  .queue-toggle > span {
+    margin-left: 8px;
+  }
+  .queue-explanation {
+    border-top: 1px solid var(--hf-line);
+    padding: 14px 18px 0;
+    font-size: 11px;
+    line-height: 1.6;
     color: var(--hf-muted);
   }
   .queue-row {
     display: grid;
-    grid-template-columns: 130px 1fr 70px 65px;
+    grid-template-columns: 115px minmax(0, 1fr) 65px 110px 65px;
     gap: 12px;
     align-items: center;
     padding: 14px 18px;
@@ -1174,8 +1296,30 @@
   .run-status.running {
     color: #54916f;
   }
-  .queue-row p {
+  .queue-details {
     grid-column: 1/-1;
+  }
+  .queue-details-toggle {
+    text-align: right;
+  }
+  .queue-details dl {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px 30px;
+    margin: 0 0 10px;
+    padding-top: 10px;
+  }
+  .queue-details dt {
+    font-size: 10px;
+    color: var(--hf-muted);
+    margin-bottom: 5px;
+  }
+  .queue-details dd {
+    margin: 0;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+  }
+  .queue-details p {
     font-size: 11px;
     color: var(--hf-muted);
     line-height: 1.6;
@@ -1620,26 +1764,39 @@
     .summary-number > span {
       font-size: 8px !important;
     }
-    .queue-heading > span {
-      font-size: 9px;
-      text-align: right;
+    .queue-heading {
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 14px 12px;
+    }
+    .queue-counts {
+      order: 3;
+      width: 100%;
+      font-size: 10px;
+    }
+    .queue-explanation {
+      padding: 12px 12px 0;
     }
     .queue-row {
-      grid-template-columns: 95px 1fr 45px;
+      grid-template-columns: 95px minmax(0, 1fr) 55px;
       gap: 8px;
       padding: 13px 12px;
       font-size: 11px;
     }
     .queue-model {
       font-size: 10px;
+      overflow-wrap: anywhere;
     }
     .queue-progress {
       font-size: 10px;
     }
     .run-status {
-      grid-column: 1;
+      grid-column: 1 / 3;
       font-size: 10px;
       text-align: left;
+    }
+    .queue-details-toggle {
+      grid-column: 3;
     }
     .awaiting {
       flex-direction: column;

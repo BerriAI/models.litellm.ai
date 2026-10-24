@@ -4,7 +4,7 @@ export const harnesses = [
   { id: "claude-code", name: "Claude Code", mark: "✳" },
   { id: "opencode", name: "OpenCode", mark: "▣" },
   { id: "muse-code", name: "Muse Code", mark: "∞" },
-  { id: "kimi-cli", name: "Kimi CLI", mark: "K" },
+  { id: "kimi-cli", name: "Kimi Code", mark: "K" },
 ] as const;
 export type Harness = (typeof harnesses)[number]["id"];
 export type CostBasis = "api" | "total";
