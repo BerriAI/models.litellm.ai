@@ -143,6 +143,11 @@ export function estimateSpend(
   volume: number,
 ) {
   const valid =
+    Number.isFinite(currentCost) &&
+    currentCost >= 0 &&
+    Number.isFinite(candidateCost) &&
+    candidateCost >= 0 &&
+    Number.isFinite(quality) &&
     Number.isFinite(volume) &&
     volume > 0 &&
     Number.isFinite(floor) &&
