@@ -113,14 +113,29 @@ describe("traffic and reconstruction", () => {
     expect(compatible({ id: "no-json", structured: false }, e)).toBe(false);
   });
 });
-describe("evaluation and spending", () => {
-  it("checks output schemas, finish reasons and tool arguments independently of judging", () => {
+describe("evaluation and spending", { timeout: 15000 }, () => {
+  it("never copies model names or catalog-like private labels into reports", async () => {
+    const privateName = "gpt-example-private-project";
+    const result = await run(new FixtureGateway(), {
+      ...options,
+      candidates: [{ ...candidates[0], id: privateName, label: privateName }],
+      judge: { ...judge, id: privateName, label: privateName },
+      baselineLabels: { "example-current": privateName },
+    } as any);
+    expect(JSON.stringify(result)).not.toContain(privateName);
+    expect(result.judge).toBe("Selected gateway judge");
+    expect(result.workloads[0].rows.map((r) => r.name)).toEqual([
+      "Current traffic",
+      "Candidate 1",
+    ]);
+  });
+  it("checks output schemas, finish reasons and tool arguments independently of judging", async () => {
     const e = example();
-    expect(deterministic(e, response('{"total":3}'))).toBe("pass");
-    expect(deterministic(e, response("not json"))).toBe("fail");
-    expect(deterministic(e, response('{"total":"wrong"}'))).toBe("fail");
+    expect(await deterministic(e, response('{"total":3}'))).toBe("pass");
+    expect(await deterministic(e, response("not json"))).toBe("fail");
+    expect(await deterministic(e, response('{"total":"wrong"}'))).toBe("fail");
     expect(
-      deterministic(e, {
+      await deterministic(e, {
         choices: [{ finish_reason: "length", message: { content: "{}" } }],
       }),
     ).toBe("fail");
@@ -141,9 +156,9 @@ describe("evaluation and spending", () => {
         },
       ],
     };
-    expect(deterministic(e, response("Done"))).toBe("fail");
+    expect(await deterministic(e, response("Done"))).toBe("fail");
     expect(
-      deterministic(e, {
+      await deterministic(e, {
         choices: [
           {
             finish_reason: "tool_calls",
@@ -328,7 +343,7 @@ describe("local report and TUI", () => {
   }, 20000);
 });
 
-describe("allocation boundaries", () => {
+describe("allocation boundaries", { timeout: 15000 }, () => {
   it("selects a whole workload and excludes tool turns and partial runs", async () => {
     const { allocation } = await import("../../src/benchmark/allocation");
     const report = await run(new FixtureGateway(), options);

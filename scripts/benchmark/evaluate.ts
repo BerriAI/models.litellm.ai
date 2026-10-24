@@ -1,4 +1,4 @@
-import Ajv from "ajv";
+import { validateSchema, MAX_DATA_BYTES } from "./schema";
 import { object, type Example, type Model, type Obj } from "./data";
 import { Gateway, Meter } from "./gateway";
 export const CRITERIA = {
@@ -12,13 +12,10 @@ export interface Rubric {
   calibrated: boolean;
 }
 export type Verdict = "pass" | "fail" | "unknown";
-const ajv = new Ajv({
-  strictSchema: true,
-  strictTypes: false,
-  allErrors: false,
-  validateFormats: true,
-});
-export function deterministic(example: Example, response: Obj): Verdict {
+export async function deterministic(
+  example: Example,
+  response: Obj,
+): Promise<Verdict> {
   const choice = response.choices?.[0];
   if (
     !choice?.message ||
@@ -30,6 +27,11 @@ export function deterministic(example: Example, response: Obj): Verdict {
   try {
     const format = example.body.response_format;
     if (format?.type === "json_object" || format?.type === "json_schema") {
+      if (
+        typeof message.content !== "string" ||
+        Buffer.byteLength(message.content) > MAX_DATA_BYTES
+      )
+        return "unknown";
       let parsed;
       try {
         parsed = JSON.parse(message.content);
@@ -40,27 +42,38 @@ export function deterministic(example: Example, response: Obj): Verdict {
         return "fail";
       if (format.type === "json_schema") {
         if (!format.json_schema?.schema) return "unknown";
-        if (!ajv.validate(format.json_schema.schema, parsed)) return "fail";
+        const verdict = await validateSchema(
+          format.json_schema.schema,
+          message.content,
+        );
+        if (verdict !== "pass") return verdict;
       }
     }
     if (message.tool_calls) {
       if (!Array.isArray(message.tool_calls)) return "fail";
+      if (message.tool_calls.length > 128) return "unknown";
       for (const call of message.tool_calls) {
         const tool = example.body.tools?.find(
           (t: Obj) => t.function?.name === call.function?.name,
         );
         if (!tool) return "fail";
-        let args;
+        if (
+          typeof call.function.arguments !== "string" ||
+          Buffer.byteLength(call.function.arguments) > MAX_DATA_BYTES
+        )
+          return "unknown";
         try {
-          args = JSON.parse(call.function.arguments);
+          JSON.parse(call.function.arguments);
         } catch {
           return "fail";
         }
-        if (
-          tool.function.parameters &&
-          !ajv.validate(tool.function.parameters, args)
-        )
-          return "fail";
+        if (tool.function.parameters) {
+          const verdict = await validateSchema(
+            tool.function.parameters,
+            call.function.arguments,
+          );
+          if (verdict !== "pass") return verdict;
+        }
       }
     } else if (!message.content) return "fail";
     if (example.body.tool_choice === "required" && !message.tool_calls?.length)
@@ -172,7 +185,7 @@ export async function score(
   response: Obj,
   rubric: Rubric,
 ): Promise<Verdict> {
-  const check = deterministic(example, response);
+  const check = await deterministic(example, response);
   if (check !== "pass") return check;
   if (!rubric.calibrated) return "unknown";
   return judgeOne(gateway, meter, judge, example, response, rubric);

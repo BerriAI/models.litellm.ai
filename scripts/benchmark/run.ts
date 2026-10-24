@@ -35,7 +35,6 @@ export interface Options {
   candidates: Model[];
   judge: Model;
   budget: number;
-  baselineLabels?: Record<string, string>;
   rows: Obj[];
   inventoryComplete: boolean;
   imported?: boolean;
@@ -130,11 +129,11 @@ export async function run(
     evaluationSpend: 0,
     costEstimated: false,
     inventoryComplete: options.inventoryComplete,
-    judge: options.judge.label ?? "Selected gateway judge",
+    judge: "Selected gateway judge",
     workloads: [],
     notices: [
       "Quality measures inferred request requirements, not business outcomes or session completion.",
-      "Public catalog names are shown when available. Otherwise Candidate 1, Candidate 2, … follow terminal selection order. Private deployment aliases and raw content are excluded.",
+      "Candidate 1, Candidate 2, … follow terminal selection order. Model names, private deployment aliases, and raw content are excluded. Keep the terminal mapping to identify selected models.",
       "Cost uses gateway response-cost headers where available, otherwise token-rate estimates. Historical baseline latency is not a simultaneous control.",
       "Traffic shares are weighted estimates of the scanned period. Unsupported and unevaluated traffic is not counted as a replacement opportunity.",
       "Intervals are descriptive request-level Wilson intervals; turns within a session are correlated. Results are exploratory and do not certify a production routing policy.",
@@ -273,16 +272,14 @@ export async function run(
     const rows = [
       aggregate(
         "baseline",
-        options.baselineLabels?.[items[0].model]
-          ? "Current · " + options.baselineLabels[items[0].model]
-          : "Current traffic",
+        "Current traffic",
         current.filter((x) => x.model === "baseline"),
         heldout.length,
       ),
       ...options.candidates.map((model, i) =>
         aggregate(
           "candidate-" + (i + 1),
-          "Candidate " + (i + 1) + (model.label ? " · " + model.label : ""),
+          "Candidate " + (i + 1),
           current.filter((x) => x.model === "candidate-" + (i + 1)),
           heldout.length,
         ),

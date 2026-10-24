@@ -1,13 +1,4 @@
 import { number, object, type Model, type Obj } from "./data";
-/** Accept a catalog model key, never a gateway alias, URL, ARN or deployment path. */
-export function catalogLabel(value: unknown): string | undefined {
-  if (typeof value !== "string" || value.length > 100) return undefined;
-  return /^(?:(?:openai|anthropic|gemini|vertex_ai|groq|mistral|deepseek|moonshot|xai)\/)?(?:gpt-[a-z0-9.-]+|o[134](?:-[a-z0-9.-]+)?|claude-[a-z0-9.-]+|gemini-[a-z0-9.-]+|deepseek-[a-z0-9.-]+|mistral-[a-z0-9.-]+|kimi-[a-z0-9.-]+|grok-[a-z0-9.-]+)$/i.test(
-    value,
-  )
-    ? value
-    : undefined;
-}
 export class GatewayError extends Error {
   constructor(
     public status: number,
@@ -120,7 +111,6 @@ export class Gateway {
             : undefined;
         return {
           id: m.id,
-          label: catalogLabel(same("key")),
           mode: same("mode"),
           input: number(same("input_cost_per_token")),
           output: number(same("output_cost_per_token")),

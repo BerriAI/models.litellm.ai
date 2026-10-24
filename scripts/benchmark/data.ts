@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 export type Obj = Record<string, any>;
 export interface Model {
   id: string;
-  label?: string;
   mode?: string;
   input?: number;
   output?: number;

@@ -27,5 +27,29 @@ jobs:
       - run: npm ci
       - run: npm run benchmark:check
       - run: npm run check
-      - run: npm test
+      - name: Prepare isolated test runtime
+        run: docker pull node:22-bookworm-slim
+      - name: Run tests with isolated network and bounded resources
+        shell: bash
+        run: |
+          container="benchmark-tests-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          trap 'docker rm -f "$container" >/dev/null 2>&1 || true' EXIT
+          test_source="$(mktemp -d)"
+          git archive HEAD | tar -x -C "$test_source"
+          timeout 180s docker run --name "$container" --rm \
+            --network none --read-only --cpus 2 --memory 2g --memory-swap 2g \
+            --pids-limit 128 --ulimit cpu=120:120 --ulimit fsize=67108864:67108864 \
+            --cap-drop ALL --security-opt no-new-privileges \
+            --tmpfs /scratch:rw,nosuid,nodev,size=512m \
+            --mount "type=bind,source=$test_source,target=/source,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/node_modules,target=/dependencies,readonly" \
+            --entrypoint /usr/bin/env node:22-bookworm-slim \
+            -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/scratch TMPDIR=/scratch \
+            /bin/sh -ec '
+              mkdir /scratch/app
+              tar --exclude=node_modules --exclude=.git --exclude=dist -C /source -cf - . | tar -C /scratch/app -xf -
+              ln -s /dependencies /scratch/app/node_modules
+              cd /scratch/app
+              node node_modules/vitest/vitest.mjs run --cache=false --maxWorkers=2
+            '
       - run: npm run benchmark -- --demo --seed 42

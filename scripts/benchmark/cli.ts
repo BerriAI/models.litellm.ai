@@ -329,9 +329,6 @@ async function main() {
     active = true;
     const report = await run(gateway, {
       rows,
-      baselineLabels: Object.fromEntries(
-        models.filter((m) => m.label).map((m) => [m.id, m.label!]),
-      ),
       days,
       sessions,
       seed,
