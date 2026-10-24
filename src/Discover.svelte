@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import PageHero from "./PageHero.svelte";
+  import { getProviderLogo } from "./providers";
   import {
     demoModels,
     demoWorkloads,
@@ -158,7 +159,7 @@
                   ><span class="model-name"
                     ><img
                       class="provider-logo"
-                      src={"/provider-logos/" + row.provider + ".svg"}
+                      src={getProviderLogo(row.provider)}
                       alt={row.providerName}
                     />{row.name}</span
                   ><span class="value">{chart.format(chart.get(row))}</span
@@ -264,7 +265,7 @@
                 <span class="model-name"
                   ><img
                     class="provider-logo"
-                    src={"/provider-logos/" + item.model.provider + ".svg"}
+                    src={getProviderLogo(item.model.provider)}
                     alt={item.model.providerName}
                   />{item.model.name}<small
                     >{item.current ? "CURRENT" : "SELECTED"}</small

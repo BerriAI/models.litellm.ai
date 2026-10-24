@@ -15,7 +15,12 @@ describe("provider dropdown", () => {
     expect(document.body.textContent).toContain("All providers");
   });
 
-  it.each(["bedrock mantle", "bedrock_mantle", "  BEDROCK   MANTLE  "])(
+  it.each([
+    "amazon bedrock mantle",
+    "bedrock mantle",
+    "bedrock_mantle",
+    "  BEDROCK   MANTLE  ",
+  ])(
     "should find and select Mantle with the query %s while preserving its provider ID",
     async (query) => {
       dropdown = new ProviderDropdown({
@@ -34,7 +39,7 @@ describe("provider dropdown", () => {
       ];
       expect(options.map((option) => option.textContent?.trim())).toEqual([
         "All providers",
-        "Bedrock Mantle",
+        "Amazon Bedrock Mantle",
       ]);
       expect(options[1].querySelector("img")?.getAttribute("src")).toBe(
         "/provider-logos/bedrock-color.svg",
@@ -43,7 +48,7 @@ describe("provider dropdown", () => {
       await tick();
       expect(
         document.querySelector(".dropdown-trigger")?.textContent?.trim(),
-      ).toBe("Bedrock Mantle");
+      ).toBe("Amazon Bedrock Mantle");
       expect(document.activeElement).toBe(
         document.querySelector(".dropdown-trigger"),
       );
@@ -62,7 +67,7 @@ describe("provider dropdown", () => {
     input.value = "Amazon";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     await tick();
-    expect(document.querySelectorAll('[role="option"]')).toHaveLength(2);
+    expect(document.querySelectorAll('[role="option"]')).toHaveLength(3);
     input.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
     );
@@ -90,7 +95,7 @@ describe("provider dropdown", () => {
       );
     await tick();
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
-    expect(trigger.textContent).toContain("Bedrock Mantle");
+    expect(trigger.textContent).toContain("Amazon Bedrock Mantle");
     expect(document.activeElement).toBe(trigger);
   });
 
@@ -114,7 +119,7 @@ describe("provider dropdown", () => {
     await tick();
     expect(document.body.textContent).toContain("No matching providers");
     expect(document.querySelector(".dropdown-trigger")?.textContent).toContain(
-      "Bedrock Mantle",
+      "Amazon Bedrock Mantle",
     );
   });
 });

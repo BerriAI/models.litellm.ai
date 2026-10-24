@@ -1,0 +1,1707 @@
+{
+  "a2a": {
+    "file": "upstream/a2a.svg",
+    "source": "https://a2a-protocol.org/latest/assets/a2a_logo/icon/color/SVG/a2a_icon_color.svg",
+    "homepage": "https://a2a-protocol.org/",
+    "sha256": "aa0c6867085cf83d95b454e08422b8a372de4d4fed5063be584aac66c1aafb60",
+    "verifiedOn": "2026-10-24"
+  },
+  "abliteration": {
+    "file": "upstream/abliteration.svg",
+    "source": "https://abliteration.ai/favicon-light.svg",
+    "homepage": "https://abliteration.ai/",
+    "sha256": "0c34d7476f5b234eb0b977c368f40bcb7cb47b61115355ba1a25058329e7aa9e",
+    "verifiedOn": "2026-10-24"
+  },
+  "agentcore": {
+    "file": "aws-color.svg",
+    "source": "https://aws.amazon.com/bedrock/agentcore/",
+    "homepage": "https://aws.amazon.com/bedrock/agentcore/",
+    "note": "Amazon Bedrock AgentCore uses its upstream AWS corporate mark; existing bundled AWS artwork checked against the official AWS site.",
+    "sha256": "ed13fbb4b6b7b3e6de4862d8ca5acf6890a3642675631eb1d301f88398ff117f",
+    "verifiedOn": "2026-10-24"
+  },
+  "ai21": {
+    "file": "upstream/ai21.webp",
+    "source": "https://www.ai21.com/wp-content/uploads/2026/01/favicon.png",
+    "homepage": "https://www.ai21.com/",
+    "sha256": "b303d3bf9b3d7180c51b4bfe851693087be3630a91dd437464d168202998795f",
+    "verifiedOn": "2026-10-24"
+  },
+  "ai21_chat": {
+    "file": "upstream/ai21.webp",
+    "source": "https://www.ai21.com/wp-content/uploads/2026/01/favicon.png",
+    "homepage": "https://www.ai21.com/",
+    "note": "Uses the official ai21 upstream brand; provider endpoint variant.",
+    "sha256": "b303d3bf9b3d7180c51b4bfe851693087be3630a91dd437464d168202998795f",
+    "verifiedOn": "2026-10-24"
+  },
+  "aihubmix": {
+    "file": "upstream/aihubmix.png",
+    "source": "https://aihubmix.com/apple-touch-icon.png",
+    "homepage": "https://aihubmix.com/",
+    "sha256": "3fe75ea3ea13e35a93958e98b37119a3ef8ed61739603a879d3b5c31100b5e26",
+    "verifiedOn": "2026-10-24"
+  },
+  "aiml": {
+    "file": "upstream/aiml.png",
+    "source": "https://cdn.prod.website-files.com/65b8f36fa600366bc7cf9a67/68823171a2a0e523e03b0752_Logo%20Icon.png",
+    "homepage": "https://aimlapi.com/",
+    "sha256": "e4bb3520ee3d8182d9fe539d2f5dcd4b22fbd12b0c116492902b228340481742",
+    "verifiedOn": "2026-10-24"
+  },
+  "aleph_alpha": {
+    "file": "upstream/aleph_alpha.svg",
+    "source": "https://aleph-alpha.com/favicon.svg",
+    "homepage": "https://aleph-alpha.com/",
+    "note": "Official website favicon.",
+    "sha256": "aa6ae529ccc11c1447a8c7de3923370e2543b0504cdf7853c043bc7978438241",
+    "verifiedOn": "2026-10-24"
+  },
+  "amazon_nova": {
+    "file": "upstream/amazon_nova.png",
+    "source": "https://m.media-amazon.com/images/I/31mpUpLsu9L._SL192_FMpng_.png",
+    "homepage": "https://nova.amazon.com/",
+    "sha256": "355c01a0d2dbfa30c662a1e68a604f3b6e92d38b1b6938017b415a31e1e9f24f",
+    "verifiedOn": "2026-10-24"
+  },
+  "anthropic": {
+    "file": "upstream/anthropic.png",
+    "source": "https://www.anthropic.com/images/icons/apple-touch-icon.png",
+    "homepage": "https://www.anthropic.com/",
+    "sha256": "40e3900fcb3ad237af6869dbd40e77efc8eb23549c478125b40e563ac74423cb",
+    "verifiedOn": "2026-10-24"
+  },
+  "anthropic_text": {
+    "file": "upstream/anthropic.png",
+    "source": "https://www.anthropic.com/images/icons/apple-touch-icon.png",
+    "homepage": "https://www.anthropic.com/",
+    "note": "Uses the official anthropic upstream brand; provider endpoint variant.",
+    "sha256": "40e3900fcb3ad237af6869dbd40e77efc8eb23549c478125b40e563ac74423cb",
+    "verifiedOn": "2026-10-24"
+  },
+  "anyscale": {
+    "file": "upstream/anyscale.png",
+    "source": "https://www.anyscale.com/static/favicon-new.ico",
+    "homepage": "https://www.anyscale.com/",
+    "sha256": "c6335fe424e4d84ac81b30cc8c56071651b46da8f5fe0f7912e01449897e47ca",
+    "verifiedOn": "2026-10-24"
+  },
+  "apertis": {
+    "file": "upstream/apertis.svg",
+    "source": "https://apertis.ai/",
+    "homepage": "https://apertis.ai/",
+    "note": "Official inline header symbol; geometry and gradients preserved.",
+    "sha256": "19b6ef692781791826e0a4723acd462d406e6785bf7d0ec7fac258000c11868c",
+    "verifiedOn": "2026-10-24"
+  },
+  "apiserpent": {
+    "file": "upstream/apiserpent.svg",
+    "source": "https://apiserpent.com/favicon.svg",
+    "homepage": "https://apiserpent.com/",
+    "sha256": "83cf24b32e4116df3581a90a5dfc0219c540d3ba6e0190cf0ba6b9ba706638e1",
+    "verifiedOn": "2026-10-24"
+  },
+  "assemblyai": {
+    "file": "upstream/assemblyai.ico",
+    "source": "https://www.assemblyai.com/favicon.ico",
+    "homepage": "https://www.assemblyai.com/",
+    "sha256": "1bfbc6db93b41df593118cb1d149932b1950a975391c42a3f439105d0f4db5dc",
+    "verifiedOn": "2026-10-24"
+  },
+  "auto_router": {
+    "file": null,
+    "source": "https://docs.litellm.ai/docs/providers/",
+    "homepage": "https://docs.litellm.ai/",
+    "note": "LiteLLM routing adapter; no external upstream provider brand.",
+    "verifiedOn": "2026-10-24"
+  },
+  "aws": {
+    "file": "upstream/aws.png",
+    "source": "https://a0.awsstatic.com/libra-css/images/site/touch-icon-ipad-144-smile.png",
+    "homepage": "https://aws.amazon.com",
+    "note": "Legacy alias of sagemaker; uses its upstream brand mark.",
+    "sha256": "f80d3ec6c5b2adee55267ecfcf2fc4131aa8551a546b7a1971b5e465c05c2403",
+    "verifiedOn": "2026-10-24"
+  },
+  "aws_polly": {
+    "file": "aws-color.svg",
+    "source": "https://aws.amazon.com/polly/",
+    "homepage": "https://aws.amazon.com/polly/",
+    "note": "Existing bundled LobeHub mark checked against official provider identity.",
+    "sha256": "ed13fbb4b6b7b3e6de4862d8ca5acf6890a3642675631eb1d301f88398ff117f",
+    "verifiedOn": "2026-10-24"
+  },
+  "azure": {
+    "file": "azure-color.svg",
+    "source": "https://azure.microsoft.com/",
+    "homepage": "https://azure.microsoft.com/",
+    "note": "Existing bundled LobeHub mark checked against official provider identity.",
+    "sha256": "abc639d094593943c1b201270f4903c74d02d2e26acf26abf592a29c222c5181",
+    "verifiedOn": "2026-10-24"
+  },
+  "azure_ai": {
+    "file": "upstream/azure_ai.ico",
+    "source": "https://ai.azure.com/favicon.ico",
+    "homepage": "https://ai.azure.com/",
+    "sha256": "4b527edd0ee4711383501bae4bd3b919fe1330215551df4951e45685fef72fdf",
+    "verifiedOn": "2026-10-24"
+  },
+  "azure_ai/agents": {
+    "file": "upstream/azure_ai.ico",
+    "source": "https://ai.azure.com/favicon.ico",
+    "homepage": "https://ai.azure.com/",
+    "note": "Uses the official azure_ai upstream brand; provider endpoint variant.",
+    "sha256": "4b527edd0ee4711383501bae4bd3b919fe1330215551df4951e45685fef72fdf",
+    "verifiedOn": "2026-10-24"
+  },
+  "azure_ai/doc-intelligence": {
+    "file": "azure-color.svg",
+    "source": "https://azure.microsoft.com/",
+    "homepage": "https://azure.microsoft.com/",
+    "note": "Uses the official azure upstream brand; provider endpoint variant.",
+    "sha256": "abc639d094593943c1b201270f4903c74d02d2e26acf26abf592a29c222c5181",
+    "verifiedOn": "2026-10-24"
+  },
+  "azure_text": {
+    "file": "azure-color.svg",
+    "source": "https://azure.microsoft.com/",
+    "homepage": "https://azure.microsoft.com/",
+    "note": "Uses the official azure upstream brand; provider endpoint variant.",
+    "sha256": "abc639d094593943c1b201270f4903c74d02d2e26acf26abf592a29c222c5181",
+    "verifiedOn": "2026-10-24"
+  },
+  "baseten": {
+    "file": "upstream/baseten.png",
+    "source": "https://www.baseten.co/apple-icon.png",
+    "homepage": "https://www.baseten.co/",
+    "sha256": "62eb91839c4ee20644791dd0c732d9a18943672d6fe12077d4983b09600577e3",
+    "verifiedOn": "2026-10-24"
+  },
+  "bedrock": {
+    "file": "bedrock-color.svg",
+    "source": "https://aws.amazon.com/bedrock/",
+    "homepage": "https://aws.amazon.com/bedrock/",
+    "note": "Existing bundled LobeHub mark checked against official provider identity.",
+    "sha256": "a149a5678ce2b5d821759aabca7b815867027a8231a76723b3673580e8177a60",
+    "verifiedOn": "2026-10-24"
+  },
+  "bedrock_converse": {
+    "file": "bedrock-color.svg",
+    "source": "https://aws.amazon.com/bedrock/",
+    "homepage": "https://aws.amazon.com/bedrock/",
+    "note": "Uses the official bedrock upstream brand; provider endpoint variant.",
+    "sha256": "a149a5678ce2b5d821759aabca7b815867027a8231a76723b3673580e8177a60",
+    "verifiedOn": "2026-10-24"
+  },
+  "bedrock_mantle": {
+    "file": "bedrock-color.svg",
+    "source": "https://aws.amazon.com/bedrock/",
+    "homepage": "https://aws.amazon.com/bedrock/",
+    "note": "Uses the official bedrock upstream brand; provider endpoint variant.",
+    "sha256": "a149a5678ce2b5d821759aabca7b815867027a8231a76723b3673580e8177a60",
+    "verifiedOn": "2026-10-24"
+  },
+  "bespoke": {
+    "file": "upstream/bespoke.png",
+    "source": "https://framerusercontent.com/images/tBmIC2QpuzBT566Qth8NNaI5CJE.png",
+    "homepage": "https://www.bespokelabs.ai/",
+    "sha256": "ef581a93cf46202566a867d90b96653a34eaae0d9e156a4544a1ca8934959f08",
+    "verifiedOn": "2026-10-24"
+  },
+  "bing_grounding": {
+    "file": "upstream/bing_grounding.ico",
+    "source": "https://www.bing.com/favicon.ico",
+    "homepage": "https://www.bing.com/",
+    "note": "Official Bing mark; the homepage-specific search favicon was excluded because it is a magnifying glass.",
+    "sha256": "5b2c34b3c4e8dd898b664dba6c3786e2ff9869eff55d673aa48361f11325ed07",
+    "verifiedOn": "2026-10-24"
+  },
+  "black_forest_labs": {
+    "file": "upstream/black_forest_labs.svg",
+    "source": "https://bfl.ai/icon0.svg?7e050ff634b43f18",
+    "homepage": "https://bfl.ai/",
+    "sha256": "1bf80e5c335f5d222be92634ed3e1d97cbbaedcb62181e4d7c24e7cecc84f60f",
+    "verifiedOn": "2026-10-24"
+  },
+  "brave": {
+    "file": "upstream/brave.png",
+    "source": "https://brave.com/static-assets/images/cropped-brave_appicon_release-192x192.png",
+    "homepage": "https://brave.com/",
+    "sha256": "97567c070955e885787eb1e45768d0e977a88c4b42de6985072b338f29d61552",
+    "verifiedOn": "2026-10-24"
+  },
+  "bytez": {
+    "file": "upstream/bytez.png",
+    "source": "https://bytez.com/favicon.png",
+    "homepage": "https://bytez.com/",
+    "sha256": "168b0b1e3901906aec7cffc4f747ce4139aad21644282aa0db09f7ed209cbbd7",
+    "verifiedOn": "2026-10-24"
+  },
+  "cerebras": {
+    "file": "upstream/cerebras.png",
+    "source": "https://cdn.sanity.io/images/e4qjo92p/production/e7a55ae5ab7e2c4fdfd4e66a51f628d1f2f44207-967x967.png?w=512&h=512&fit=max&auto=format",
+    "homepage": "https://www.cerebras.ai/",
+    "sha256": "820ee5e5acfbb89fc3ca5044c59acc417fea89cf19dd74ae9a289c11e2f05e4c",
+    "verifiedOn": "2026-10-24"
+  },
+  "charity_engine": {
+    "file": "upstream/charity_engine.png",
+    "homepage": "https://www.charityengine.com/",
+    "note": "Official Charity Engine documentation space icon hosted by its operator GridRepublic; https://dev.gridrepublic.org/docs/pages/viewpage.action?pageId=18677766.",
+    "source": "https://dev.gridrepublic.org/docs/download/attachments/15663129/CEP?version=1&modificationDate=1572449993000&api=v2",
+    "sha256": "e5f96f8c9c7f8914e5875965a703e7e6aee35149426e97152b77debcb5a637d1",
+    "verifiedOn": "2026-10-24"
+  },
+  "chatgpt": {
+    "file": "upstream/chatgpt.svg",
+    "source": "https://openai.com/favicon.svg",
+    "homepage": "https://openai.com/",
+    "note": "Official favicon; CSS variables resolved to light background colors.",
+    "sha256": "aa42d3ff4506375a8819539185598380044e2a83ea2ce2752909ca4fe1885e16",
+    "verifiedOn": "2026-10-24"
+  },
+  "chutes": {
+    "file": "upstream/chutes.png",
+    "source": "https://chutes.ai/apple-icon.png?apple-icon.0gj39pa49futm.png",
+    "homepage": "https://chutes.ai/",
+    "sha256": "5151f9a7174092647d30e82e32fb8f5542b5ade3ab26f73819e5940ea09d2855",
+    "verifiedOn": "2026-10-24"
+  },
+  "clarifai": {
+    "file": "upstream/clarifai.png",
+    "homepage": "https://github.com/Clarifai",
+    "note": "Official provider GitHub organization avatar.",
+    "source": "https://avatars.githubusercontent.com/u/8550654?s=200&v=4",
+    "sha256": "f515e5b70d3f71e83576ab0a610dee97f022443a6ad6bf7435c3021a1156e1fd",
+    "verifiedOn": "2026-10-24"
+  },
+  "cloudflare": {
+    "file": "upstream/cloudflare.png",
+    "source": "https://www.cloudflare.com/favicon.ico",
+    "homepage": "https://www.cloudflare.com/",
+    "sha256": "5414bc6e4b3f6e10f99b5d37abf4420da4dcaece66f8f2c08e090e87267adbc5",
+    "verifiedOn": "2026-10-24"
+  },
+  "codestral": {
+    "file": "mistral-color.svg",
+    "source": "https://mistral.ai/",
+    "homepage": "https://mistral.ai/",
+    "note": "Existing bundled LobeHub mark checked against official provider identity.",
+    "sha256": "722f74b289d95486b43662fe24fa883b333701296f618406cd0ed502299170b6",
+    "verifiedOn": "2026-10-24"
+  },
+  "cognition": {
+    "file": "upstream/cognition.svg",
+    "source": "https://cognition.ai/icon.svg?icon.1s218o1m64t65.svg",
+    "homepage": "https://cognition.ai/",
+    "sha256": "207432b78c80378b659deff5114d06e7def680ec6f5b2265a0ac714a9f82beda",
+    "verifiedOn": "2026-10-24"
+  },
+  "cohere": {
+    "file": "upstream/cohere.png",
+    "source": "https://cohere.com/apple-touch-icon.png",
+    "homepage": "https://cohere.com/",
+    "sha256": "3403a04361a061b7e765e85e746b961a601a73015d4569baef9e781ec89a0286",
+    "verifiedOn": "2026-10-24"
+  },
+  "cohere_chat": {
+    "file": "upstream/cohere.png",
+    "source": "https://cohere.com/apple-touch-icon.png",
+    "homepage": "https://cohere.com/",
+    "note": "Uses the official cohere upstream brand; provider endpoint variant.",
+    "sha256": "3403a04361a061b7e765e85e746b961a601a73015d4569baef9e781ec89a0286",
+    "verifiedOn": "2026-10-24"
+  },
+  "cometapi": {
+    "file": "upstream/cometapi.svg",
+    "source": "https://resource.cometapi.com/logo.svg",
+    "homepage": "https://www.cometapi.com/",
+    "sha256": "f18ab431692f7f54d61acd466df46d4366c995a90b96485afad96af94a3aef04",
+    "verifiedOn": "2026-10-24"
+  },
+  "compactifai": {
+    "file": "upstream/compactifai.png",
+    "source": "https://docs.compactif.ai/favicon.png",
+    "homepage": "https://docs.compactif.ai/",
+    "sha256": "8f10766e73896ee80792d77b445802cfbe36470650ee12eb027ddb55694f355a",
+    "verifiedOn": "2026-10-24"
+  },
+  "coralbricks": {
+    "file": "upstream/coralbricks.svg",
+    "source": "https://coralbricks.ai/favicon.svg",
+    "homepage": "https://coralbricks.ai/",
+    "sha256": "cef069531d26390c28e2c1f5b7945a49665e3041c95bde44b2bc1bc6f7e884f3",
+    "verifiedOn": "2026-10-24"
+  },
+  "cortecs": {
+    "file": "upstream/cortecs.ico",
+    "source": "https://cortecs.ai/favicon.ico?favicon.3jhvj25x222qq.ico?dpl=be12d297c1b20d80778bd1a77af4d46eb1588ec6",
+    "homepage": "https://cortecs.ai/",
+    "sha256": "abd23a56debbc1113c09d4383f9551c840a3bef8fb5885300a6aadb62f543e9c",
+    "verifiedOn": "2026-10-24"
+  },
+  "crusoe": {
+    "file": "upstream/crusoe.png",
+    "source": "https://cdn.prod.website-files.com/6855c1aa175582ee23e0aa19/687fc08be763a844e55c26ca_32.png",
+    "homepage": "https://www.crusoe.ai/",
+    "sha256": "5e85c7e68e3c43df5415f5477210b101d8789abb39c6f8ac2c6b470d113db33e",
+    "verifiedOn": "2026-10-24"
+  },
+  "cursor": {
+    "file": "upstream/cursor.svg",
+    "source": "https://cursor.com/marketing-static/favicon-light.svg",
+    "homepage": "https://cursor.com/",
+    "sha256": "aa0f89ece9576acf19e8b6e94c22a36d75bd8a6ed7807802541d9e8183cb3282",
+    "verifiedOn": "2026-10-24"
+  },
+  "custom": {
+    "file": null,
+    "source": "https://docs.litellm.ai/docs/providers/",
+    "homepage": "https://docs.litellm.ai/",
+    "note": "User-supplied custom API adapter; no single upstream brand.",
+    "verifiedOn": "2026-10-24"
+  },
+  "custom_openai": {
+    "file": null,
+    "source": "https://docs.litellm.ai/docs/providers/",
+    "homepage": "https://docs.litellm.ai/",
+    "note": "User-supplied OpenAI-compatible endpoint; no single upstream brand.",
+    "verifiedOn": "2026-10-24"
+  },
+  "darkbloom": {
+    "file": "upstream/darkbloom.svg",
+    "source": "https://darkbloom.ai/favicon.svg",
+    "homepage": "https://darkbloom.ai/",
+    "sha256": "8a29f154e5446435d9ed8bfd6494e8f30300b0e2b377919046a19cdbfc5f650d",
+    "verifiedOn": "2026-10-24"
+  },
+  "dashscope": {
+    "file": "upstream/dashscope.png",
+    "source": "https://img.alicdn.com/tfs/TB1ugg7M9zqK1RjSZPxXXc4tVXa-32-32.png",
+    "homepage": "https://www.alibabacloud.com/",
+    "sha256": "8c48d7a8bea9ba2b13734166259712dbaccf4ca633223bbc03619921f2f2c405",
+    "verifiedOn": "2026-10-24"
+  },
+  "databricks": {
+    "file": "upstream/databricks.png",
+    "source": "https://www.databricks.com/en-website-assets/icons/icon-192x192.png?v=c9b9916c3b27dc51866c46b79a6e9b88",
+    "homepage": "https://www.databricks.com/",
+    "sha256": "ecd81329dd9923816bc02a0d9c5ff6441b9d4ffb9a5e4f4db8a6270ca05411c3",
+    "verifiedOn": "2026-10-24"
+  },
+  "dataforseo": {
+    "file": "upstream/dataforseo.png",
+    "source": "https://dataforseo.com/wp-content/uploads/2022/04/cropped-favicon_512-1-192x192.png",
+    "homepage": "https://dataforseo.com/",
+    "sha256": "fa420d8b76e4d666071ca7a782ac742dae56341b9de8c504df341d81a8a39f78",
+    "verifiedOn": "2026-10-24"
+  },
+  "datarobot": {
+    "file": "upstream/datarobot.png",
+    "source": "https://www.datarobot.com/wp-content/uploads/2024/11/datarobot-favicon-512px-300x300.png",
+    "homepage": "https://www.datarobot.com/",
+    "sha256": "fdbc160c6159642b53bedae2764ea4288048ba66053f86012951476346847cd9",
+    "verifiedOn": "2026-10-24"
+  },
+  "deepgram": {
+    "file": "upstream/deepgram.ico",
+    "source": "https://deepgram.com/favicon.ico?93834efdfdd5438d",
+    "homepage": "https://deepgram.com/",
+    "sha256": "b8c953d2424d8d43ad9abc9e6f43bc850a02b03263d8f89e1b2222ab22e4d7ed",
+    "verifiedOn": "2026-10-24"
+  },
+  "deepinfra": {
+    "file": "upstream/deepinfra.png",
+    "source": "https://deepinfra.com/fav-48.png",
+    "homepage": "https://deepinfra.com/",
+    "sha256": "5ab5eb8f8661e464127033a8378988b44113c04090ecd3c61794dded23ca6ea1",
+    "verifiedOn": "2026-10-24"
+  },
+  "deepseek": {
+    "file": "upstream/deepseek.ico",
+    "source": "https://www.deepseek.com/favicon.ico",
+    "homepage": "https://www.deepseek.com/",
+    "sha256": "30a4420e6e4dcb17fd7de560c5004346c2bc8cd971d2d5f5ee15326603e51321",
+    "verifiedOn": "2026-10-24"
+  },
+  "docker_model_runner": {
+    "file": "upstream/docker_model_runner.png",
+    "source": "https://www.docker.com/app/uploads/2024/02/cropped-docker-logo-favicon-192x192.png",
+    "homepage": "https://www.docker.com/",
+    "sha256": "0ecc60fc860c611cbf042c65ce9137775b6f67bf795af09a7760a4acab054f37",
+    "verifiedOn": "2026-10-24"
+  },
+  "duckduckgo": {
+    "file": "upstream/duckduckgo.png",
+    "source": "https://duckduckgo.com/static-assets/favicons/DDG-iOS-icon_60x60.png",
+    "homepage": "https://duckduckgo.com/",
+    "sha256": "557554d9a22fb80af86d52ac8ec4b716b089ac14d28e61e4017af5d49abd2e48",
+    "verifiedOn": "2026-10-24"
+  },
+  "e2b": {
+    "file": "upstream/e2b.png",
+    "source": "https://e2b.dev/icon2.png?icon2.2h_70q4cu8mj-.png",
+    "homepage": "https://e2b.dev/",
+    "sha256": "d1092c2b5cff5d0fa273cffd0ff3e142e3562452cb19f18bf3eb5cd413e95813",
+    "verifiedOn": "2026-10-24"
+  },
+  "edenai": {
+    "file": "upstream/edenai.png",
+    "source": "https://cdn.prod.website-files.com/61e7d259b7746e2d1df0b68d/6a63231f550a424753eaf4b3_eden%20ai%20logo%20light.png",
+    "homepage": "https://www.edenai.co/",
+    "sha256": "5d4f88263c551bc8354a9efac2c6426cfd67194b0f276e751112ec25a5eaf3ae",
+    "verifiedOn": "2026-10-24"
+  },
+  "elevenlabs": {
+    "file": "upstream/elevenlabs.svg",
+    "source": "https://elevenlabs.io/icon.svg?c23f5371fdd26632",
+    "homepage": "https://elevenlabs.io/",
+    "sha256": "a8ccade64d9d38696c6f47a17ad1eb6d941d687bea0adc7af9b2ccce0e26c29a",
+    "verifiedOn": "2026-10-24"
+  },
+  "empiriolabs": {
+    "file": "upstream/empiriolabs.png",
+    "source": "https://empiriolabs.ai/images/favicon-192.png",
+    "homepage": "https://empiriolabs.ai/",
+    "sha256": "55a3cac35bcaf0ec574767966b46ef01a5923caed4ea9b08ad48425693de992c",
+    "verifiedOn": "2026-10-24"
+  },
+  "empower": {
+    "file": "upstream/empower.png",
+    "homepage": "https://github.com/empower-ai",
+    "note": "Official organization avatar; linked official project documents empower.dev as its provider website.",
+    "source": "https://avatars.githubusercontent.com/u/131738653?s=200&v=4",
+    "sha256": "6e002b95260eb347ba82059c42c57df3fd4fda4aeae26fcb6da1c272326496cb",
+    "verifiedOn": "2026-10-24"
+  },
+  "exa_ai": {
+    "file": "upstream/exa_ai.png",
+    "source": "https://exa.ai/images/favicon-32x32.png",
+    "homepage": "https://exa.ai/",
+    "sha256": "4710f29ee916cecca32c61f3a15ecf939399f74faef6aea861a333ecc910d37b",
+    "verifiedOn": "2026-10-24"
+  },
+  "fal_ai": {
+    "file": "upstream/fal_ai.png",
+    "source": "https://cdn.prod.website-files.com/6a72ef21c470312422dea9b3/6adae13a030770b54ecc8783_fal-icon-favicon.png",
+    "homepage": "https://fal.ai/",
+    "sha256": "3f9867ae04060e02e05ee86447693702aae87dc68354cd664d3ecea44ff4097f",
+    "verifiedOn": "2026-10-24"
+  },
+  "fastcrw": {
+    "file": "upstream/fastcrw.png",
+    "source": "https://fastcrw.com/favicon.png",
+    "homepage": "https://fastcrw.com/",
+    "sha256": "fbfebf3b4d3aa12fda9caaa7392963c33948e674f175eb1847496286688c6a1f",
+    "verifiedOn": "2026-10-24"
+  },
+  "featherless_ai": {
+    "file": "upstream/featherless_ai.png",
+    "source": "https://cdn.prod.website-files.com/6979c6c70c21b50639123793/699d5e1583ded3bc406b6cca_Frame%202147256584.png",
+    "homepage": "https://featherless.ai/",
+    "sha256": "a16eab903cfce8ac59c337e1655d00d6421eb1caefb3492cd2c8f6912dc35841",
+    "verifiedOn": "2026-10-24"
+  },
+  "firecrawl": {
+    "file": "upstream/firecrawl.png",
+    "source": "https://www.firecrawl.dev/favicon.png",
+    "homepage": "https://www.firecrawl.dev/",
+    "sha256": "bc43ca6a2eae73684ec65bb7ba1f74ae13d8bad5763aa6b8676d4fe0b232107f",
+    "verifiedOn": "2026-10-24"
+  },
+  "fireworks": {
+    "file": "upstream/fireworks_ai.svg",
+    "source": "https://fireworks.ai/icon.svg?26fd47f5c5eddcac",
+    "homepage": "https://fireworks.ai/",
+    "note": "Legacy alias of fireworks_ai; uses its upstream brand mark.",
+    "sha256": "d88cab178a47518c6739e33b68bc4ab3670533268e64906aafa6f2c252b1ce03",
+    "verifiedOn": "2026-10-24"
+  },
+  "fireworks_ai": {
+    "file": "upstream/fireworks_ai.svg",
+    "source": "https://fireworks.ai/icon.svg?26fd47f5c5eddcac",
+    "homepage": "https://fireworks.ai/",
+    "sha256": "d88cab178a47518c6739e33b68bc4ab3670533268e64906aafa6f2c252b1ce03",
+    "verifiedOn": "2026-10-24"
+  },
+  "fireworks_ai-embedding-models": {
+    "file": "upstream/fireworks_ai.svg",
+    "source": "https://fireworks.ai/icon.svg?26fd47f5c5eddcac",
+    "homepage": "https://fireworks.ai/",
+    "note": "Uses the official fireworks_ai upstream brand; provider endpoint variant.",
+    "sha256": "d88cab178a47518c6739e33b68bc4ab3670533268e64906aafa6f2c252b1ce03",
+    "verifiedOn": "2026-10-24"
+  },
+  "friendliai": {
+    "file": "upstream/friendliai.svg",
+    "source": "https://friendli.ai/favicon/favicon.svg",
+    "homepage": "https://friendli.ai/",
+    "sha256": "9914173511106e1e321c1fb53ed63cfcfb7a36d77f0a1d3375a4b043859f4e06",
+    "verifiedOn": "2026-10-24"
+  },
+  "galadriel": {
+    "file": "upstream/galadriel.png",
+    "source": "https://framerusercontent.com/images/pMMWbEnRCiOO4PM5UpLRfmtoSR0.png",
+    "homepage": "https://galadriel.com/",
+    "sha256": "983a53bbd43ce990938ed2a4b458a5be529f6d59287039394ec7e7080e62aca5",
+    "verifiedOn": "2026-10-24"
+  },
+  "gdc": {
+    "file": "upstream/gdc.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/distributed-cloud",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "gemini": {
+    "file": "upstream/gemini.png",
+    "source": "https://www.gstatic.com/lamda/images/gemini_sparkle_4g_512_lt_f94943af3be039176192d.png",
+    "homepage": "https://gemini.google.com/",
+    "sha256": "5e7cfecaa53f4f65a313fe89b0f389548126544a78fad8489510c70ae641a4a1",
+    "verifiedOn": "2026-10-24"
+  },
+  "gigachat": {
+    "file": "upstream/gigachat.png",
+    "source": "https://giga.chat/icons/gigachat/apple-icon-180x180.png",
+    "homepage": "https://giga.chat/",
+    "sha256": "47bdda87197a5fad3b1af0046cefb3ee8dc7cd8d616a2ba9929655732917b22a",
+    "verifiedOn": "2026-10-24"
+  },
+  "github": {
+    "file": "upstream/github.svg",
+    "source": "https://github.githubassets.com/favicons/favicon.svg",
+    "homepage": "https://github.com/",
+    "sha256": "6a9577cd4f7fa6b75bde1025af85b944e9dd1388373b55ccba6e9f80ac2eae60",
+    "verifiedOn": "2026-10-24"
+  },
+  "github_copilot": {
+    "file": "githubcopilot.svg",
+    "source": "https://github.com/features/copilot",
+    "homepage": "https://github.com/features/copilot",
+    "note": "Existing bundled LobeHub mark checked against official provider identity.",
+    "sha256": "dd2ffd596ab4df6c09a6df41b1b85d954a6a8f86690c12c7f39fe3be7d6609e6",
+    "verifiedOn": "2026-10-24"
+  },
+  "gmi": {
+    "file": "upstream/gmi.png",
+    "source": "https://www.gmicloud.ai/favicon.ico?favicon.16990nwjshn44.ico",
+    "homepage": "https://www.gmicloud.ai/",
+    "sha256": "b4d91d47b5cb36f0e60a43a2a7a55d179ef725f00e13869cfc1ac9927a48a8bc",
+    "verifiedOn": "2026-10-24"
+  },
+  "google": {
+    "file": "upstream/google_pse.ico",
+    "source": "https://www.google.com/favicon.ico",
+    "homepage": "https://programmablesearchengine.google.com/",
+    "note": "Google brand mark, shared with Google Programmable Search; retained for this legacy Google integration.",
+    "sha256": "6da5620880159634213e197fafca1dde0272153be3e4590818533fab8d040770",
+    "verifiedOn": "2026-10-24"
+  },
+  "google_pse": {
+    "file": "upstream/google_pse.ico",
+    "source": "https://www.google.com/favicon.ico",
+    "homepage": "https://programmablesearchengine.google.com/",
+    "sha256": "6da5620880159634213e197fafca1dde0272153be3e4590818533fab8d040770",
+    "verifiedOn": "2026-10-24"
+  },
+  "gradient_ai": {
+    "file": "upstream/gradient_ai.svg",
+    "source": "https://www.digitalocean.com/_do-www-marketing/d499c6c6/_next/static/media/favicon.91372345.svg",
+    "homepage": "https://www.digitalocean.com/products/gradient",
+    "sha256": "3c70e37aff2456ab3976163ac49b2ec0db36b95ea0f919413b5bab51ee69ac9e",
+    "verifiedOn": "2026-10-24"
+  },
+  "groq": {
+    "file": "upstream/groq.svg",
+    "source": "https://groq.com/favicon.svg",
+    "homepage": "https://groq.com/",
+    "sha256": "62f86752be058119931605a9b068496dc931ccb3d8210614ea373f11fdeef6a1",
+    "verifiedOn": "2026-10-24"
+  },
+  "helicone": {
+    "file": "upstream/helicone.webp",
+    "source": "https://www.helicone.ai/static/logo.webp",
+    "homepage": "https://www.helicone.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "1067737eba5f45550219bffb7869cc4de14e7e3114d8be8cc915672b53c1b7d0",
+    "verifiedOn": "2026-10-24"
+  },
+  "heroku": {
+    "file": "upstream/heroku.png",
+    "source": "https://www.heroku.com/wp-content/uploads/2025/01/apple-touch-icon-180x180-1.png?w=180",
+    "homepage": "https://www.heroku.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "0c41ed3cbb142bacb0bd437644519566ec3056d7eb11851316ec15d32ea3c215",
+    "verifiedOn": "2026-10-24"
+  },
+  "hosted_vllm": {
+    "file": "upstream/vllm.svg",
+    "source": "https://vllm.ai/vLLM-Logo.svg",
+    "homepage": "https://vllm.ai",
+    "note": "vLLM hosted deployment adapter uses the upstream vLLM project logo.",
+    "sha256": "5919f00b2657f7b628c10593f6afe94b7de253259101eafd22c249925218a931",
+    "verifiedOn": "2026-10-24"
+  },
+  "huggingface": {
+    "file": "upstream/huggingface.svg",
+    "source": "https://huggingface.co/front/assets/huggingface_logo-noborder.svg",
+    "homepage": "https://huggingface.co",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "3613c73f07ccae19118bfe6d2f8cd127183d08cf99468a708e090953e116ed0a",
+    "verifiedOn": "2026-10-24"
+  },
+  "hyperbolic": {
+    "file": "upstream/hyperbolic.png",
+    "source": "https://www.hyperbolic.ai/icon-2026.png",
+    "homepage": "https://www.hyperbolic.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "4dce5588e7c2dbfb10655de56a6f4bad5b7c16c9f9516d5f545164aedf721c6c",
+    "verifiedOn": "2026-10-24"
+  },
+  "inception": {
+    "file": "upstream/inception.png",
+    "source": "https://framerusercontent.com/images/u3lyX8mBY8mLYJQ0zOr4Y0ucwe4.png",
+    "homepage": "https://www.inceptionlabs.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "eb576fbfc4d4a8b3c93c8269ec52ec8ec70872d8c51558c085db04074dcc255d",
+    "verifiedOn": "2026-10-24"
+  },
+  "inferenceapis": {
+    "file": "upstream/inferenceapis.svg",
+    "source": "https://inferenceapis.com/favicon/favicon.svg",
+    "homepage": "https://inferenceapis.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "abc31ae46e9d42eb88a46c83fa2d88c5788ee766ab0a116b0a39b9219422a255",
+    "verifiedOn": "2026-10-24"
+  },
+  "infinity": {
+    "file": null,
+    "source": "https://github.com/michaelfeil/infinity",
+    "homepage": "https://github.com/michaelfeil/infinity",
+    "note": "Upstream project has no logo in its repository or documentation. Keep a labeled fallback rather than inventing artwork.",
+    "verifiedOn": "2026-10-24"
+  },
+  "jina_ai": {
+    "file": "upstream/jina_ai.png",
+    "source": "https://jina.ai/icons/favicon-128x128.png",
+    "homepage": "https://jina.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "1fc7fa5210f845fa4efa32dfe1f800063009919ac6a066df3825b80196baa316",
+    "verifiedOn": "2026-10-24"
+  },
+  "lambda_ai": {
+    "file": "upstream/lambda_ai.svg",
+    "source": "https://lambda.ai/hubfs/favicon-48x48-1.svg",
+    "homepage": "https://lambda.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "2bcabdb3b103c5f4c71a171fa9d3ff943187606e1c2973e1ec93d11a3dfb0701",
+    "verifiedOn": "2026-10-24"
+  },
+  "langflow": {
+    "file": "upstream/langflow.ico",
+    "source": "https://www.langflow.org/favicon.ico",
+    "homepage": "https://www.langflow.org",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "0f06c47c5f146db4153c4ebc33cfe4f4bd61b05322af7dc51d48c93161845942",
+    "verifiedOn": "2026-10-24"
+  },
+  "langgraph": {
+    "file": "upstream/langgraph.svg",
+    "source": "https://raw.githubusercontent.com/langchain-ai/langgraph/main/.github/images/logo-light.svg",
+    "homepage": "https://github.com/langchain-ai/langgraph",
+    "note": "Official project logo, viewBox limited to the square brand mark while preserving original geometry.",
+    "sha256": "fbffa86bfa67ede40a4939536b3bf442e06a7ad3a1fb8aa64fa6a07fb3b61a90",
+    "verifiedOn": "2026-10-24"
+  },
+  "laya": {
+    "file": "upstream/laya.svg",
+    "source": "https://raw.githubusercontent.com/NandhaKishorM/laya/main/assets/logo-mark.svg",
+    "homepage": "https://github.com/NandhaKishorM/laya",
+    "note": "Official project logo.",
+    "sha256": "50716ac783d5204c6d9e9955d5767484159ed808edca9c950f57d37a393625f4",
+    "verifiedOn": "2026-10-24"
+  },
+  "lemonade": {
+    "file": "upstream/lemonade.ico",
+    "source": "https://lemonade-server.ai/favicon.ico",
+    "homepage": "https://lemonade-server.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "84c98ff6a18935e6749854bce8922a3db66cb573199f467bebf1df1d0a511005",
+    "verifiedOn": "2026-10-24"
+  },
+  "libertai": {
+    "file": "upstream/libertai.ico",
+    "source": "https://libertai.io/favicon.ico",
+    "homepage": "https://libertai.io",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "5ccbf63d4c60a91501acda150836de71dfa5cc3e0b73d104ff503567cfacb037",
+    "verifiedOn": "2026-10-24"
+  },
+  "linkup": {
+    "file": "upstream/linkup.png",
+    "source": "https://www.linkup.so/_next/static/immutable/media/favicon.0nnprkm5qsjim.png",
+    "homepage": "https://www.linkup.so",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "ee1e10c0988ab34e55d2e16dff81953dd9ccc334f021e221d16c0db007e4b454",
+    "verifiedOn": "2026-10-24"
+  },
+  "litellm_proxy": {
+    "file": "upstream/litellm_proxy.svg",
+    "source": "https://docs.litellm.ai/img/brand/litellm-favicon.svg",
+    "homepage": "https://docs.litellm.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "c91c7123817fffaa080263eba3df18b5eb41c4aae60ce027f15a3894789626a1",
+    "verifiedOn": "2026-10-24"
+  },
+  "llamafile": {
+    "file": "upstream/llamafile.svg",
+    "source": "https://raw.githubusercontent.com/mozilla-ai/llamafile/main/llamafile/llamafile.svg",
+    "homepage": "https://github.com/mozilla-ai/llamafile",
+    "note": "Official website brand mark.",
+    "sha256": "56c9b3d90c5eeb7e88db0dfb007f05d5e24c9c5992004b0d0a2dbf530c5f8fee",
+    "verifiedOn": "2026-10-24"
+  },
+  "llamagate": {
+    "file": "upstream/llamagate.svg",
+    "source": "https://raw.githubusercontent.com/langgenius/dify-official-plugins/522e51fc19c85af9c95387bec2e6dbfd461c2545/models/llamagate/_assets/icon_s_en.svg",
+    "homepage": "https://llamagate.dev/",
+    "note": "Provider-supplied integration icon from founder hkd987 in https://github.com/langgenius/dify-official-plugins/pull/2365, same author as LiteLLM provider PR #18673 and official npm @llamagate/ai-sdk-provider. The upstream-supplied mark is a generic globe; no distinct current brand mark could be verified because llamagate.dev is unavailable. CSS currentColor resolved to #111111; geometry unchanged.",
+    "sha256": "caf1b6da8d4b604ec5e1575bee649efa29f15e034fb3d49f1fec763c50ef7756",
+    "verifiedOn": "2026-10-24"
+  },
+  "lm_studio": {
+    "file": "upstream/lm_studio.png",
+    "source": "https://lmstudio.ai/assets/marketing/logo-192x192.png",
+    "homepage": "https://lmstudio.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "e79ff2ac0fece5c0a76fcb8b20a29226794d11824ee7c7a2f521dcde0f88e12b",
+    "verifiedOn": "2026-10-24"
+  },
+  "manus": {
+    "file": "upstream/manus.svg",
+    "source": "https://manus.im/icon.svg?icon.2kbcs13ndm9it.svg",
+    "homepage": "https://manus.im",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "ee7825396fb63d32477c6f4728cbdc4e6e31963effc961542e9be326955c77bf",
+    "verifiedOn": "2026-10-24"
+  },
+  "maritalk": {
+    "file": "upstream/maritalk.svg",
+    "source": "https://www.maritaca.ai/favicon.svg",
+    "homepage": "https://www.maritaca.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "154af1145ef9243cfaef8eca8702d117b7d22b252293d0e04f3cf75e2b0a50cb",
+    "verifiedOn": "2026-10-24"
+  },
+  "meta": {
+    "file": "meta-color.svg",
+    "source": "https://www.meta.com",
+    "homepage": "https://www.meta.com",
+    "note": "Existing LobeHub artwork checked against the upstream website brand mark.",
+    "sha256": "adf9f2c1a646ccd3a37ca8c2e7e5985d64630cd633f4b95fba393d1d44e0578c",
+    "verifiedOn": "2026-10-24"
+  },
+  "meta_llama": {
+    "file": "meta-color.svg",
+    "source": "https://www.meta.com",
+    "homepage": "https://www.meta.com",
+    "note": "Same upstream brand as meta. Existing LobeHub artwork checked against the upstream website brand mark.",
+    "sha256": "adf9f2c1a646ccd3a37ca8c2e7e5985d64630cd633f4b95fba393d1d44e0578c",
+    "verifiedOn": "2026-10-24"
+  },
+  "microsoft_365_copilot": {
+    "file": "upstream/microsoft_365_copilot.ico",
+    "source": "https://res.cdn.office.net/officehub/images/content/images/unauth-copilotcom/favicon-copilot-brand-refresh-23392c1f66.ico",
+    "homepage": "https://m365.cloud.microsoft/",
+    "note": "Current favicon published by the Microsoft 365 Copilot app.",
+    "sha256": "69e8ead6e5a1a07659606b5a4a5a2c73a41d8a00505594671aef83cad7e8408f",
+    "verifiedOn": "2026-10-24"
+  },
+  "milvus": {
+    "file": "upstream/milvus.png",
+    "source": "https://milvus.io/favicon-32x32.png",
+    "homepage": "https://milvus.io",
+    "note": "Official website brand mark.",
+    "sha256": "6813964a64f65dfabe7fa5a25c2e925a7059a37510521dde9eb0505e7ae099e5",
+    "verifiedOn": "2026-10-24"
+  },
+  "minimax": {
+    "file": "upstream/minimax.ico",
+    "source": "https://www.minimax.io/favicon.ico",
+    "homepage": "https://www.minimax.io",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "43ce4c9b9e627b391a116cd5da09e4c062d9c4e3d585509c65a4a3d16f386256",
+    "verifiedOn": "2026-10-24"
+  },
+  "mistral": {
+    "file": "mistral-color.svg",
+    "source": "https://mistral.ai",
+    "homepage": "https://mistral.ai",
+    "note": "Existing LobeHub artwork checked against the upstream website brand mark.",
+    "sha256": "722f74b289d95486b43662fe24fa883b333701296f618406cd0ed502299170b6",
+    "verifiedOn": "2026-10-24"
+  },
+  "modelscope": {
+    "file": "upstream/modelscope.ico",
+    "source": "https://g.alicdn.com/sail-web/maas/2.13.170/favicon/128.ico",
+    "homepage": "https://www.modelscope.cn",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "3b6b142e048523118878bec4eba9489e8de54ae8308d1c61f6b2a9ee7852e74f",
+    "verifiedOn": "2026-10-24"
+  },
+  "mongodb": {
+    "file": "upstream/mongodb.ico",
+    "source": "https://www.mongodb.com/assets/images/global/favicon.ico",
+    "homepage": "https://www.mongodb.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "1143ff8a5619ad9d016e3d94462f44ae9047ab4ac4c39722d265c88961591a1a",
+    "verifiedOn": "2026-10-24"
+  },
+  "moonshot": {
+    "file": "upstream/moonshot.ico",
+    "source": "https://statics.kimi.ai/moonshot-ai/favicon.ico",
+    "homepage": "https://www.moonshot.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "b963e8d74a9a4f6986fee2662e333ae4b4379f0553c8bf9eee50d40a3077014f",
+    "verifiedOn": "2026-10-24"
+  },
+  "morph": {
+    "file": "upstream/morph.jpg",
+    "source": "https://www.morphllm.com/search.jpg",
+    "homepage": "https://www.morphllm.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "54b4f76792ef019a604d336bc8a415be304427c2fdafb3f140ae9936b1f7fe43",
+    "verifiedOn": "2026-10-24"
+  },
+  "nace": {
+    "file": "upstream/nace.svg",
+    "source": "https://www.nace.ai/icon.svg",
+    "homepage": "https://www.nace.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "397d06ed0614e8b15154c6ee635f4d809f7296d284f3959e3b316d43a62036bf",
+    "verifiedOn": "2026-10-24"
+  },
+  "nadir": {
+    "file": "upstream/nadir.svg",
+    "source": "https://getnadir.com/favicon.svg",
+    "homepage": "https://getnadir.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "eec0da2013999f6776a9f8182afcc9a4f69b92d2a60cbe78b051c15bc9c9d63a",
+    "verifiedOn": "2026-10-24"
+  },
+  "nanogpt": {
+    "file": "upstream/nanogpt.png",
+    "source": "https://nano-gpt.com/favicon/android-chrome-512x512.png",
+    "homepage": "https://nano-gpt.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "c3efa4bf506cba48cbb57a7f961e17b3f7007f01c530acc262e94385bb6c70e6",
+    "verifiedOn": "2026-10-24"
+  },
+  "nebius": {
+    "file": "upstream/nebius.svg",
+    "source": "https://nebius.com/favicon/favicon.svg",
+    "homepage": "https://nebius.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "144418f7c37358467dcb1ccc0760b895850774194a45cbde9ddb675183df205a",
+    "verifiedOn": "2026-10-24"
+  },
+  "neosantara": {
+    "file": "upstream/neosantara.png",
+    "source": "https://docs.neosantara.xyz/mintlify-assets/_mintlify/favicons/neosantara/J-NWEJFNyV2r2Qmg/_generated/favicon/android-chrome-192x192.png",
+    "homepage": "https://docs.neosantara.xyz",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "4d05970b161e873bcbb0a9280d8f055ef4e6b7eb81f22016b792edc8d2fc836e",
+    "verifiedOn": "2026-10-24"
+  },
+  "nimble": {
+    "file": "upstream/nimble.png",
+    "source": "https://cdn.prod.website-files.com/699c65d475d592ff4cf972a8/69a6e7d13f4c5c14051c67f9_Group%202147257033%20(1).png",
+    "homepage": "https://www.nimbleway.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "4771365a239279ef38b360037b604c084de5ed8c8447e1f20ae4b9d6bb1861ab",
+    "verifiedOn": "2026-10-24"
+  },
+  "nlp_cloud": {
+    "file": "upstream/nlp_cloud.png",
+    "source": "https://nlpcloud.com/assets/images/favicon.png",
+    "homepage": "https://nlpcloud.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "c61672ff4604eb458f1d2f04439af2d4b5849ebd4f4bf90e47a0cd4585c6dbbe",
+    "verifiedOn": "2026-10-24"
+  },
+  "novita": {
+    "file": "upstream/novita.ico",
+    "source": "https://novita.ai/favicon.ico",
+    "homepage": "https://novita.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "3e3208da675a7bc7cf4d6dbc2bc813a576f310b8459a56a3da305ba5b260a0c1",
+    "verifiedOn": "2026-10-24"
+  },
+  "nscale": {
+    "file": "upstream/nscale.png",
+    "source": "https://cdn.prod.website-files.com/6a82f7ca23e97c6371bbf5cf/6a82f7ca23e97c6371bbf788_66851aef2492ff79aa3bd859_favicon-32.png",
+    "homepage": "https://www.nscale.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "103153beac8917fabd4a000695352e060ef643bab4dee70762546c22fceae65e",
+    "verifiedOn": "2026-10-24"
+  },
+  "nvidia_nim": {
+    "file": "nvidia-color.svg",
+    "source": "https://www.nvidia.com",
+    "homepage": "https://www.nvidia.com",
+    "note": "Existing LobeHub artwork checked against the upstream website brand mark.",
+    "sha256": "8c941e4eb8b782eccaaea1240c059d20be33ab8eda28d7c9ed9b53ac802fe683",
+    "verifiedOn": "2026-10-24"
+  },
+  "nvidia_riva": {
+    "file": "nvidia-color.svg",
+    "source": "https://www.nvidia.com",
+    "homepage": "https://www.nvidia.com",
+    "note": "Same upstream brand as nvidia_nim. Existing LobeHub artwork checked against the upstream website brand mark.",
+    "sha256": "8c941e4eb8b782eccaaea1240c059d20be33ab8eda28d7c9ed9b53ac802fe683",
+    "verifiedOn": "2026-10-24"
+  },
+  "oci": {
+    "file": "upstream/oci.png",
+    "source": "https://www.oracle.com/asset/web/favicons/favicon-32.png",
+    "homepage": "https://www.oracle.com/cloud/",
+    "note": "Official website brand mark.",
+    "sha256": "e24f15815d2cf3e2bab2323a684dfc8b0b86ea3da044465765b0e35cfd50793c",
+    "verifiedOn": "2026-10-24"
+  },
+  "ollama": {
+    "file": "ollama.svg",
+    "source": "https://ollama.com",
+    "homepage": "https://ollama.com",
+    "note": "Existing LobeHub artwork checked against the upstream website brand mark.",
+    "sha256": "25dcf23ad770e8900f163cc4281f65e5a8c3bb00e23b55411766b0cfff18aea0",
+    "verifiedOn": "2026-10-24"
+  },
+  "ollama_chat": {
+    "file": "ollama.svg",
+    "source": "https://ollama.com",
+    "homepage": "https://ollama.com",
+    "note": "Same upstream brand as ollama. Existing LobeHub artwork checked against the upstream website brand mark.",
+    "sha256": "25dcf23ad770e8900f163cc4281f65e5a8c3bb00e23b55411766b0cfff18aea0",
+    "verifiedOn": "2026-10-24"
+  },
+  "oobabooga": {
+    "file": "upstream/oobabooga.png",
+    "source": "https://raw.githubusercontent.com/oobabooga/textgen/main/css/icon.png",
+    "homepage": "https://github.com/oobabooga/textgen",
+    "note": "Official website brand mark.",
+    "sha256": "05f7583bfb4e3ca80b8356a9023636d2d9e51fddeeb718f24e3748fa1014527b",
+    "verifiedOn": "2026-10-24"
+  },
+  "openai": {
+    "file": "upstream/openai.svg",
+    "source": "https://openai.com/favicon.svg",
+    "homepage": "https://openai.com",
+    "note": "Official favicon with light-theme CSS variables resolved to explicit white background and black logo.",
+    "sha256": "aa42d3ff4506375a8819539185598380044e2a83ea2ce2752909ca4fe1885e16",
+    "verifiedOn": "2026-10-24"
+  },
+  "openai_like": {
+    "file": null,
+    "source": "https://docs.litellm.ai/docs/providers/openai_compatible",
+    "homepage": "https://docs.litellm.ai/docs/providers/openai_compatible",
+    "note": "Generic OpenAI-compatible adapter, not an upstream provider brand.",
+    "verifiedOn": "2026-10-24"
+  },
+  "openinfer": {
+    "file": "upstream/openinfer.png",
+    "source": "https://openinfer.ai/apple-touch-icon.png",
+    "homepage": "https://openinfer.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "f3ebedb4d0ae571c591223ba3262e9d9562a210c8e5ab1bd0c92e602dc6d34db",
+    "verifiedOn": "2026-10-24"
+  },
+  "openrouter": {
+    "file": "upstream/openrouter.png",
+    "source": "https://openrouter.ai/apple-touch-icon.png",
+    "homepage": "https://openrouter.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "ec915bd303e5d8501f02a37029fa01ede150b507357ef4c9739efb720d0df445",
+    "verifiedOn": "2026-10-24"
+  },
+  "opensandbox": {
+    "file": "upstream/opensandbox.svg",
+    "source": "https://open-sandbox.ai/favicon.svg",
+    "homepage": "https://open-sandbox.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "f95a05354594ebf9b3581e5184c24f53fa2e7bc0bc48185ffd2b9793087f16dc",
+    "verifiedOn": "2026-10-24"
+  },
+  "oracle": {
+    "file": "upstream/oci.png",
+    "source": "https://www.oracle.com/asset/web/favicons/favicon-32.png",
+    "homepage": "https://www.oracle.com/cloud/",
+    "note": "Legacy alias of oci; uses its upstream brand mark.",
+    "sha256": "e24f15815d2cf3e2bab2323a684dfc8b0b86ea3da044465765b0e35cfd50793c",
+    "verifiedOn": "2026-10-24"
+  },
+  "ovhcloud": {
+    "file": "upstream/ovhcloud.svg",
+    "source": "https://us.ovhcloud.com/icon.svg",
+    "homepage": "https://www.ovhcloud.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "777cf670bd592d44095cfc923d85550a3a63ba6a8774b55a88b584c51654006d",
+    "verifiedOn": "2026-10-24"
+  },
+  "palm": {
+    "file": "upstream/google_pse.ico",
+    "source": "https://www.google.com/favicon.ico",
+    "homepage": "https://programmablesearchengine.google.com/",
+    "note": "Google brand mark, shared with Google Programmable Search; retained for this legacy Google integration.",
+    "sha256": "6da5620880159634213e197fafca1dde0272153be3e4590818533fab8d040770",
+    "verifiedOn": "2026-10-24"
+  },
+  "parallel_ai": {
+    "file": "upstream/parallel_ai.svg",
+    "source": "https://parallel.ai/icon.svg?icon.1d0de8d5.svg",
+    "homepage": "https://parallel.ai",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "116950c81e4b0881d60a75c6e4cef770c6a24254d070ecf9191a5d16bb88ad0c",
+    "verifiedOn": "2026-10-24"
+  },
+  "parasail": {
+    "file": "upstream/parasail.svg",
+    "source": "https://www.parasail.io/favicon.svg",
+    "homepage": "https://www.parasail.io",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "dcb7bc7b38e7db9db2b7496b4ca60f350429f03da2a912aa0098919c564a338c",
+    "verifiedOn": "2026-10-24"
+  },
+  "perplexity": {
+    "file": "upstream/perplexity.ico",
+    "source": "https://www.perplexity.ai/favicon.ico",
+    "homepage": "https://www.perplexity.ai",
+    "note": "Official website brand mark.",
+    "sha256": "df9a6478592660077e4e774d37bae6db1eb4d7d9d2cac31f0dcdab8804f76c06",
+    "verifiedOn": "2026-10-24"
+  },
+  "petals": {
+    "file": "upstream/petals.svg",
+    "source": "https://petals.dev/logo.svg",
+    "homepage": "https://petals.dev",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "a665aeef924466bf2a6e8abc312e2590040e0052289686a3fc92f22fc83db1c7",
+    "verifiedOn": "2026-10-24"
+  },
+  "pg_vector": {
+    "file": null,
+    "source": "https://github.com/pgvector/pgvector",
+    "homepage": "https://github.com/pgvector/pgvector",
+    "note": "Upstream pgvector project has no published logo in its repository. Keep a labeled fallback rather than substituting the PostgreSQL logo.",
+    "verifiedOn": "2026-10-24"
+  },
+  "pinstripes": {
+    "file": "upstream/pinstripes.png",
+    "source": "https://pinstripes.io/logo-nav.png",
+    "homepage": "https://pinstripes.io",
+    "note": "Official website navigation logo.",
+    "sha256": "612a5e4c81623f27bec4f5abb060cf84d920e58ba2473c923178ec4088a6744d",
+    "verifiedOn": "2026-10-24"
+  },
+  "poe": {
+    "file": "upstream/poe.svg",
+    "source": "https://psc2.cf2.poecdn.net/assets/favicon.svg",
+    "homepage": "https://poe.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "9d5afd61c22930329b81fb1c533b0ad215724aa1494f373a4ba5799ea5f0e65f",
+    "verifiedOn": "2026-10-24"
+  },
+  "predibase": {
+    "file": "upstream/predibase.png",
+    "source": "https://avatars.githubusercontent.com/u/75280641?s=128",
+    "homepage": "https://github.com/predibase",
+    "note": "Official Predibase organization avatar; original marketing site redirects to Rubrik after acquisition.",
+    "sha256": "70f77a585765a874a710e4b862a35e466f4fd32e62fc60d82db8469df9913c1b",
+    "verifiedOn": "2026-10-24"
+  },
+  "prism": {
+    "file": "upstream/prism.ico",
+    "source": "https://prisminference.com/favicon.ico?favicon.1u-5x1bqeobw9.ico",
+    "homepage": "https://prisminference.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "0bf1402b4335025e546d98653a95ee852a0244e80c778061722a3161bef638a7",
+    "verifiedOn": "2026-10-24"
+  },
+  "publicai": {
+    "file": "upstream/publicai.png",
+    "source": "https://publicai.co/logo-mark.png",
+    "homepage": "https://publicai.co",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "ccd45bbb3079647f45e2122373f9165f8649eb42413aa8b57a630cf9b2a68f09",
+    "verifiedOn": "2026-10-24"
+  },
+  "pydantic_ai_agents": {
+    "file": "upstream/pydantic_ai_agents.png",
+    "source": "https://pydantic.dev/docs/favicon.png",
+    "homepage": "https://ai.pydantic.dev",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "956b0efb5cce98c87590f1b23ea945b43448a48e2da53175faca74a9c851e563",
+    "verifiedOn": "2026-10-24"
+  },
+  "qwen_ai_platform": {
+    "file": "upstream/qwen_ai_platform.png",
+    "source": "https://img.alicdn.com/imgextra/i3/O1CN01JJdN1q1YO2LyUcGwF_!!6000000003048-2-tps-48-48.png",
+    "homepage": "https://www.qianwenai.com",
+    "note": "Official website favicon or brand mark.",
+    "sha256": "fb81bb8eb98062bc9f3bbe4492ad6f3624adbd52a6e3ed7e742ab48b1a5b5b4c",
+    "verifiedOn": "2026-10-24"
+  },
+  "qwencloud": {
+    "file": "upstream/qwencloud.png",
+    "source": "https://avatars.githubusercontent.com/u/267222633?s=128",
+    "homepage": "https://github.com/QwenCloud",
+    "note": "Official QwenCloud organization avatar; organization links to qwencloud.com.",
+    "sha256": "00adaf29c6d7f6848081f041c34ef6e10d4c070260b2659286f212db4bb025ec",
+    "verifiedOn": "2026-10-24"
+  },
+  "ragflow": {
+    "file": "upstream/ragflow.svg",
+    "source": "https://ragflow.io/img/logo.svg",
+    "homepage": "https://ragflow.io",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "dbfc34d9c799ac37171594bdd4d11196e9392c131c478a6ab46536f6e738fe2e",
+    "verifiedOn": "2026-10-24"
+  },
+  "recraft": {
+    "file": "upstream/recraft.png",
+    "source": "https://framerusercontent.com/images/id5ZjKRfENkLEfAMrnKLKJfqfE.png",
+    "homepage": "https://www.recraft.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "1236aa59603ef5a46d0e7ddbc32cdad7cbb2cd991221ae7cd6c24ec54d9e95fd",
+    "verifiedOn": "2026-10-24"
+  },
+  "reducto": {
+    "file": "upstream/reducto.png",
+    "source": "https://reducto.ai/apple-touch-icon.png",
+    "homepage": "https://reducto.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "254f6dfe0fb53e0be0bcbd0eccf225a72aeeec039866a8608e110ba2f349742c",
+    "verifiedOn": "2026-10-24"
+  },
+  "reka": {
+    "file": "upstream/reka.jpg",
+    "source": "https://framerusercontent.com/images/XekAjHcWv2prUE9pJiSj61CD54.jpg",
+    "homepage": "https://reka.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "e1cec73d781195d9de74015cf52d2f99c1dafc12e98c0e94868100efbf6f6752",
+    "verifiedOn": "2026-10-24"
+  },
+  "replicate": {
+    "file": "upstream/replicate.png",
+    "source": "https://static.replicateassets.com/fe/44974001ab91965fb9ed929edd36e0055fd18d07/favicon-CKiqAkf2.png",
+    "homepage": "https://replicate.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "f37c94aa13c296973edb190f845161aaf4dc80eb18165e44bca1c090a7b638ae",
+    "verifiedOn": "2026-10-24"
+  },
+  "runwayml": {
+    "file": "upstream/runwayml.png",
+    "source": "https://runway.com/icon.png?icon.35ps9bmugbe1e.png",
+    "homepage": "https://runwayml.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "f545e0e706d0c6be0e8602a8e8d685d4f43ab72880bd5e6a234916e765ff2b70",
+    "verifiedOn": "2026-10-24"
+  },
+  "s3_vectors": {
+    "file": "upstream/aws.png",
+    "source": "https://a0.awsstatic.com/libra-css/images/site/touch-icon-ipad-144-smile.png",
+    "homepage": "https://aws.amazon.com",
+    "note": "Service/endpoint alias shares the aws provider mark.",
+    "sha256": "f80d3ec6c5b2adee55267ecfcf2fc4131aa8551a546b7a1971b5e465c05c2403",
+    "verifiedOn": "2026-10-24"
+  },
+  "sagemaker": {
+    "file": "upstream/aws.png",
+    "source": "https://a0.awsstatic.com/libra-css/images/site/touch-icon-ipad-144-smile.png",
+    "homepage": "https://aws.amazon.com",
+    "note": "Service/endpoint alias shares the aws provider mark.",
+    "sha256": "f80d3ec6c5b2adee55267ecfcf2fc4131aa8551a546b7a1971b5e465c05c2403",
+    "verifiedOn": "2026-10-24"
+  },
+  "sagemaker_chat": {
+    "file": "upstream/aws.png",
+    "source": "https://a0.awsstatic.com/libra-css/images/site/touch-icon-ipad-144-smile.png",
+    "homepage": "https://aws.amazon.com",
+    "note": "Service/endpoint alias shares the aws provider mark.",
+    "sha256": "f80d3ec6c5b2adee55267ecfcf2fc4131aa8551a546b7a1971b5e465c05c2403",
+    "verifiedOn": "2026-10-24"
+  },
+  "sail": {
+    "file": "upstream/sail.ico",
+    "source": "https://www.sailresearch.com/favicon.ico?favicon.3hei879b_calg.ico",
+    "homepage": "https://www.sailresearch.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "eea87eb4da730dcd61a3f17c71b4ad3ca4c12cc9a9c644f7cb94af38a10fa0c4",
+    "verifiedOn": "2026-10-24"
+  },
+  "sambanova": {
+    "file": "upstream/sambanova.png",
+    "source": "https://sambanova.ai/hubfs/sambanova-favicon.png",
+    "homepage": "https://sambanova.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "2621eabab0945bc71c1cb51ba034e2350ed19ac6fee2beaae88bdcf1cd1c4c84",
+    "verifiedOn": "2026-10-24"
+  },
+  "sap": {
+    "file": "upstream/sap.svg",
+    "source": "https://help.sap.com/static/favicon.svg",
+    "homepage": "https://help.sap.com",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "a55147d5a3412b5a8964d3cfa0f7f06b89600f1c5091798c518457823985ae93",
+    "verifiedOn": "2026-10-24"
+  },
+  "sarvam": {
+    "file": "upstream/sarvam.svg",
+    "source": "https://www.sarvam.ai/favicon.svg",
+    "homepage": "https://www.sarvam.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "ed8d3c4c2b12d0e13ad9c5675290a185b0ae82c7591df311571dcfb236e3c255",
+    "verifiedOn": "2026-10-24"
+  },
+  "scaledown": {
+    "file": "upstream/scaledown.png",
+    "source": "https://scaledown.ai/logo_actual.png",
+    "homepage": "https://scaledown.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "788ef8e17963028e8c2abb4424be90236f41de958e9c498417d293528338ab8f",
+    "verifiedOn": "2026-10-24"
+  },
+  "scaleway": {
+    "file": "upstream/scaleway.svg",
+    "source": "https://www.scaleway.com/favicon/website/favicon.svg",
+    "homepage": "https://www.scaleway.com/en/",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "51c7ffa592c55e6801f218d9a5ee7072cffb716438e2d09702f50cc582a25f3b",
+    "verifiedOn": "2026-10-24"
+  },
+  "scx-ai": {
+    "file": "upstream/scx-ai.png",
+    "source": "https://scx.ai/scx-logo-square.png",
+    "homepage": "https://scx.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "f03520f96164c55046bb0cb1a966c34a07de6848b8f3fbd1bf2424cd4a8ac623",
+    "verifiedOn": "2026-10-24"
+  },
+  "searchapi": {
+    "file": "upstream/searchapi.svg",
+    "source": "https://www.searchapi.io/favicon.svg",
+    "homepage": "https://www.searchapi.io",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "7f3019655841c1bf934f9e0a36af30ecc9447f927d411b5d395c942b34bae1ef",
+    "verifiedOn": "2026-10-24"
+  },
+  "searxng": {
+    "file": "upstream/searxng.svg",
+    "source": "https://raw.githubusercontent.com/searxng/searxng/master/searx/static/themes/simple/img/favicon.svg",
+    "homepage": "https://github.com/searxng/searxng",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "f9648e5f17096449c945da8fe88f75761dc8d708ecef03cec34de3fffc4cbf2c",
+    "verifiedOn": "2026-10-24"
+  },
+  "serper": {
+    "file": "upstream/serper.png",
+    "source": "https://serper.dev/apple-touch-icon.png",
+    "homepage": "https://serper.dev",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "d7ad3d558791116fe3017a422500d9abe7e20ecd7f2c71c8898b2604b70cbf65",
+    "verifiedOn": "2026-10-24"
+  },
+  "snowflake": {
+    "file": "upstream/snowflake.svg",
+    "source": "https://docs.snowflake.com/images/favicon/favicon.svg",
+    "homepage": "https://docs.snowflake.com",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "f4e91488112192298cb20db395792463ce5edc80d034737e1bf553945cbca2d3",
+    "verifiedOn": "2026-10-24"
+  },
+  "soniox": {
+    "file": "upstream/soniox.png",
+    "source": "https://soniox.com/icons/favicon-96x96.png",
+    "homepage": "https://soniox.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "74f7a6cb1e4ca49dd80423e658db537683d9ce0b5abcfb22c7e69152665d3cb8",
+    "verifiedOn": "2026-10-24"
+  },
+  "stability": {
+    "file": "upstream/stability.png",
+    "source": "https://images.squarespace-cdn.com/content/v1/6213c340453c3f502425776e/804f0e8b-0028-4262-a8b0-b9f1c5de72c0/favicon.ico?format=100w",
+    "homepage": "https://stability.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "3ad1fd122c6db232b8628a48be8f194ecf975b89949b144a46a0c3bd540922fa",
+    "verifiedOn": "2026-10-24"
+  },
+  "strands_decider": {
+    "file": "upstream/strands_decider.svg",
+    "source": "https://strandsagents.com/favicon.svg",
+    "homepage": "https://github.com/strands-labs/strands-decider",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "b463b6ab2c9e64317862681a882278360ce0ea90387a136c5f1a2d0375eaff18",
+    "verifiedOn": "2026-10-24"
+  },
+  "synthetic": {
+    "file": "upstream/synthetic.svg",
+    "source": "https://synthetic.new/favicon.svg",
+    "homepage": "https://synthetic.new",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "774964a353a9718f4ca2599e466a628d35b172f73257594728cbf3a4974d8d82",
+    "verifiedOn": "2026-10-24"
+  },
+  "tavily": {
+    "file": "upstream/tavily.svg",
+    "source": "https://www.tavily.com/icon.svg?icon.0v6b1ltlljvdd.svg",
+    "homepage": "https://www.tavily.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "c265bd72bed3b8c509a4e3abdd378f4462ef26ff4a3c8789b5aa88c2f6107b65",
+    "verifiedOn": "2026-10-24"
+  },
+  "tencent": {
+    "file": "upstream/tencent.ico",
+    "source": "https://cloudcache.tencent-cloud.com/qcloud/favicon.ico?t=201902181234",
+    "homepage": "https://cloud.tencent.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "5171df10b79863d76d591705e52b93b4c5295e64d874e41fca5ecac351f5f45e",
+    "verifiedOn": "2026-10-24"
+  },
+  "tensormesh": {
+    "file": "upstream/tensormesh.png",
+    "source": "https://docs.tensormesh.ai/mintlify-assets/_mintlify/favicons/tensormesh/R0zN8lJQQa-dJaS4/_generated/favicon/android-chrome-192x192.png",
+    "homepage": "https://docs.tensormesh.ai",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "b2f4a93ae66cce8f10920bd194f6d38ae0a73191d747ef82f45063d3697819f0",
+    "verifiedOn": "2026-10-24"
+  },
+  "text-completion-codestral": {
+    "file": "mistral-color.svg",
+    "source": "https://mistral.ai",
+    "homepage": "https://mistral.ai",
+    "note": "Codestral completion endpoint is a Mistral API alias. Existing licensed LobeHub pixel M matches the official Mistral header.",
+    "sha256": "722f74b289d95486b43662fe24fa883b333701296f618406cd0ed502299170b6",
+    "verifiedOn": "2026-10-24"
+  },
+  "text-completion-inception": {
+    "file": "upstream/inception.png",
+    "source": "https://framerusercontent.com/images/y5L2OctMTnQDhiVDBUBArywmSY.png",
+    "homepage": "https://www.inceptionlabs.ai",
+    "note": "Inception completion endpoint alias uses the official website favicon.",
+    "sha256": "eb576fbfc4d4a8b3c93c8269ec52ec8ec70872d8c51558c085db04074dcc255d",
+    "verifiedOn": "2026-10-24"
+  },
+  "text-completion-openai": {
+    "file": "upstream/openai.svg",
+    "source": "https://openai.com/favicon.svg",
+    "homepage": "https://openai.com",
+    "note": "OpenAI completion endpoint alias uses the OpenAI mark, downloaded from the official website.",
+    "sha256": "aa42d3ff4506375a8819539185598380044e2a83ea2ce2752909ca4fe1885e16",
+    "verifiedOn": "2026-10-24"
+  },
+  "tinyfish": {
+    "file": "upstream/tinyfish.svg",
+    "source": "https://www.tinyfish.ai/favicon-for-app/icon0.svg",
+    "homepage": "https://tinyfish.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "a4727ab629a3402f8fab552ca66b29de3c8ef5f92d987bccf79dcc0c8670b611",
+    "verifiedOn": "2026-10-24"
+  },
+  "together_ai": {
+    "file": "upstream/together_ai.png",
+    "source": "https://cdn.prod.website-files.com/69654e88dce9154b5f1206dd/699e382b218f39bfa0a115d9_favicon.png",
+    "homepage": "https://www.together.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "2c02a5d635eae4f63153e9eacb24e001e21f84a4b667a5925f120c1492c58f30",
+    "verifiedOn": "2026-10-24"
+  },
+  "topaz": {
+    "file": "upstream/topaz.png",
+    "source": "https://cdn.prod.website-files.com/6005fac27a49a9cd477afb63/66207d48d19641ced6ae4796_tnb-favicon-256.png",
+    "homepage": "https://www.topazlabs.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "3581778748092b978d1946f28b55a8a7a1a09bb21e5da4c6ee3356f9e65dc08c",
+    "verifiedOn": "2026-10-24"
+  },
+  "transcribe": {
+    "file": "upstream/aws.png",
+    "source": "https://a0.awsstatic.com/libra-css/images/site/touch-icon-ipad-144-smile.png",
+    "homepage": "https://aws.amazon.com",
+    "note": "Service/endpoint alias shares the aws provider mark.",
+    "sha256": "f80d3ec6c5b2adee55267ecfcf2fc4131aa8551a546b7a1971b5e465c05c2403",
+    "verifiedOn": "2026-10-24"
+  },
+  "triton": {
+    "file": "nvidia-color.svg",
+    "source": "https://developer.nvidia.com/triton-inference-server",
+    "homepage": "https://developer.nvidia.com/triton-inference-server",
+    "note": "NVIDIA Triton uses NVIDIA branding. Existing licensed LobeHub green NVIDIA eye matches the official product site.",
+    "sha256": "8c941e4eb8b782eccaaea1240c059d20be33ab8eda28d7c9ed9b53ac802fe683",
+    "verifiedOn": "2026-10-24"
+  },
+  "typesafe": {
+    "file": "upstream/typesafe.png",
+    "source": "https://framerusercontent.com/images/aNFzSFxM4fjICmnibw7npfZjcQ.png",
+    "homepage": "https://typesafe.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "fcb8f554778c45ff62b97ca05df643588b39c8c66913736b7fe3485cedd96180",
+    "verifiedOn": "2026-10-24"
+  },
+  "v0": {
+    "file": "upstream/v0.svg",
+    "source": "https://v0.app/assets/icon.svg",
+    "homepage": "https://v0.app",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "648180a61c28f43c9c61328b86ceed51acb477ad1d615277523a41d481fd86db",
+    "verifiedOn": "2026-10-24"
+  },
+  "valkey": {
+    "file": "upstream/valkey.png",
+    "source": "https://valkey.io/img/favicon/apple-touch-icon.png",
+    "homepage": "https://valkey.io",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "f7fab0005544b233176d1bd63bd5bdbe64961043a6f9499f8104c201cba45138",
+    "verifiedOn": "2026-10-24"
+  },
+  "venice": {
+    "file": "upstream/venice.png",
+    "source": "https://venice.ai/favicon.png",
+    "homepage": "https://venice.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "4c0bc911c1fd12ad2f79d01ad0ca60a8f1a85ed5aa0a2e41630fdc86f8b8cf83",
+    "verifiedOn": "2026-10-24"
+  },
+  "vercel_ai_gateway": {
+    "file": "upstream/vercel_ai_gateway.png",
+    "source": "https://assets.vercel.com/image/upload/q_auto/front/favicon/vercel/apple-touch-icon-57x57.png",
+    "homepage": "https://vercel.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "00da22bd9619febf05bb8326b97c58a2ddcdeb50d1f3d5fdf344c075d06ac1f4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-ai21_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-anthropic_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-deepseek_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-embedding-models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-language-models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-llama_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-minimax_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-mistral_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-moonshot_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-openai_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-qwen_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-text-models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-video-models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai-zai_models": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertex_ai/agent_engine": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Google Cloud Vertex AI endpoint alias uses the serving platform brand, not a hosted model author.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vertexai": {
+    "file": "upstream/vertex_ai.png",
+    "source": "https://www.gstatic.com/cgc/super_cloud_gradient.png",
+    "homepage": "https://cloud.google.com/vertex-ai",
+    "note": "Legacy alias of vertex_ai; uses its upstream brand mark.",
+    "sha256": "a332b54b620a2fa04413561c01c925cd40f936581c7bed52df424ecccc9c08b4",
+    "verifiedOn": "2026-10-24"
+  },
+  "vllm": {
+    "file": "upstream/vllm.svg",
+    "source": "https://vllm.ai/vLLM-Logo.svg",
+    "homepage": "https://vllm.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "5919f00b2657f7b628c10593f6afe94b7de253259101eafd22c249925218a931",
+    "verifiedOn": "2026-10-24"
+  },
+  "volcengine": {
+    "file": "upstream/volcengine.png",
+    "source": "https://portal.volccdn.com/obj/volcfe/misc/favicon.png",
+    "homepage": "https://www.volcengine.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "187b85612796c9def2a0f328538bf249fd62d549379b44a68ed9fa949b531b9f",
+    "verifiedOn": "2026-10-24"
+  },
+  "voyage": {
+    "file": "upstream/voyage.svg",
+    "source": "https://www.voyageai.com/icon.svg",
+    "homepage": "https://www.voyageai.com",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "dd27eee6d8329528f1fba7b86e0b4bf57389d081ce53a4e1d76bef036d1499ff",
+    "verifiedOn": "2026-10-24"
+  },
+  "wandb": {
+    "file": "upstream/wandb.png",
+    "source": "https://raw.githubusercontent.com/wandb/docs/main/favicon.png",
+    "homepage": "https://github.com/wandb/docs",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "46d0970b43f04ecc193f36c13c348c43e85d58190bfba08008ad129ff5bbfa7e",
+    "verifiedOn": "2026-10-24"
+  },
+  "watsonx": {
+    "file": "ibm.svg",
+    "source": "https://www.ibm.com/products/watsonx",
+    "homepage": "https://www.ibm.com/products/watsonx",
+    "note": "Existing IBM striped wordmark visually matches the IBM mark on its official product page; retained licensed LobeHub artwork.",
+    "sha256": "f0f81318823c826a200532ce08dc243fe07b185daecf88788d4072141ee0b8f4",
+    "verifiedOn": "2026-10-24"
+  },
+  "watsonx_text": {
+    "file": "ibm.svg",
+    "source": "https://www.ibm.com/products/watsonx",
+    "homepage": "https://www.ibm.com/products/watsonx",
+    "note": "Service/endpoint alias shares the watsonx provider mark.",
+    "sha256": "f0f81318823c826a200532ce08dc243fe07b185daecf88788d4072141ee0b8f4",
+    "verifiedOn": "2026-10-24"
+  },
+  "xai": {
+    "file": "upstream/xai.png",
+    "source": "https://x.ai/icon.png?icon.2jebtfdg6783w.png?dpl=4dae96ec4b00ad8c9633f158415c997b18f23bb0",
+    "homepage": "https://x.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "e54b4baf2aaca29eb182cb51d22be3dbad5ab09c86ccee4183fefd8326e6ee28",
+    "verifiedOn": "2026-10-24"
+  },
+  "xiaomi_mimo": {
+    "file": "upstream/xiaomi_mimo.png",
+    "source": "https://mimo.mi.com/favicon.png",
+    "homepage": "https://mimo.mi.com",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "30f5305380e8a2f85c652b905ef5e155e0c00c7d56d7ab6bd8b1eb40dad61ba7",
+    "verifiedOn": "2026-10-24"
+  },
+  "xinference": {
+    "file": "upstream/xinference.png",
+    "source": "https://inference.readthedocs.io/en/latest/_static/xinference-favicon.png",
+    "homepage": "https://inference.readthedocs.io",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "fdae0d92521360f020c9dcae0728552faa11fc4ff4e20b9d492b52353e7e85a6",
+    "verifiedOn": "2026-10-24"
+  },
+  "you_com": {
+    "file": "upstream/you_com.png",
+    "source": "https://you.com/docs/api/fern-docs/favicon.ico",
+    "homepage": "https://docs.you.com",
+    "note": "Official project website or repository artwork; downloaded 2026-10-24.",
+    "sha256": "605792c63578dd75826392ca00ba35e8e73807f23c3c3e500481e7c59e4cea5d",
+    "verifiedOn": "2026-10-24"
+  },
+  "zai": {
+    "file": "upstream/zai.svg",
+    "source": "https://z-cdn.chatglm.cn/z-ai/static/logo.svg",
+    "homepage": "https://z.ai",
+    "note": "Official website favicon; downloaded 2026-10-24.",
+    "sha256": "07a45e8e35b0b631ed2c68cd1cb041f9721b1ceeb0bd0e34f1459b0304a741c7",
+    "verifiedOn": "2026-10-24"
+  }
+}

@@ -131,7 +131,10 @@ describe("Models page search", () => {
     const mantleOption = await vi.waitFor(() => {
       const option = [
         ...document.querySelectorAll<HTMLButtonElement>('[role="option"]'),
-      ].find((candidate) => candidate.textContent?.trim() === "Bedrock Mantle");
+      ].find(
+        (candidate) =>
+          candidate.textContent?.trim() === "Amazon Bedrock Mantle",
+      );
       expect(option).toBeDefined();
       return option!;
     });
@@ -141,7 +144,7 @@ describe("Models page search", () => {
       const rows = document.querySelectorAll<HTMLTableRowElement>(".model-row");
       expect(rows).toHaveLength(1);
       expect(rows[0].dataset.name).toBe(mantleModel);
-      expect(rows[0].textContent).toContain("Bedrock Mantle");
+      expect(rows[0].textContent).toContain("Amazon Bedrock Mantle");
       expect(
         [...rows[0].cells].map((cell) => cell.textContent?.trim()),
       ).toEqual(expect.arrayContaining(["$4.40/M", "$22.00/M"]));
@@ -149,7 +152,7 @@ describe("Models page search", () => {
     document.querySelector<HTMLTableRowElement>(".model-row")!.click();
     await vi.waitFor(() => {
       const detail = document.querySelector(".expanded-content")!;
-      expect(detail.textContent).toContain("Bedrock Mantle");
+      expect(detail.textContent).toContain("Amazon Bedrock Mantle");
       expect(detail.textContent).toContain("128,000 tokens");
       expect(detail.textContent).not.toContain("64,000 tokens");
       expect(detail.querySelector(".code-snippet")?.textContent).toContain(

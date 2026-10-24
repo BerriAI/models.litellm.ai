@@ -5,7 +5,7 @@ describe("provider display names", () => {
   test.each([
     ["bedrock", "Amazon Bedrock"],
     ["bedrock_converse", "Bedrock Converse"],
-    ["bedrock_mantle", "Bedrock Mantle"],
+    ["bedrock_mantle", "Amazon Bedrock Mantle"],
     ["openai", "OpenAI"],
     ["vertex_ai", "Google Vertex AI"],
     ["huggingface", "Hugging Face"],
@@ -15,7 +15,9 @@ describe("provider display names", () => {
   });
 
   test("should normalize case and whitespace for known providers", () => {
-    expect(getProviderDisplayName(" BEDROCK_MANTLE ")).toBe("Bedrock Mantle");
+    expect(getProviderDisplayName(" BEDROCK_MANTLE ")).toBe(
+      "Amazon Bedrock Mantle",
+    );
   });
 
   test("should format unknown provider ids without exposing separators", () => {

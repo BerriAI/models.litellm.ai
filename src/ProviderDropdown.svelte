@@ -315,8 +315,8 @@
     align-items: center;
     gap: 5px;
     width: 100%;
-    height: 38px;
-    padding: 0 8px;
+    min-height: 38px;
+    padding: 8px;
     border: 1px solid var(--border-color);
     border-radius: 7px;
     background: var(--card-bg);
@@ -341,9 +341,8 @@
   .provider-name {
     flex: 1;
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    white-space: normal;
+    line-height: 1.35;
   }
   .provider-icon {
     width: 18px;
