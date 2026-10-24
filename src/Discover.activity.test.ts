@@ -88,9 +88,97 @@ beforeEach(async () => {
 afterEach(() => {
   component.$destroy();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 describe("coding benchmark run activity", () => {
+  it("should default to completed results and preserve explicit cohort selection across refreshes", async () => {
+    component.$destroy();
+    document.body.innerHTML = "";
+    vi.useFakeTimers();
+    const retired = {
+      ...fixture.cohorts[0],
+      id: "retired",
+      label: "Retired fixture",
+    };
+    const active = {
+      ...fixture.cohorts[0],
+      id: "active",
+      label: "Active fixture",
+    };
+    const completed = {
+      ...fixture.cohorts[0],
+      id: "completed",
+      label: "Completed fixture",
+    };
+    let published: BenchmarkResults = {
+      ...fixture,
+      cohorts: [retired, active, completed],
+      runs: [
+        { ...baseRun, id: "retired", cohortId: retired.id },
+        { ...baseRun, id: "active", cohortId: active.id, status: "running" },
+        {
+          ...fixture.runs[25],
+          id: "complete",
+          cohortId: completed.id,
+          modelName: "Completed-only model",
+        },
+      ],
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify(published))),
+    );
+    component = new Discover({ target: document.body });
+    await vi.advanceTimersByTimeAsync(0);
+    await tick();
+    const selector = Array.from(document.getElementsByTagName("select")).find(
+      (select) => select.getAttribute("aria-label") === "Benchmark cohort",
+    )!;
+    expect(selector.value).toBe("completed");
+    expect(document.body.textContent).toContain("Completed-only model");
+    selector.value = "active";
+    selector.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    expect(document.body.textContent).not.toContain("Completed-only model");
+    const larger = {
+      ...completed,
+      id: "larger",
+      label: "Larger fixture",
+      taskIds: ["a", "b"],
+    };
+    published = {
+      ...published,
+      cohorts: [larger, ...published.cohorts],
+      runs: [
+        ...published.runs,
+        {
+          ...fixture.runs[25],
+          id: "larger",
+          cohortId: larger.id,
+          attempts: 2,
+          plannedAttempts: 2,
+          modelName: "New larger model",
+        },
+      ],
+    };
+    expect(
+      Array.from(selector.options).some((option) => option.value === "larger"),
+    ).toBe(false);
+    await vi.advanceTimersByTimeAsync(30000);
+    await tick();
+    expect(
+      Array.from(selector.options).some(
+        (option) =>
+          option.value === "larger" && option.textContent === "Larger fixture",
+      ),
+    ).toBe(true);
+    expect(selector.value).toBe("active");
+    expect(document.body.textContent).not.toContain("New larger model");
+    expect(document.body.textContent).not.toContain("Completed-only model");
+    expect(activityButton().textContent).toContain("1 running");
+  });
+
   it("should show partial-campaign scope once when published rows are complete", async () => {
     component.$destroy();
     document.body.innerHTML = "";

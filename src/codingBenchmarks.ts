@@ -177,6 +177,52 @@ export function runMetrics(run: BenchmarkRun, basis: CostBasis) {
     cost,
   };
 }
+/** Prefer a completed comparison without combining results across cohorts. */
+export function defaultBenchmarkCohort(
+  data: BenchmarkResults,
+): BenchmarkCohort | undefined {
+  let best: BenchmarkCohort | undefined;
+  let bestScope = 0;
+  let bestCompleted = 0;
+  let bestActive = false;
+  for (const cohort of data.cohorts) {
+    const scope = cohort.taskIds.length * cohort.repetitions;
+    const runs = data.runs.filter((run) => run.cohortId === cohort.id);
+    const completed = runs.filter(
+      (run) => run.plannedAttempts === scope && runMetrics(run, "api").complete,
+    ).length;
+    if (!completed) continue;
+    const active = runs.some(
+      (run) => run.status === "running" || run.status === "queued",
+    );
+    if (
+      !best ||
+      scope > bestScope ||
+      (scope === bestScope && completed > bestCompleted) ||
+      (scope === bestScope &&
+        completed === bestCompleted &&
+        active &&
+        !bestActive)
+    ) {
+      best = cohort;
+      bestScope = scope;
+      bestCompleted = completed;
+      bestActive = active;
+    }
+  }
+  return (
+    best ??
+    data.cohorts.find((cohort) =>
+      data.runs.some(
+        (run) =>
+          run.cohortId === cohort.id &&
+          (run.status === "running" || run.status === "queued"),
+      ),
+    ) ??
+    data.cohorts[0]
+  );
+}
+
 export const harnessName = (id: Harness) =>
   harnesses.find((h) => h.id === id)!.name;
 

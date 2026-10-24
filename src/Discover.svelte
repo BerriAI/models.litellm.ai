@@ -4,6 +4,7 @@
   import { getProviderLogo } from "./providers";
   import {
     emptyResults,
+    defaultBenchmarkCohort,
     harnesses,
     harnessName,
     parseBenchmarkResults,
@@ -63,7 +64,8 @@
   });
   $: data = preview ? previewResults : results;
   $: cohort =
-    data.cohorts.find((item) => item.id === cohortId) ?? data.cohorts[0];
+    data.cohorts.find((item) => item.id === cohortId) ??
+    defaultBenchmarkCohort(data);
   $: isPilot = Boolean(
     cohort && (cohort.taskIds.length < 20 || cohort.repetitions < 3),
   );
@@ -200,7 +202,7 @@
                 provider = "all";
                 selected = "";
               }}
-              >{#each data.cohorts as item}<option value={item.id}
+              >{#each data.cohorts as item (item.id)}<option value={item.id}
                   >{item.label}</option
                 >{/each}</select
             ></label
@@ -274,7 +276,7 @@
       </div>
     </div>
 
-    {#if isPilot && !preview}
+    {#if isPilot && !preview && cohort}
       <div class="pilot-notice">
         <strong>PILOT</strong><span
           >{cohort.taskIds.length} tasks × {cohort.repetitions} trial(s). Insufficient
