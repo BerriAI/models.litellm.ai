@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-24T08:02:01.095910+00:00",
+  "updatedAt": "2026-10-24T18:34:20.065494+00:00",
   "status": "complete",
-  "message": "Final validated results for Claude Code and Codex on the same six-task pilot. Other campaign stacks are not included and may still be in progress. This is not an official full-benchmark score or an overall harness ranking.",
+  "message": "Completed runs from a six-task local pilot, one trial per task. Other campaign runs remain in progress. This is not an official full Terminal-Bench score or a stable overall model ranking. Timing comparisons are withheld because instrumentation and operational interruptions differed.",
   "cohorts": [
     {
-      "id": "tb4-local-d565afa359",
-      "label": "Local pilot \u00b7 6 tasks",
+      "id": "tb4-local-a053489e33",
+      "label": "Local pilot \u00b7 6 tasks \u00b7 native output",
       "dataset": "Terminal-Bench",
       "version": "4.0.0",
       "taskIds": [
@@ -19,38 +19,13 @@
       ],
       "repetitions": 1,
       "scope": "subset",
-      "environment": "Local Apple Silicon / Colima Docker \u00b7 Linux arm64 \u00b7 8 CPU / 16 GB",
-      "harnessLock": {
-        "schemaVersion": 1,
-        "versions": {
-          "claude-code": "2.1.310",
-          "codex": "0.164.0",
-          "pi": "1.4.0",
-          "opencode": "1.19.4",
-          "kimi-cli": "2.3.1",
-          "muse-code": "1.4.12"
-        },
-        "museArtifact": {
-          "release": "1.4.12-R6909.1",
-          "platform": "aarch64_linux",
-          "sha256": "e488288a0bcb68d548cad1e03e3026b51ff831755d1bebd22ab46edc5e715f37",
-          "bytes": 357832936
-        }
-      },
-      "budgetPolicy": {
-        "version": "reserved-generation-v1",
-        "globalCeilingUSD": 4999,
-        "perRunCeilingUSD": 150,
-        "perGenerationReservationUSD": 110,
-        "maxInflightGenerationsPerRun": 1,
-        "timingScope": "Native agent under serialized proxy generation admission"
-      }
+      "environment": "Local Apple Silicon / Colima Docker \u00b7 Linux arm64 \u00b7 8 CPU / 16 GB"
     }
   ],
   "runs": [
     {
-      "id": "result-4cd8b9ced2bb469aa858a544",
-      "cohortId": "tb4-local-d565afa359",
+      "id": "result-a439b3ce51ef30117f166597",
+      "cohortId": "tb4-local-a053489e33",
       "harness": "claude-code",
       "provider": "anthropic",
       "model": "claude-sonnet-5-5",
@@ -61,15 +36,15 @@
       "passed": 1,
       "attempts": 6,
       "plannedAttempts": 6,
-      "apiCostUsd": 0.872614,
+      "apiCostUsd": 0.8243613,
       "computeCostUsd": null,
       "costSource": "estimated",
-      "totalSeconds": 347.039,
-      "notes": "Local subset pilot. API costs include every request in this run, including unsuccessful tasks and retries; separate debugging runs are excluded. Available costs are estimates from recorded usage and configured prices, not provider invoices. Unknown API cost is not ranked. Compute is unpriced and excluded. Time measures agent execution, excluding setup and verification. 32k output cap per request; 8h agent limit per task. Generation admission is serialized per run by a $110 reservation, $150 run ceiling and $4,999 global ceiling. Timing includes proxy admission waits and is not unrestricted native-default latency. Manual pre-generation setup recoveries: 1."
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun. One manually reviewed setup-only infrastructure recovery occurred before generation. Pinned native compatibility headers are preserved; one client marker lacks separately published semantics."
     },
     {
-      "id": "result-86e1180d60f49df536256cd4",
-      "cohortId": "tb4-local-d565afa359",
+      "id": "result-9f230c2b1439052081ef7001",
+      "cohortId": "tb4-local-a053489e33",
       "harness": "codex",
       "provider": "openai",
       "model": "gpt-6.1-sol",
@@ -77,14 +52,52 @@
       "providerName": "OpenAI",
       "harnessVersion": "0.164.0",
       "status": "complete",
-      "passed": 3,
+      "passed": 4,
       "attempts": 6,
       "plannedAttempts": 6,
-      "apiCostUsd": 1.0258306,
+      "apiCostUsd": 1.045999,
       "computeCostUsd": null,
       "costSource": "estimated",
-      "totalSeconds": 691.215,
-      "notes": "Local subset pilot. API costs include every request in this run, including unsuccessful tasks and retries; separate debugging runs are excluded. Available costs are estimates from recorded usage and configured prices, not provider invoices. Unknown API cost is not ranked. Compute is unpriced and excluded. Time measures agent execution, excluding setup and verification. 32k output cap per request; 8h agent limit per task. Generation admission is serialized per run by a $110 reservation, $150 run ceiling and $4,999 global ceiling. Timing includes proxy admission waits and is not unrestricted native-default latency."
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun."
+    },
+    {
+      "id": "result-89778962efe8659aa540094b",
+      "cohortId": "tb4-local-a053489e33",
+      "harness": "kimi-cli",
+      "provider": "moonshot",
+      "model": "kimi-k3",
+      "modelName": "Kimi K3",
+      "providerName": "Moonshot",
+      "harnessVersion": "2.3.1",
+      "status": "complete",
+      "passed": 2,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 7.9117104,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun. One manually reviewed setup-only infrastructure recovery occurred before generation."
+    },
+    {
+      "id": "result-f11ca227396a850ba5ede87a",
+      "cohortId": "tb4-local-a053489e33",
+      "harness": "pi",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "modelName": "Claude Sonnet 5.5",
+      "providerName": "Anthropic",
+      "harnessVersion": "1.4.0",
+      "status": "complete",
+      "passed": 1,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 0.610841,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun."
     }
   ]
 }

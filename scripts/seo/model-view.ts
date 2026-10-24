@@ -283,12 +283,45 @@ export function buildModelView(
 
   const capRow = headline ? group.members.find((m) => m.key === headline.key)!.row : group.members[0].row;
   const capabilities: Capability[] = [];
-  for (const [field, label] of CAPABILITIES) {
+  const capabilityValue = (field: string): boolean | undefined => {
     const own = capRow[field];
-    const value = typeof own === "boolean" ? own : group.members.some((m) => m.row[field] === true) ? true : undefined;
+    return typeof own === "boolean"
+      ? own
+      : group.members.some((m) => m.row[field] === true)
+        ? true
+        : undefined;
+  };
+  for (const [field, label] of CAPABILITIES) {
+    const value = capabilityValue(field);
     if (value !== undefined) capabilities.push({ label, supported: value });
   }
   const strings = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : []);
+  // Older rows record positive capability flags instead of modality arrays.
+  // Chat establishes text input/output; positive flags add further modalities.
+  // Missing flags say nothing about whether those additional types are supported.
+  const modalities = (
+    explicit: unknown,
+    fields: [string, string][],
+  ): string[] => {
+    const declared = strings(explicit);
+    return declared.length
+      ? declared
+      : [
+          ...(mode === "chat" ? ["text"] : []),
+          ...fields
+            .filter(([field]) => capabilityValue(field) === true)
+            .map(([, modality]) => modality),
+        ];
+  };
+  const inputModalities = modalities(capRow.supported_modalities, [
+    ["supports_vision", "image"],
+    ["supports_pdf_input", "pdf"],
+    ["supports_audio_input", "audio"],
+    ["supports_video_input", "video"],
+  ]);
+  const outputModalities = modalities(capRow.supported_output_modalities, [
+    ["supports_audio_output", "audio"],
+  ]);
 
   // The prose quotes this range, so it comes from the same rows the table renders (regional and
   // GovCloud rows included). Flagged outliers and fine-tuned models, a product of their own, stay out,
@@ -340,8 +373,8 @@ export function buildModelView(
     status: overrides.status?.[group.pageKey] ?? modelStatus(rows, headline, today),
     intro,
     capabilities,
-    inputModalities: strings(capRow.supported_modalities),
-    outputModalities: strings(capRow.supported_output_modalities),
+    inputModalities,
+    outputModalities,
     sources,
     docs: docs.slice(0, 6),
     range,
