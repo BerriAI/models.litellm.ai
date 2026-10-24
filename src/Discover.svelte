@@ -1,6 +1,7 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
   import PageHero from "./PageHero.svelte";
+  import DiscoveryUpdates from "./DiscoveryUpdates.svelte";
   import {
     demoModels,
     demoWorkloads,
@@ -97,6 +98,8 @@
     eyebrow="THE OPEN MODEL CATALOG"
     description="Find the right model for what you're building."
   />
+
+  <DiscoveryUpdates />
 
   <section class="benchmarks ruled" aria-labelledby="benchmarks-title">
     <div class="section-heading">
@@ -311,8 +314,7 @@
     >
   </div>
   <footer>
-    <span>BUILT ON LITELLM</span><span
-      >Prototype results · No evaluations have run</span
+    <span>BUILT ON LITELLM</span><span>Benchmark results are illustrative</span
     ><a
       href="https://github.com/BerriAI/models.litellm.ai"
       target="_blank"

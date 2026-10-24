@@ -5,6 +5,9 @@ export type ManifestModel = {
   price: string | null;
   context?: number;
   providers: string[];
+  /** Stable hub ids for clients; older manifests contain only provider labels. */
+  providerIds?: string[];
+  status?: "active" | "deprecated" | "retired";
   hash: string;
   firstSeen: string | null;
   lastChanged: string;

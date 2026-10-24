@@ -15,6 +15,20 @@ export default defineConfig(({ mode }) => {
       // When VITE_USE_LOCAL_CATALOG_API=true, the app fetches /model_catalog (same origin);
       // proxy to litellm-model-catalog-api so the browser avoids CORS.
       proxy: {
+        // Static catalog pages are generated during the production build.
+        // Use the live catalog in development so discovery cards and dates work locally.
+        "/models/": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/providers/": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/new-models": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
         "/model_catalog": {
           target: catalogProxyTarget,
           changeOrigin: true,

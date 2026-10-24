@@ -288,6 +288,8 @@ async function main(): Promise<void> {
       price,
       context: v.context,
       providers: v.providers.map((p) => p.name),
+      providerIds: v.providers.map((p) => p.hub),
+      status: v.status,
       hash,
       firstSeen,
       lastChanged,
