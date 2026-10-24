@@ -48,7 +48,7 @@ jobs:
             -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/scratch TMPDIR=/scratch \
             /bin/sh -ec '
               mkdir /scratch/app
-              tar --exclude=node_modules --exclude=.git --exclude=dist -C /source -cf - . | tar -C /scratch/app -xf -
+              tar --exclude=node_modules --exclude=.git --exclude=dist -C /source -cf - . | tar --no-same-owner --no-same-permissions -C /scratch/app -xf -
               ln -s /dependencies /scratch/app/node_modules
               cd /scratch/app
               node node_modules/vitest/vitest.mjs run --cache=false --maxWorkers=2
