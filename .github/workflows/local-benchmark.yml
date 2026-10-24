@@ -1,0 +1,31 @@
+name: Local benchmark checks
+on:
+  pull_request:
+    paths:
+      - "scripts/benchmark/**"
+      - "src/**"
+      - "package*.json"
+      - ".github/workflows/local-benchmark.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/benchmark/**"
+      - "src/**"
+      - "package*.json"
+      - ".github/workflows/local-benchmark.yml"
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run benchmark:check
+      - run: npm run check
+      - run: npm test
+      - run: npm run benchmark -- --demo --seed 42
