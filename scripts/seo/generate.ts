@@ -36,7 +36,7 @@ import { benchmarksFor, latestBenchmarkDate, loadBenchmarks, type BenchmarkData 
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
 import { fetchBytes, fetchText } from "./fetch";
-import { cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
+import { cookbookPage, guardrailsPage, homePage, providerCatalogPaths, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
 import { compareCard, copyCardFonts, modelCard, providerCard, writeCard } from "./og";
@@ -404,8 +404,8 @@ ${newer.length ? `<section><h2>Newer ${esc(m.lab ?? "")} models</h2><ul class="l
         ),
         body: `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/models">Models</a><span>›</span><span>${esc(h.name)}</span></nav>
 <h1>${esc(h.name)} model pricing</h1>
-<p class="answer">As of ${longDate(BUILD_DATE)}, ${list.length} ${esc(h.name)} models are available through LiteLLM${newest.length ? `. The most recently added are ${esc(newest.join(", "))}` : ""}. Prices below are ${esc(h.name)}'s list prices.</p>
-<div class="meta"><span>Prices updated <time datetime="${hubChanged}">${longDate(hubChanged)}</time></span><span>Checked <time datetime="${BUILD_DATE}">${longDate(BUILD_DATE)}</time></span>${docs ? `<a href="${esc(docs)}">How to call ${esc(h.name)} with LiteLLM</a>` : ""}</div></div>
+<p class="answer">As of ${longDate(BUILD_DATE)}, LiteLLM's catalog lists ${list.length} ${esc(h.name)} models${newest.length ? `. The most recently added are ${esc(newest.join(", "))}` : ""}. Prices below are ${esc(h.name)}'s list prices from the catalog.${docs ? " Setup docs cover configuration and usage." : ""}</p>
+<div class="meta"><span>Prices updated <time datetime="${hubChanged}">${longDate(hubChanged)}</time></span><span>Checked <time datetime="${BUILD_DATE}">${longDate(BUILD_DATE)}</time></span>${docs ? `<a href="${esc(docs)}">Setup docs</a>` : ""}</div></div>
 ${cheapestOnProvider(h.name, list)}
 <section><h2>${esc(h.name)} models</h2>${indexTable(hubRows)}</section>`,
       }),
@@ -802,6 +802,7 @@ ${cheapestOnProvider(h.name, list)}
 
   write("models/manifest.json", JSON.stringify(manifest));
   write("models/slugs.json", JSON.stringify(slugMap));
+  write("provider-catalog.json", JSON.stringify(providerCatalogPaths(support, hubList)));
   if (changed.length) {
     changed.push(abs("/models"));
     changedImages.push(indexImage.url);

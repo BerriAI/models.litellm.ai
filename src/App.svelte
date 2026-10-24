@@ -127,6 +127,7 @@
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
     query = sanitizeSearchQuery(urlParams.get("q"));
+    selectedProvider = urlParams.get("provider")?.trim() ?? "";
 
     fetch("/models/slugs.json")
       .then((res) => (res.ok ? res.json() : {}))
