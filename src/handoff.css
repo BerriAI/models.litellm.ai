@@ -1,4 +1,13 @@
-@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+@import "@fontsource/barlow-condensed/latin-500.css";
+@import "@fontsource/barlow-condensed/latin-600.css";
+@import "@fontsource/barlow-condensed/latin-700.css";
+@import "@fontsource/dm-sans/latin-400.css";
+@import "@fontsource/dm-sans/latin-500.css";
+@import "@fontsource/dm-sans/latin-600.css";
+@import "@fontsource/dm-sans/latin-700.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
 
 :root,
 :root[data-theme="light"] {
@@ -350,8 +359,8 @@ button:disabled {
     font-size: 12px;
   }
   .hf-header-search {
-    width: 160px;
-    min-width: 140px;
+    width: 140px;
+    min-width: 110px;
   }
   .hf-header-search kbd {
     display: none;
@@ -360,7 +369,7 @@ button:disabled {
     gap: 6px;
   }
 }
-@media (max-width: 640px) {
+@media (max-width: 760px) {
   .hf-header-inner {
     padding: 18px 20px 0;
     min-height: auto;
@@ -387,11 +396,14 @@ button:disabled {
   .hf-nav {
     order: 3;
     width: 100%;
-    height: 44px;
-    gap: 28px;
+    min-height: 44px;
+    height: auto;
+    gap: 0 10px;
+    flex-wrap: wrap;
   }
   .hf-nav a {
-    font-size: 13px;
+    font-size: 12px;
+    min-height: 44px;
   }
   .hf-route {
     min-height: calc(100vh - 190px);

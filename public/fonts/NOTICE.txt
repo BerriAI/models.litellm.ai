@@ -1,0 +1,5 @@
+Geist and Geist Mono variable fonts, distributed under the SIL Open Font
+License 1.1 included in OFL.txt.
+Upstream: https://github.com/vercel/geist-font
+Used for the evaluation workflow diagram; the rest of the app retains its
+existing typography.

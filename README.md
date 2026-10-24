@@ -1,5 +1,7 @@
 # models.litellm.ai
 
+Compare models on your own gateway traffic with `npm run benchmark`. See the [local benchmark guide](docs/local-benchmark.md) for setup, the offline report, evaluation methodology, and data handling.
+
 LiteLLM's model catalog: pricing, context windows and providers for every model in LiteLLM's open-source [price file](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json). Every price, model and provider on the site comes from that file and from `provider_endpoints_support.json` in the same repo; nothing is scraped from other sites.
 
 ## Development

@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import App from "./App.svelte";
   import Discover from "./Discover.svelte";
+  import Evaluate from "./Evaluate.svelte";
+  import SampleReport from "./benchmark/SampleReport.svelte";
   import CodingBenchmarks from "./CodingBenchmarks.svelte";
   import Providers from "./Providers.svelte";
   import Cookbook from "./Cookbook.svelte";
@@ -13,6 +15,8 @@
   import "./handoff.css";
 
   type Tab =
+    | "evaluate"
+    | "evaluate-sample"
     | "benchmarks"
     | "discover"
     | "models"
@@ -34,6 +38,8 @@
 
   const tabPaths: Record<Tab, string> = {
     discover: "/",
+    evaluate: "/evaluate",
+    "evaluate-sample": "/evaluate/sample",
     benchmarks: "/benchmarks",
     models: "/search",
     providers: "/providers",
@@ -43,6 +49,8 @@
 
   function getTabFromLocation(): Tab {
     const path = window.location.pathname.replace(/\/$/, "") || "/";
+    if (path === "/evaluate") return "evaluate";
+    if (path === "/evaluate/sample") return "evaluate-sample";
     if (path === "/benchmarks") return "benchmarks";
     if (path === "/search") return "models";
     if (path === "/providers") return "providers";
@@ -97,10 +105,6 @@
       return;
     event.preventDefault();
     selectTab(tab);
-  }
-
-  function browseModels(event: CustomEvent<{ query?: string } | undefined>) {
-    selectTab("models", event.detail?.query ?? "");
   }
 
   function setTheme(nextTheme: Theme) {
@@ -203,7 +207,16 @@
         <a
           href="/benchmarks"
           aria-current={activeTab === "benchmarks" ? "page" : undefined}
-          on:click={(event) => navigate(event, "benchmarks")}>Coding benchmarks</a
+          on:click={(event) => navigate(event, "benchmarks")}
+          >Coding benchmarks</a
+        >
+        <a
+          href="/evaluate"
+          aria-current={activeTab === "evaluate" ||
+          activeTab === "evaluate-sample"
+            ? "page"
+            : undefined}
+          on:click={(event) => navigate(event, "evaluate")}>Evaluate</a
         >
       </nav>
 
@@ -322,7 +335,11 @@
   {#key pageKey}
     <div class="hf-route" class:hf-catalog-route={activeTab === "models"}>
       {#if activeTab === "discover"}
-        <Discover on:browse={browseModels} />
+        <Discover />
+      {:else if activeTab === "evaluate"}
+        <Evaluate />
+      {:else if activeTab === "evaluate-sample"}
+        <SampleReport />
       {:else if activeTab === "benchmarks"}
         <CodingBenchmarks />
       {:else if activeTab === "models"}

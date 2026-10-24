@@ -36,7 +36,7 @@ import { benchmarksFor, latestBenchmarkDate, loadBenchmarks, type BenchmarkData 
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
 import { fetchBytes, fetchText } from "./fetch";
-import { codingBenchmarksPage, cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
+import { evaluatePage, sampleReportPage, codingBenchmarksPage, cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
 import { compareCard, copyCardFonts, modelCard, providerCard, writeCard } from "./og";
@@ -762,6 +762,19 @@ ${cheapestOnProvider(h.name, list)}
       },
     ];
     routes.push({
+      path: "/evaluate",
+      title: PAGE_TITLES.evaluate,
+      description: "Compare models on your LiteLLM gateway traffic with a local benchmark and a private HTML report.",
+      card: { kicker: "LiteLLM Evaluate", title: "Evaluate your gateway traffic", subtitle: "Compare quality, speed, and cost", stats: [] },
+      page: evaluatePage(),
+    }, {
+      path: "/evaluate/sample",
+      title: PAGE_TITLES["evaluate-sample"],
+      description: "Explore a fictional sample of the local gateway evaluation report. All models, traffic, costs, and scores are synthetic.",
+      card: { kicker: "Synthetic example", title: "Sample evaluation report", subtitle: "Fictional models and measurements", stats: [] },
+      page: sampleReportPage(),
+    });
+    routes.push({
       path: "/benchmarks",
       title: PAGE_TITLES.benchmarks,
       description: "Completed coding-agent pilot results: quality and successful tasks per estimated API dollar, with explicit scope and methodology.",
@@ -777,7 +790,7 @@ ${cheapestOnProvider(h.name, list)}
       };
       write(
         r.path === "/" ? "index.html" : `${id}.html`,
-        appShell(appHtml, { path: r.path, title: r.title, description: r.description, image: writeCard(OUT, "pages", id, r.card), body: r.page.body, jsonLd }),
+        appShell(appHtml, { path: r.path, title: r.title, description: r.description, image: writeCard(OUT, "pages", id.replaceAll("/", "-"), r.card), body: r.page.body, jsonLd }),
       );
       if (r.path !== "/") appEntries.push({ path: r.path, lastmod: r.page.lastmod });
     }
