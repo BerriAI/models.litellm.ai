@@ -66,7 +66,7 @@ describe("Bedrock Mantle provider pages", () => {
     expect(opusView().providers).toEqual(
       expect.arrayContaining([
         { name: "Amazon Bedrock", hub: "bedrock" },
-        { name: "Amazon Bedrock Mantle", hub: "bedrock_mantle" },
+        { name: "Bedrock Mantle", hub: "bedrock_mantle" },
       ]),
     );
   });
@@ -76,7 +76,7 @@ describe("Bedrock Mantle provider pages", () => {
       support.providers!.bedrock_mantle.url,
     );
     expect(opusView().docs).toContainEqual({
-      name: "Amazon Bedrock Mantle",
+      name: "Bedrock Mantle",
       url: support.providers!.bedrock_mantle.url,
     });
   });
@@ -120,11 +120,11 @@ describe("Bedrock Mantle provider pages", () => {
       hubs: new Set(["bedrock", "bedrock_mantle"]),
     });
     expect(html).toContain(
-      '<a href="/providers/bedrock_mantle">Amazon Bedrock Mantle</a>',
+      '<a href="/providers/bedrock_mantle">Bedrock Mantle</a>',
     );
     expect(html).toContain('<a href="/providers/bedrock">Amazon Bedrock</a>');
     expect(html).not.toContain(
-      '<a href="/providers/bedrock">Amazon Bedrock Mantle</a>',
+      '<a href="/providers/bedrock">Bedrock Mantle</a>',
     );
   });
 
@@ -133,7 +133,7 @@ describe("Bedrock Mantle provider pages", () => {
       support,
       [
         { hub: "bedrock", name: "Amazon Bedrock", count: 10 },
-        { hub: "bedrock_mantle", name: "Amazon Bedrock Mantle", count: 2 },
+        { hub: "bedrock_mantle", name: "Bedrock Mantle", count: 2 },
       ],
       "2026-10-24",
     );

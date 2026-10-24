@@ -1,74 +1,10 @@
 /** Provider display names, provider hub ids, docs links and model labs. */
+import { getProviderDisplayName, PROVIDER_DISPLAY_NAMES } from "../../src/providers";
 
 export type ProviderSupport = {
   providers?: Record<string, { display_name?: string; url?: string; endpoints?: Record<string, boolean> }>;
   /** Endpoint metadata: `provider_json_field` is the key used in each provider's `endpoints`. */
   endpoints?: Record<string, { display_name?: string; leftnav_label?: string; provider_json_field?: string; url?: string }>;
-};
-
-/** Names people search for, which beat the docs labels like "AWS - Bedrock (`bedrock`)". */
-const PROVIDER_NAMES: Record<string, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  gemini: "Google AI Studio",
-  vertex_ai: "Google Vertex AI",
-  bedrock: "Amazon Bedrock",
-  bedrock_mantle: "Amazon Bedrock Mantle",
-  sagemaker: "Amazon SageMaker",
-  azure: "Azure OpenAI",
-  azure_ai: "Azure AI Foundry",
-  openrouter: "OpenRouter",
-  together_ai: "Together AI",
-  fireworks_ai: "Fireworks AI",
-  deepseek: "DeepSeek",
-  xai: "xAI",
-  mistral: "Mistral AI",
-  groq: "Groq",
-  cerebras: "Cerebras",
-  databricks: "Databricks",
-  perplexity: "Perplexity",
-  fal_ai: "fal",
-  moonshot: "Moonshot AI",
-  dashscope: "Alibaba Cloud Model Studio",
-  deepinfra: "DeepInfra",
-  novita: "Novita AI",
-  vercel_ai_gateway: "Vercel AI Gateway",
-  cohere: "Cohere",
-  oci: "Oracle Cloud (OCI)",
-  github_copilot: "GitHub Copilot",
-  nvidia_nim: "NVIDIA NIM",
-  watsonx: "IBM watsonx.ai",
-  zai: "Z.ai",
-  minimax: "MiniMax",
-  replicate: "Replicate",
-  snowflake: "Snowflake Cortex",
-  cloudflare: "Cloudflare Workers AI",
-  nebius: "Nebius AI Studio",
-  sambanova: "SambaNova",
-  hyperbolic: "Hyperbolic",
-  lambda_ai: "Lambda",
-  baseten: "Baseten",
-  friendliai: "FriendliAI",
-  ollama: "Ollama",
-  voyage: "Voyage AI",
-  jina_ai: "Jina AI",
-  elevenlabs: "ElevenLabs",
-  deepgram: "Deepgram",
-  stability: "Stability AI",
-  black_forest_labs: "Black Forest Labs",
-  recraft: "Recraft",
-  runwayml: "Runway",
-  aihubmix: "AIHubMix",
-  ai21: "AI21 Labs",
-  amazon_nova: "Amazon Nova",
-  meta_llama: "Meta Llama API",
-  xiaomi_mimo: "Xiaomi MiMo",
-  inception: "Inception Labs",
-  wandb: "Weights & Biases",
-  scaleway: "Scaleway",
-  ovhcloud: "OVHcloud",
-  volcengine: "Volcano Engine",
-  gmi: "GMI Cloud",
 };
 
 /** Route variants that belong to one provider hub. */
@@ -86,22 +22,13 @@ function stripDocsLabel(label: string): string {
   return label.replace(/\s*\(`[^`]*`\)\s*$/, "").trim();
 }
 
-function humanize(id: string): string {
-  return id
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((w) => (w.length <= 3 ? w.toUpperCase() : w[0].toUpperCase() + w.slice(1)))
-    .join(" ");
-}
-
 export function providerName(provider: string, support: ProviderSupport): string {
   const hub = hubProvider(provider);
   return (
-    PROVIDER_NAMES[provider] ??
-    PROVIDER_NAMES[hub] ??
+    PROVIDER_DISPLAY_NAMES[hub] ??
     (support.providers?.[hub]?.display_name
       ? stripDocsLabel(support.providers[hub].display_name!)
-      : humanize(hub))
+      : getProviderDisplayName(hub))
   );
 }
 

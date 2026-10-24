@@ -12,7 +12,7 @@ afterEach(() => {
 describe("provider dropdown", () => {
   it("should render the provider picker", () => {
     dropdown = new ProviderDropdown({ target: document.body });
-    expect(document.body.textContent).toContain("All Providers");
+    expect(document.body.textContent).toContain("All providers");
   });
 
   it.each(["bedrock mantle", "bedrock_mantle", "  BEDROCK   MANTLE  "])(
@@ -33,8 +33,8 @@ describe("provider dropdown", () => {
         ...document.querySelectorAll<HTMLButtonElement>(".dropdown-option"),
       ];
       expect(options.map((option) => option.textContent?.trim())).toEqual([
-        "All Providers",
-        "bedrock_mantle",
+        "All providers",
+        "Bedrock Mantle",
       ]);
       expect(options[1].querySelector("img")?.getAttribute("src")).toBe(
         "/provider-logos/bedrock-color.svg",
@@ -43,7 +43,78 @@ describe("provider dropdown", () => {
       await tick();
       expect(
         document.querySelector(".dropdown-trigger")?.textContent?.trim(),
-      ).toBe("bedrock_mantle");
+      ).toBe("Bedrock Mantle");
+      expect(document.activeElement).toBe(
+        document.querySelector(".dropdown-trigger"),
+      );
     },
   );
+
+  it("should search display names and select the first match with Enter", async () => {
+    dropdown = new ProviderDropdown({
+      target: document.body,
+      props: { providers: ["bedrock", "bedrock_mantle"] },
+    });
+    document.querySelector<HTMLButtonElement>("button")!.click();
+    await tick();
+    const input = document.querySelector<HTMLInputElement>("input")!;
+    expect(document.activeElement).toBe(input);
+    input.value = "Amazon";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    expect(document.querySelectorAll('[role="option"]')).toHaveLength(2);
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    await tick();
+    expect(document.querySelector(".dropdown-trigger")?.textContent).toContain(
+      "Amazon Bedrock",
+    );
+  });
+
+  it("should dismiss with Escape without changing the selection", async () => {
+    dropdown = new ProviderDropdown({
+      target: document.body,
+      props: {
+        providers: ["bedrock_mantle"],
+        selectedProvider: "bedrock_mantle",
+      },
+    });
+    const trigger = document.querySelector<HTMLButtonElement>("button")!;
+    trigger.click();
+    await tick();
+    document
+      .querySelector("input")!
+      .dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+    await tick();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(trigger.textContent).toContain("Bedrock Mantle");
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("should keep the current selection when Enter is pressed with no matches", async () => {
+    dropdown = new ProviderDropdown({
+      target: document.body,
+      props: {
+        providers: ["bedrock_mantle"],
+        selectedProvider: "bedrock_mantle",
+      },
+    });
+    document.querySelector<HTMLButtonElement>("button")!.click();
+    await tick();
+    const input = document.querySelector<HTMLInputElement>("input")!;
+    input.value = "missing provider";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    await tick();
+    expect(document.body.textContent).toContain("No matching providers");
+    expect(document.querySelector(".dropdown-trigger")?.textContent).toContain(
+      "Bedrock Mantle",
+    );
+  });
 });
