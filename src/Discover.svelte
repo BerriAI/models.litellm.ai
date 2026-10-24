@@ -1,8 +1,12 @@
 <script lang="ts">
   import DiscoveryUpdates from "./DiscoveryUpdates.svelte";
+  import CodingBenchmarks from "./CodingBenchmarks.svelte";
   import BenchmarkWorkspace from "./BenchmarkWorkspace.svelte";
 </script>
 
 <BenchmarkWorkspace on:browse>
-  <DiscoveryUpdates slot="hero" />
+  <svelte:fragment slot="hero">
+    <DiscoveryUpdates />
+    <CodingBenchmarks embedded />
+  </svelte:fragment>
 </BenchmarkWorkspace>

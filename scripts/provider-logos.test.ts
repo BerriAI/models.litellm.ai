@@ -35,6 +35,7 @@ describe("audited provider artwork", () => {
 
   it("should show Baseten's official artwork and resolve aliases case-insensitively", () => {
     expect(getProviderLogo("Baseten")).toMatch(/\/upstream\/baseten\./);
+    expect(getProviderLogo("OPENCODE_GO")).toBe("/provider-logos/upstream/opencode_go.svg");
     for (const [alias, provider] of [
       ["anthropic_text", "anthropic"],
       ["bedrock_mantle", "bedrock"],

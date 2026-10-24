@@ -36,7 +36,7 @@ import { benchmarksFor, latestBenchmarkDate, loadBenchmarks, type BenchmarkData 
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
 import { fetchBytes, fetchText } from "./fetch";
-import { cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
+import { codingBenchmarksPage, cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
 import { compareCard, copyCardFonts, modelCard, providerCard, writeCard } from "./og";
@@ -761,6 +761,13 @@ ${cheapestOnProvider(h.name, list)}
         page: guardrailsPage(guardrails),
       },
     ];
+    routes.push({
+      path: "/benchmarks",
+      title: PAGE_TITLES.benchmarks,
+      description: "Completed coding-agent pilot results: quality and successful tasks per estimated API dollar, with explicit scope and methodology.",
+      card: { kicker: "LiteLLM coding benchmarks", title: "Coding agent pilot", subtitle: "Quality and successful tasks per dollar", stats: [] },
+      page: codingBenchmarksPage(JSON.parse(readFileSync(path.resolve("public/benchmarks/results.json"), "utf8"))),
+    });
     for (const r of routes) {
       const id = r.path === "/" ? "home" : r.path.slice(1);
       const lastmod = r.page.lastmod ?? BUILD_DATE;
