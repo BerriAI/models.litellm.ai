@@ -35,6 +35,7 @@ function htmlFiles(dir: string): string[] {
 // The app's routes are copies of index.html with their own head (scripts/seo/shell.ts).
 const APP_PAGES: [string, string][] = [
   ["index.html", "/"],
+  ["search.html", "/search"],
   ["providers.html", "/providers"],
   ["cookbook.html", "/cookbook"],
   ["guardrails.html", "/guardrails"],

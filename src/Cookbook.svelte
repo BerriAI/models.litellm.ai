@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import PageHero from "./PageHero.svelte";
 
   interface Guide {
     title: string;
@@ -165,6 +166,9 @@
   });
 </script>
 
+<div class="hf-hero-wrap">
+  <PageHero id="cookbook" title="COOKBOOK" eyebrow="BUILD WITH LITELLM" description="Practical guides for your next integration." diagramLabels={["TOOLS", "GUIDES", "BUILD"]} diagramCaption="LEARN / CONNECT / SHIP" />
+</div>
 <div class="cookbook-container">
   {#if loading}
     <div class="loading-state">
@@ -179,14 +183,7 @@
     </div>
   {:else}
     <div class="guides-header">
-      <div class="header-badge">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-        {guides.length} guides available
-      </div>
-      <h1>AI Tool Guides</h1>
-      <p class="guides-subtitle">
-        Learn how to integrate LiteLLM with popular AI tools and coding assistants
-      </p>
+      <span class="guides-count">{guides.length} guides</span>
       <button class="submit-guide-button" on:click={openSubmitModal}>
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"></line><line x1="3" y1="8" x2="13" y2="8"></line></svg>
         Submit Your Guide
@@ -291,7 +288,7 @@
 
 <style>
   .cookbook-container {
-    max-width: 1400px; margin: 0 auto; padding: 2rem;
+    max-width: 1400px; margin: 0 auto; padding: 0 44px 40px;
     min-height: calc(100vh - 200px);
   }
 
@@ -320,31 +317,16 @@
     cursor: pointer;
   }
 
-  .guides-header { text-align: center; margin-bottom: 2.5rem; }
-
-  .header-badge {
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    padding: 0.375rem 1rem; background: var(--bg-secondary);
-    border: 1px solid var(--border-color); border-radius: 100px;
-    font-size: 0.8125rem; font-weight: 500; color: var(--muted-color);
-    margin-bottom: 1.25rem;
+  .guides-header {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    border-top: 1px solid var(--hf-line); padding-top: 24px; margin-bottom: 24px;
   }
-
-  .header-badge svg { color: var(--litellm-primary); }
-
-  .guides-header h1 {
-    font-size: 2.25rem; font-weight: 800; color: var(--text-color);
-    margin-bottom: 0.5rem; letter-spacing: -0.03em;
-  }
-
-  .guides-subtitle {
-    font-size: 1.0625rem; color: var(--muted-color); margin-bottom: 1.5rem;
-  }
+  .guides-count { font: 11px 'IBM Plex Mono', monospace; color: var(--hf-muted); }
 
   .submit-guide-button {
     display: inline-flex; align-items: center; gap: 0.375rem;
     padding: 0.625rem 1.25rem; background: var(--litellm-primary);
-    color: var(--litellm-on-primary); border: none; border-radius: 8px; font-weight: 600;
+    color: var(--litellm-on-primary); border: none; border-radius: 0; font-weight: 600;
     font-size: 0.875rem; cursor: pointer; transition: all 0.15s;
   }
 
@@ -498,12 +480,14 @@
 
   .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted-color); }
 
+  @media (max-width: 1100px) { .cookbook-container { padding-inline: 30px; } }
+
   @media (max-width: 768px) {
-    .cookbook-container { padding: 1rem; }
-    .guides-header h1 { font-size: 1.75rem; }
+    .cookbook-container { padding: 0 30px 32px; }
     .guides-grid { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
     .form-actions { flex-direction: column-reverse; }
     .btn { width: 100%; text-align: center; }
   }
+  @media (max-width: 560px) { .cookbook-container { padding-inline: 20px; } }
 </style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import PageHero from "./PageHero.svelte";
   import { fly } from "svelte/transition";
   import Fuse from "fuse.js";
 
@@ -160,16 +161,8 @@
   $: query, selectedCategory, selectedInputType, filterResults();
 </script>
 
-<div class="guardrails-container">
-  <div class="hero">
-    <div class="hero-badge">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-      Community-contributed
-    </div>
-    <h1 class="hero-title">Custom Code Guardrails</h1>
-    <p class="hero-subtitle">
-      Copy, customize, and deploy guardrails to protect your LLM applications.
-    </p>
+<div class="hf-hero-wrap">
+  <PageHero id="guardrails" title="GUARDRAILS" eyebrow="PROTECT EVERY REQUEST" description="Checks you can copy, customize, and deploy." diagramLabels={["REQUEST", "CHECK", "RESPONSE"]} diagramCaption="VALIDATE / FILTER / PROTECT">
     <div class="cta-buttons">
       <a href="https://docs.litellm.ai/docs/proxy/guardrails/custom_code_guardrail" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
@@ -180,8 +173,9 @@
         Contribute
       </a>
     </div>
-  </div>
-
+  </PageHero>
+</div>
+<div class="guardrails-container">
   <div class="search-section">
     <div class="search-bar-container">
       <div class="search-input-wrapper">
@@ -304,29 +298,7 @@
 <style>
   .guardrails-container { max-width: 1000px; margin: 0 auto; padding: 0 2rem 4rem; }
 
-  .hero { text-align: center; padding: 2rem 0 2.5rem; }
-
-  .hero-badge {
-    display: inline-flex; align-items: center; gap: 0.5rem;
-    padding: 0.375rem 1rem; background: var(--bg-secondary);
-    border: 1px solid var(--border-color); border-radius: 100px;
-    font-size: 0.8125rem; font-weight: 500; color: var(--muted-color);
-    margin-bottom: 1.25rem;
-  }
-
-  .hero-badge svg { color: var(--litellm-primary); }
-
-  .hero-title {
-    font-size: 2.25rem; font-weight: 800; margin: 0 0 0.5rem 0;
-    color: var(--text-color); letter-spacing: -0.03em;
-  }
-
-  .hero-subtitle {
-    font-size: 1.0625rem; color: var(--muted-color);
-    margin: 0 0 1.5rem 0; max-width: 500px; margin-left: auto; margin-right: auto;
-  }
-
-  .cta-buttons { display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }
+  .cta-buttons { display: flex; gap: 0.75rem; justify-content: flex-start; flex-wrap: wrap; }
 
   .btn {
     display: inline-flex; align-items: center; gap: 0.375rem;
@@ -473,7 +445,6 @@
 
   @media (max-width: 768px) {
     .guardrails-container { padding: 0 1rem 2rem; }
-    .hero-title { font-size: 1.75rem; }
     .search-bar-container { flex-direction: column; }
     .filter-select { width: 100%; }
   }

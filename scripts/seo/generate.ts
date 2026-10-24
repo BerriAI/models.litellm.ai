@@ -36,7 +36,7 @@ import { benchmarksFor, latestBenchmarkDate, loadBenchmarks, type BenchmarkData 
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
 import { fetchBytes, fetchText } from "./fetch";
-import { cookbookPage, guardrailsPage, homePage, providersPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
+import { cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
 import { compareCard, copyCardFonts, modelCard, providerCard, writeCard } from "./og";
@@ -693,17 +693,17 @@ ${cheapestOnProvider(h.name, list)}
     // A local COOKBOOK_FILE means an offline build: skip the docs crawl.
     const guides = process.env.COOKBOOK_FILE ? cookbookIndex : await loadCookbook((u) => fetchText(u, { timeoutMs: 15_000 }), cookbookIndex);
     if (guides) write("cookbook.json", JSON.stringify(guides));
-    const homeDescription = `Compare pricing, context windows and features for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file.`;
+    const homeDescription = `Discover ${int(rows.length)} AI models across ${hubList.length} providers. Explore model pricing, context windows, new releases and published benchmark comparisons.`;
     const providersDescription = `LiteLLM supports ${supported} AI providers, ${hubList.length} with model prices here. See the endpoints each supports: chat, embeddings, images, audio, batches and more.`;
     const routes: { path: string; title: string; description: string; card: CardInput; page: AppPage }[] = [
       {
         path: "/",
-        title: PAGE_TITLES.models,
+        title: PAGE_TITLES.discover,
         description: homeDescription,
         card: {
           kicker: "LiteLLM Model Catalog",
-          title: "AI model pricing, context windows and providers",
-          subtitle: "Updated several times a day",
+          title: "Discover AI models",
+          subtitle: "Model pricing, providers and published benchmark comparisons",
           stats: [
             { value: int(rows.length), label: "models" },
             { value: int(hubList.length), label: "providers" },
@@ -711,6 +711,13 @@ ${cheapestOnProvider(h.name, list)}
           ],
         },
         page: homePage(rows.length, hubs, recent, latestChange),
+      },
+      {
+        path: "/search",
+        title: PAGE_TITLES.models,
+        description: `Search pricing, context windows and features for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file.`,
+        card: { kicker: "LiteLLM Model Catalog", title: "Search AI models", subtitle: "Pricing, context windows and provider support", stats: [{ value: int(rows.length), label: "models" }, { value: int(hubList.length), label: "providers" }] },
+        page: searchPage(rows.length, hubs, recent, latestChange),
       },
       {
         path: "/providers",
@@ -747,6 +754,8 @@ ${cheapestOnProvider(h.name, list)}
       );
       if (r.path !== "/") appEntries.push({ path: r.path, lastmod: r.page.lastmod });
     }
+    // /discover is an alias of the root, with the same canonical and structured data.
+    write("discover.html", readFileSync(indexFile, "utf8"));
   } else {
     console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");
   }

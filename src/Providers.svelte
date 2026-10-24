@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import PageHero from "./PageHero.svelte";
+  import { filterProviders, supportsEndpoint } from "./providerFilters";
   import { getProviderInitial, getProviderLogo } from "./providers";
   import { trackSearch } from "./analytics";
 
@@ -28,6 +30,8 @@
   let allEndpoints: string[] = [];
   let filteredEndpoints: string[] = [];
   let filteredProviders: ProviderEndpoint[] = [];
+  let matchingProviders: ProviderEndpoint[] = [];
+  let hiddenProviderMatches = 0;
 
   const PROVIDERS_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/provider_endpoints_support.json";
   const DOCS_URL = "https://docs.litellm.ai/docs/providers";
@@ -89,6 +93,14 @@
     }
   }, 1000);
 
+  function showProviderInitial(event: Event) {
+    const image = event.currentTarget;
+    if (!(image instanceof HTMLImageElement)) return;
+    image.style.display = "none";
+    const initial = image.nextElementSibling;
+    if (initial instanceof HTMLElement) initial.style.display = "flex";
+  }
+
   function formatEndpointName(endpoint: string): string {
     if (endpointsMetadata[endpoint]?.leftnav_label) {
       return endpointsMetadata[endpoint].leftnav_label;
@@ -112,81 +124,38 @@
   }
 
   $: {
-    if (searchQuery.trim() === "") {
-      filteredEndpoints = allEndpoints;
-    } else {
-      const query = searchQuery.toLowerCase();
-      
-      const matchingProviders = providers.filter(p =>
-        p.provider.toLowerCase().includes(query) ||
-        p.display_name.toLowerCase().includes(query)
-      );
-      
-      const supportedEndpoints = new Set<string>();
-      matchingProviders.forEach(p => {
-        Object.keys(p.endpoints).forEach(endpoint => {
-          if (p.endpoints[endpoint] === true) {
-            supportedEndpoints.add(endpoint);
-          }
-        });
-      });
-      
-      filteredEndpoints = allEndpoints.filter(e => supportedEndpoints.has(e));
-    }
+    const result = filterProviders(
+      providers,
+      searchQuery,
+      selectedEndpoint,
+      endpointsMetadata[selectedEndpoint]?.bridges_to_chat_completion,
+    );
+    matchingProviders = result.matching;
+    filteredProviders = result.visible;
+    hiddenProviderMatches = result.hiddenCount;
+    trackSearchDebounced(searchQuery, filteredProviders.length);
   }
 
-  $: {
-    if (selectedEndpoint) {
-      const bridgesToChatCompletion = endpointsMetadata[selectedEndpoint]?.bridges_to_chat_completion || false;
-      
-      let providersList = providers.filter(p => {
-        const directSupport = p.endpoints[selectedEndpoint] === true;
-        const bridgedSupport = bridgesToChatCompletion && p.endpoints['chat_completions'] === true;
-        return directSupport || bridgedSupport;
-      });
-      
-      if (searchQuery.trim() !== "") {
-        const query = searchQuery.toLowerCase();
-        providersList = providersList.filter(p =>
-          p.provider.toLowerCase().includes(query) ||
-          p.display_name.toLowerCase().includes(query)
-        );
-      }
-      
-      filteredProviders = providersList;
-      trackSearchDebounced(searchQuery, filteredProviders.length);
-    } else {
-      filteredProviders = [];
-    }
-  }
+  $: filteredEndpoints = searchQuery.trim()
+    ? allEndpoints.filter((endpoint) => endpoint === selectedEndpoint ||
+        matchingProviders.some((provider) => supportsEndpoint(
+          provider, endpoint, endpointsMetadata[endpoint]?.bridges_to_chat_completion,
+        )))
+    : allEndpoints;
 
   function getProviderCount(endpoint: string): number {
-    const bridgesToChatCompletion = endpointsMetadata[endpoint]?.bridges_to_chat_completion || false;
-    
-    return providers.filter(p => {
-      const directSupport = p.endpoints[endpoint] === true;
-      const bridgedSupport = bridgesToChatCompletion && p.endpoints['chat_completions'] === true;
-      return directSupport || bridgedSupport;
-    }).length;
+    return matchingProviders.filter((provider) => supportsEndpoint(
+      provider, endpoint, endpointsMetadata[endpoint]?.bridges_to_chat_completion,
+    )).length;
   }
 
 </script>
 
 <main>
-  <div class="hero">
-    <div class="hero-content">
-      <h1 class="hero-title">
-        AI Provider Integrations
-        <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="docs-link" title="View docs">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-            <polyline points="15 3 21 3 21 9"></polyline>
-            <line x1="10" y1="14" x2="21" y2="3"></line>
-          </svg>
-        </a>
-      </h1>
-      <p class="hero-subtitle">Browse all AI providers and their supported endpoints through LiteLLM AI Gateway</p>
-    </div>
+  <div class="hf-hero-wrap">
+    <PageHero id="providers" title="PROVIDERS" eyebrow="ONE API. EVERY PROVIDER." description="Find the right provider for every endpoint." diagramLabels={["PROVIDERS", "MODELS", "ENDPOINTS"]} diagramCaption="CONNECT / ROUTE / SCALE">
+      <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="docs-link">Provider docs ↗</a>
+    </PageHero>
   </div>
 
   <div class="search-section">
@@ -199,6 +168,7 @@
         bind:value={searchQuery}
         type="text"
         autocomplete="off"
+        aria-label="Search providers"
         placeholder="Search providers..."
         class="search-input"
       />
@@ -216,7 +186,11 @@
         <div class="sidebar-header">
           <h2>Endpoints</h2>
         </div>
-        <nav class="endpoints-list">
+        <nav class="endpoints-list" aria-label="Filter by endpoint">
+          <button class="endpoint-item" class:active={!selectedEndpoint} on:click={() => selectedEndpoint = ""} type="button">
+            <span class="endpoint-label">All endpoints</span>
+            <span class="provider-count">{matchingProviders.length}</span>
+          </button>
           {#each filteredEndpoints as endpoint (endpoint)}
             <button
               class="endpoint-item"
@@ -232,23 +206,25 @@
       </aside>
 
       <section class="content">
-        {#if selectedEndpoint}
-          <div class="content-header">
-            <h2 class="endpoint-title">
-              {formatEndpointTitle(selectedEndpoint)}
-              <a href={getEndpointUrl(selectedEndpoint)} target="_blank" rel="noopener noreferrer" class="endpoint-docs-link" title="View documentation">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                  <polyline points="15 3 21 3 21 9"></polyline>
-                  <line x1="10" y1="14" x2="21" y2="3"></line>
-                </svg>
-              </a>
-            </h2>
-            <p class="endpoint-subtitle">
-              {filteredProviders.length} {filteredProviders.length === 1 ? 'provider' : 'providers'} support {formatEndpointName(selectedEndpoint)}
-            </p>
+        <div class="content-header">
+          <h2 class="endpoint-title">
+            {selectedEndpoint ? formatEndpointTitle(selectedEndpoint) : "All providers"}
+            {#if selectedEndpoint}
+              <a href={getEndpointUrl(selectedEndpoint)} target="_blank" rel="noopener noreferrer" class="endpoint-docs-link" aria-label="View endpoint documentation">↗</a>
+            {/if}
+          </h2>
+          <p class="endpoint-subtitle">
+            {filteredProviders.length} {filteredProviders.length === 1 ? 'provider' : 'providers'}
+            {#if selectedEndpoint} support {formatEndpointName(selectedEndpoint)}{:else} across all endpoints{/if}
+          </p>
+        </div>
+        {#if searchQuery.trim() && hiddenProviderMatches > 0}
+          <div class="filter-notice" role="status">
+            <span>{hiddenProviderMatches} {hiddenProviderMatches === 1 ? 'match' : 'matches'} outside this endpoint filter.</span>
+            <button type="button" on:click={() => selectedEndpoint = ""}>Clear endpoint filter ↗</button>
           </div>
-
+        {/if}
+        {#if filteredProviders.length > 0}
           <div class="providers-grid">
             {#each filteredProviders as { provider, display_name, url } (provider)}
               <a href={url} target="_blank" rel="noopener noreferrer" class="provider-card">
@@ -259,10 +235,7 @@
                         src={getProviderLogo(provider)} 
                         alt={provider}
                         class="provider-logo-img"
-                        on:error={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling.style.display = 'flex';
-                        }}
+                        on:error={showProviderInitial}
                       />
                       <div class="provider-initial" style="display: none;">
                         {getProviderInitial(provider)}
@@ -276,7 +249,11 @@
                   <h3 class="provider-name">{display_name.replace(/\s*\(.*?\)\s*$/, '')}</h3>
                 </div>
                 <p class="provider-description">
-                  {display_name.replace(/\s*\(.*?\)\s*$/, '')} supports {formatEndpointName(selectedEndpoint)} endpoint through LiteLLM AI Gateway.
+                  {#if selectedEndpoint}
+                    {display_name.replace(/\s*\(.*?\)\s*$/, '')} supports {formatEndpointName(selectedEndpoint)} through LiteLLM AI Gateway.
+                  {:else}
+                    Available through LiteLLM AI Gateway.
+                  {/if}
                 </p>
                 <div class="provider-meta">
                   <span class="provider-key">{provider}</span>
@@ -286,9 +263,7 @@
             {/each}
           </div>
         {:else}
-          <div class="empty-state">
-            <p>Select an endpoint to view available providers</p>
-          </div>
+          <div class="empty-state"><p>No providers match this search and endpoint.</p></div>
         {/if}
       </section>
     </div>
@@ -298,35 +273,15 @@
 <style>
   main { min-height: 100vh; background: var(--bg-color); }
 
-  .hero { padding: 2.5rem 2rem 1.5rem; max-width: 1400px; margin: 0 auto; }
-  .hero-content { text-align: center; }
+  .docs-link { display: inline-flex; color: var(--hf-accent); font-size: 12px; }
+  .docs-link:hover { text-decoration: underline; }
 
-  .hero-title {
-    font-size: 2.25rem;
-    font-weight: 800;
-    color: var(--text-color);
-    margin-bottom: 0.5rem;
-    letter-spacing: -0.03em;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
+  .filter-notice {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+    gap: 12px; padding: 12px 14px; margin-bottom: 18px;
+    border: 1px solid var(--hf-line); color: var(--hf-muted); font-size: 12px;
   }
-
-  .docs-link {
-    display: inline-flex;
-    color: var(--litellm-primary);
-    opacity: 0.6;
-    transition: opacity 0.15s;
-  }
-
-  .docs-link:hover { opacity: 1; }
-
-  .hero-subtitle {
-    font-size: 1.0625rem;
-    color: var(--muted-color);
-    line-height: 1.5;
-  }
+  .filter-notice button { background: none; border: 0; color: var(--hf-accent); font-size: 12px; font-weight: 600; padding: 0; }
 
   .search-section { max-width: 700px; margin: 1.5rem auto; padding: 0 2rem; }
 
@@ -501,8 +456,6 @@
   }
 
   @media (max-width: 768px) {
-    .hero-title { font-size: 1.75rem; }
-    .hero-subtitle { font-size: 0.9375rem; }
     .container { padding: 0 1rem; }
     .providers-grid { grid-template-columns: 1fr; }
     .endpoint-title { font-size: 1.375rem; }

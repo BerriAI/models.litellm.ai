@@ -1,17 +1,18 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { afterUpdate, createEventDispatcher, onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
 
-  import Fuse from "fuse.js";
   import { getProviderInitial, getProviderLogo } from "./providers";
   import ProviderDropdown from "./ProviderDropdown.svelte";
   import { trackSearch } from "./analytics";
   import { buildInfo, formatStars } from "./buildInfo";
   import CatalogStats from "./CatalogStats.svelte";
   import QuickStartBox from "./QuickStartBox.svelte";
-  import {
-    fetchAllCatalogModels,
-  } from "./catalogApi";
+  import PageHero from "./PageHero.svelte";
+  import { searchIntent } from "./searchIntent";
+  import { sanitizeSearchQuery } from "./searchQuery";
+  import { createSettledSearch } from "./settledSearch";
+  import { loadCatalogData, type CatalogItem } from "./catalogData";
   import {
     isImagePricingMode,
     isAudioPricingMode,
@@ -34,14 +35,21 @@
     chatSortCacheWrite,
   } from "./modelPresentation";
   import {
-    MODELS_DEV_TIMEOUT_MS,
+    EMPTY_MODELS_DEV_INDEX,
     compareReleaseDates,
     deriveModelMeta,
     formatReleaseDate,
     formatReleaseMonth,
-    loadModelsDevIndex,
     type ModelsDevIndex,
   } from "./modelMeta";
+  import { tokenLimitValue, type CatalogMatches, type ModelFilters } from "./modelSearch";
+  import { createModelSearcher, type ModelSearcher, type SearchReply } from "./backgroundSearch";
+  import SearchWorker from "./searchWorker?worker";
+  import { longestPerColumn, rowOffsets, rowsInView } from "./rowWindow";
+
+  export let compact = false;
+  const dispatch = createEventDispatcher<{ querychange: { query: string } }>();
+  $: dispatch("querychange", { query });
 
   type Item = {
     name: string;
@@ -49,13 +57,6 @@
     release_date: string | null;
     [key: string]: any;
   };
-
-  const SEARCH_KEYS = [
-    { name: "name", weight: 1.5 },
-    { name: "display_name", weight: 1.5 },
-    "mode",
-    "litellm_provider",
-  ];
 
   type ResultItem = {
     refIndex: number;
@@ -79,6 +80,18 @@
   let selectedProvider: string = "";
   let maxInputTokens: number | null = null;
   let maxOutputTokens: number | null = null;
+  let freeOnly = false;
+  let output: NonNullable<ModelFilters["output"]> = "";
+  let inputs: NonNullable<ModelFilters["inputs"]> = [];
+  let toolsOnly = false;
+  const outputTabs: { value: NonNullable<ModelFilters["output"]>; label: string }[] = [{ value: "", label: "All" }, { value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "video", label: "Video" }, { value: "audio", label: "Speech" }, { value: "embedding", label: "Embeddings" }];
+  const inputOptions: NonNullable<ModelFilters["inputs"]> = ["text", "image", "file", "audio", "video"];
+  let hiddenCount = 0;
+  let catalogFetchedAt: number | null = null;
+  let refreshing = false;
+  let refreshError = "";
+  let refreshCatalog: (forceRefresh?: boolean) => void = () => {};
+  $: intent = searchIntent(query);
 
   // Sorting state
   let sortColumn: string = "released";
@@ -93,10 +106,15 @@
   let searchInput: HTMLInputElement;
   let searchFocused = false;
 
+  function focusSiteSearch() {
+    searchInput?.focus({ preventScroll: true });
+    searchInput?.scrollIntoView({ block: "center" });
+  }
+
   function handleKeydown(e: KeyboardEvent) {
     if ((e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
-      searchInput?.focus();
+      focusSiteSearch();
     }
     if (e.key === "Escape" && document.activeElement === searchInput) {
       searchInput?.blur();
@@ -108,8 +126,7 @@
 
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    query = urlParams.get("q") ?? "";
-    searchText = query;
+    query = sanitizeSearchQuery(urlParams.get("q"));
 
     fetch("/models/slugs.json")
       .then((res) => (res.ok ? res.json() : {}))
@@ -131,113 +148,83 @@
       .then((res) => res.text())
       .then((text) => {
         sha = text;
-      });
+      })
+      .catch(() => { /* Issue links can fall back to the main branch. */ });
 
-    const modelsDevIndex: Promise<ModelsDevIndex> = loadModelsDevIndex(
-      (input, init) => fetch(input, init),
-      MODELS_DEV_TIMEOUT_MS,
-    );
-
-    const finishLoad = (rawItems: Item[]) => {
-      modelsDevIndex.then((modelsDev) => {
-        const items: Item[] = rawItems.map((item) => ({
-          ...item,
-          ...deriveModelMeta(item.name, modelsDev),
-        }));
-        providers = [
-          ...new Set(
-            items
-              .map((i) => i.litellm_provider)
-              .filter(Boolean),
-          ),
-        ];
-        providers.sort();
-
-        index = new Fuse(items, {
-          threshold: 0.3,
-          keys: SEARCH_KEYS,
-        });
-
-        results = items.map((item, refIndex) => ({ item, refIndex }));
-        loading = false;
-      });
+    const showCatalog = (rawItems: CatalogItem[], metadata: ModelsDevIndex) => {
+      if (destroyed) return;
+      restartSearchWorker();
+      const items: Item[] = rawItems.map((item) => ({
+        ...item,
+        ...deriveModelMeta(item.name, metadata),
+      }));
+      providers = [...new Set(items.map((item) => item.litellm_provider).filter((provider): provider is string => typeof provider === "string" && !!provider))].sort();
+      searcher = createModelSearcher(
+        items,
+        (message) => searchWorker?.postMessage(message),
+        acceptMatches,
+      );
+      if (searchWorkerFailed) searcher.workerFailed();
     };
 
-    if (useLocalCatalogApi) {
-      fetch(
-        `https://raw.githubusercontent.com/${REPO_FULL_NAME}/main/${RESOURCE_PATH}`,
-      )
-        .then((res) => res.text())
-        .then((text) => {
-          lines = text.split("\n");
+    let catalogRevision = 0;
+    refreshCatalog = (forceRefresh = false) => {
+      const revision = ++catalogRevision;
+      refreshing = true;
+      refreshError = "";
+      loadCatalogData(useLocalCatalogApi, catalogApiBase, { forceRefresh })
+        .then(({ items, lines: sourceLines, metadata, fetchedAt }) => {
+          if (destroyed || revision !== catalogRevision) return;
+          lines = sourceLines;
+          catalogFetchedAt = fetchedAt;
+          loadError = null;
+          showCatalog(items, EMPTY_MODELS_DEV_INDEX);
+          metadata.then((index) => {
+            if (index.size && revision === catalogRevision) showCatalog(items, index);
+          });
         })
-        .catch((err) => {
-          console.error(err);
-        });
-      fetchAllCatalogModels(catalogApiBase)
-        .then(({ models }) => {
-          finishLoad(models as Item[]);
-        })
-        .catch((err) => {
-          console.error(err);
-          loadError =
-            "Failed to load model catalog from the local API. Check that the litellm-model-catalog-api service is running and reachable.";
+        .catch((error) => {
+          if (destroyed || revision !== catalogRevision) return;
+          console.error(error);
+          const message = useLocalCatalogApi
+            ? "Could not refresh the local catalog. Check the catalog API connection."
+            : "Could not refresh the catalog. Please try again.";
+          if (matches) refreshError = message;
+          else loadError = message;
           loading = false;
-        });
-      return;
-    }
-
-    fetch(
-      `https://raw.githubusercontent.com/${REPO_FULL_NAME}/main/${RESOURCE_PATH}`,
-    )
-      .then((res) => res.text())
-      .then((text) => {
-        lines = text.split("\n");
-        const parsed = JSON.parse(text) as Record<string, unknown>;
-        const items: Item[] = Object.entries(parsed)
-          .filter(([k]) => k !== "sample_spec")
-          .map(([k, v]: any) => ({ name: k, ...v }));
-        finishLoad(items);
-      });
+        })
+        .finally(() => { if (!destroyed && revision === catalogRevision) refreshing = false; });
+    };
+    refreshCatalog();
   });
 
-  const debounce = (callback: Function, wait = 500) => {
-    let timeout: ReturnType<typeof setTimeout>;
+  const queryAnalytics = createSettledSearch((search) => {
+    trackSearch(search.query, search.filters.provider, search.resultsCount, { ...search.filters, hiddenCount: search.hiddenCount });
+  });
+  let analyticsRevision = 0;
+  let activeSearch: { query: string; filters: ModelFilters };
 
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => callback(...args), wait);
-    };
-  };
-
-  const trackSearchDebounced = debounce((query: string, provider: string) => {
-    if (query) {
-      trackSearch(query, provider, results.length);
-    }
-  }, 1000);
-
-  const setQueryDebounced = debounce((value: string) => {
-    query = value;
-  }, 500);
-
-  $: setQueryDebounced(searchText);
-
-  function clearSearch() {
-    searchText = "";
-    query = "";
+  function acceptMatches(found: CatalogMatches<Item>) {
+    if (destroyed) return;
+    matches = found.items;
+    hiddenCount = found.hiddenCount;
+    searching = false;
+    queryAnalytics.settle(analyticsRevision, { ...activeSearch, resultsCount: found.items.length, hiddenCount: found.hiddenCount });
   }
 
-  const getIssueUrlForAdd = (query: string) => {
-    const q = encodeURIComponent(query);
-    const body = encodeURIComponent(
-      `Source: <SOURCE_URL>
+  function clearFilters() {
+    selectedProvider = "";
+    maxInputTokens = null;
+    maxOutputTokens = null;
+    freeOnly = false;
+    output = "";
+    inputs = [];
+    toolsOnly = false;
+  }
 
-We need to update both [${RESOURCE_NAME}](https://github.com/${REPO_FULL_NAME}/blob/${sha ?? DEFAULT_BRANCH}/${RESOURCE_PATH}) and [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_NAME}/blob/${sha ?? DEFAULT_BRANCH}/${RESOURCE_BACKUP_PATH}) to reflect the new model.
-`,
-    );
-
-    return `https://github.com/${REPO_FULL_NAME}/issues/new?labels=enhancement,fastrepl&title=Add+%22${q}%22+in+%22${RESOURCE_NAME}%22&body=${body}`;
-  };
+  function requestModel() {
+    window.dispatchEvent(new CustomEvent("request-support", { detail: { modelName: query.trim() } }));
+  }
 
   const getIssueUrlForFix = (name: string) => {
     const repo = `https://github.com/${REPO_FULL_NAME}`;
@@ -264,9 +251,35 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   let sha: string | null = null;
   let query = "";
-  let searchText = "";
   let lines: string[] = [];
-  let index: Fuse<Item>;
+  let searcher: ModelSearcher<Item> | null = null;
+  let matches: Item[] | null = null;
+  let searching = false;
+  let searchWorkerFailed = false;
+  let destroyed = false;
+  let searchWorker: Worker | null = null;
+  function restartSearchWorker() {
+    searchWorker?.terminate();
+    searchWorker = null;
+    searchWorkerFailed = false;
+    try {
+      searchWorker = new SearchWorker();
+      searchWorker.onmessage = (event: MessageEvent<SearchReply>) => searcher?.receive(event.data);
+      searchWorker.onerror = searchWorker.onmessageerror = () => {
+        searchWorkerFailed = true;
+        searcher?.workerFailed();
+      };
+    } catch {
+      searchWorkerFailed = true;
+    }
+  }
+  onDestroy(() => {
+    destroyed = true;
+    queryAnalytics.cancel();
+    searchWorker?.terminate();
+    rowHeightObserver.disconnect();
+    cancelAnimationFrame(viewFrame);
+  });
   let results: ResultItem[] = [];
   let loading = true;
   let loadError: string | null = null;
@@ -275,13 +288,128 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   /** Cost-map key -> static model page slug, written by scripts/seo/generate.ts at build time. */
   let modelPages: Record<string, string> = {};
 
-  $: {
-    if (index) {
-      filterResults(query, selectedProvider, maxInputTokens, maxOutputTokens);
+  const CELL_COLUMN_COUNT = 6;
+  let rowHeights = new Map<string, number>();
+  let detailHeights = new Map<string, number>();
+  let typicalRowHeight = 64;
+  let rowsTop: HTMLElement | null = null;
+  let viewTop = 0;
+  let viewBottom = window.innerHeight;
+  let measuredWidth = window.innerWidth;
+  let renderAllRows = false;
+  let viewFrame = 0;
+
+  $: offsets = rowOffsets(
+    results.map(
+      ({ item }) =>
+        (rowHeights.get(item.name) ?? typicalRowHeight) +
+        (expandedRows.has(item.name) ? (detailHeights.get(item.name) ?? 0) : 0),
+    ),
+  );
+  $: rowNumbers = rowOffsets(
+    results.map(({ item }) => (expandedRows.has(item.name) ? 2 : 1)),
+  );
+  $: shownRange = renderAllRows
+    ? { start: 0, end: results.length }
+    : rowsInView(offsets, viewTop, viewBottom);
+  $: shownStart = shownRange.start;
+  $: shownEnd = shownRange.end;
+  $: shownResults = results.slice(shownStart, shownEnd);
+  $: rowsAbovePx = offsets[shownStart];
+  $: rowsBelowPx = offsets[results.length] - offsets[shownEnd];
+  $: sizerCells = longestPerColumn(
+    results.map(({ item }) => cellTexts(item)),
+    CELL_COLUMN_COUNT,
+  );
+
+  const cellTextCache = new WeakMap<Item, string[]>();
+
+  function cellTexts(item: Item): string[] {
+    const cached = cellTextCache.get(item);
+    if (cached) return cached;
+    const cells = [
+      formatReleaseMonth(item.release_date),
+      formatContext(item.max_input_tokens),
+      tableInputCell(item),
+      tableOutputCell(item),
+      tableCacheReadCell(item),
+      tableCacheWriteCell(item),
+    ];
+    cellTextCache.set(item, cells);
+    return cells;
+  }
+
+  function scheduleViewUpdate() {
+    if (destroyed || viewFrame) return;
+    viewFrame = requestAnimationFrame(updateView);
+  }
+
+  function updateView() {
+    viewFrame = 0;
+    if (window.innerWidth !== measuredWidth) {
+      measuredWidth = window.innerWidth;
+      rowHeights = new Map();
+      detailHeights = new Map();
+    }
+    if (!rowsTop) return;
+    const top = rowsTop.getBoundingClientRect().top;
+    viewTop = -top - window.innerHeight;
+    viewBottom = 2 * window.innerHeight - top;
+  }
+
+  const rowHeightObserver = new ResizeObserver((entries) => {
+    let changed = false;
+    for (const entry of entries) {
+      const { name, detailOf } = (entry.target as HTMLElement).dataset;
+      const height =
+        entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+      const heights = name ? rowHeights : detailHeights;
+      const key = name ?? detailOf;
+      if (!key || !height || heights.get(key) === height) continue;
+      heights.set(key, height);
+      if (name) typicalRowHeight = height;
+      changed = true;
+    }
+    if (changed) {
+      rowHeights = rowHeights;
+      detailHeights = detailHeights;
+    }
+  });
+
+  function measureRowHeight(node: HTMLElement) {
+    rowHeightObserver.observe(node);
+    return { destroy: () => rowHeightObserver.unobserve(node) };
+  }
+
+  afterUpdate(scheduleViewUpdate);
+
+  $: if (searcher) {
+    activeSearch = {
+      query: sanitizeSearchQuery(query),
+      filters: {
+        provider: selectedProvider,
+        minInputTokens: maxInputTokens ?? null,
+        minOutputTokens: maxOutputTokens ?? null,
+        freeOnly: freeOnly || intent.freeOnly,
+        output,
+        inputs,
+        toolsOnly,
+      },
+    };
+    analyticsRevision = queryAnalytics.begin();
+    const ready = searcher.search(activeSearch.query, activeSearch.filters);
+    searching = ready === null;
+    if (ready) {
+      matches = ready.items;
+      hiddenCount = ready.hiddenCount;
+      queryAnalytics.settle(analyticsRevision, { ...activeSearch, resultsCount: ready.items.length, hiddenCount: ready.hiddenCount });
     }
   }
 
-  $: if (index) trackSearchDebounced(searchText, selectedProvider, maxInputTokens, maxOutputTokens);
+  $: if (matches) {
+    results = sortResults(matches.map((item, refIndex) => ({ item, refIndex })));
+    loading = false;
+  }
 
   function copyToClipboard(text: string) {
     navigator.clipboard.writeText(text).then(() => {
@@ -352,9 +480,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     }
   }
 
-  function applySorting() {
-    if (!sortColumn || (query && !userSorted)) return;
-    const sorted = [...results].sort((a, b) => {
+  function sortResults(list: ResultItem[]): ResultItem[] {
+    if (!sortColumn || (query && !userSorted)) return list;
+    return [...list].sort((a, b) => {
       if (sortColumn === "released") {
         return compareReleaseDates(a.item.release_date, b.item.release_date, sortDirection);
       }
@@ -362,21 +490,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       const bVal = getSortValue(b.item, sortColumn);
       return sortDirection === "asc" ? aVal - bVal : bVal - aVal;
     });
-    results = sorted;
   }
 
-  /** Coerce a max_input/output_tokens field to a finite number for filtering.
-   *  Accepts JS numbers and numeric strings (catalog payloads sometimes encode
-   *  limits as strings); returns null for non-numeric values. */
-  function tokenLimitValue(v: unknown): number | null {
-    if (typeof v === "number") return Number.isFinite(v) ? v : null;
-    if (typeof v === "string") {
-      const trimmed = v.trim();
-      if (trimmed === "") return null;
-      const n = Number(trimmed);
-      return Number.isFinite(n) ? n : null;
-    }
-    return null;
+  function applySorting() {
+    results = sortResults(results);
   }
 
   function formatDetailTokenField(v: unknown): string {
@@ -426,52 +543,20 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     return labels[mode] || mode;
   }
 
-  function filterResults(
-    query: string,
-    selectedProvider: string,
-    maxInputTokens: number | null,
-    maxOutputTokens: number | null,
-  ) {
-    if (index) {
-      let filteredResults: Item[];
-
-      const allItems = index["_docs"] as Item[];
-
-      filteredResults = allItems.filter((item) => {
-        const providerOk =
-          !selectedProvider || item.litellm_provider === selectedProvider;
-        const inputLimit = tokenLimitValue(item.max_input_tokens);
-        const outputLimit = tokenLimitValue(item.max_output_tokens);
-        const inputOk =
-          maxInputTokens === null ||
-          (inputLimit !== null && inputLimit >= maxInputTokens);
-        const outputOk =
-          maxOutputTokens === null ||
-          (outputLimit !== null && outputLimit >= maxOutputTokens);
-        return providerOk && inputOk && outputOk;
-      });
-
-      if (query) {
-        const filteredIndex = new Fuse(filteredResults, {
-          threshold: 0.3,
-          keys: SEARCH_KEYS,
-        });
-
-        const searchResults = filteredIndex.search(query);
-        filteredResults = searchResults.map((result) => result.item);
-      }
-
-      results = filteredResults.map((item, refIndex) => ({ item, refIndex }));
-      loading = false;
-
-      if (sortColumn) applySorting();
-    }
-  }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window
+  on:keydown={handleKeydown}
+  on:scroll={scheduleViewUpdate}
+  on:resize={scheduleViewUpdate}
+  on:beforeprint={() => (renderAllRows = true)}
+  on:afterprint={() => (renderAllRows = false)}
+/>
 
-<main class="container">
+<main class="container" class:compact>
+  {#if compact}
+    <PageHero id="models" title="MODELS" eyebrow="THE OPEN MODEL CATALOG" description="Find pricing, context, and capabilities." diagramLabels={["MODELS", "CONTEXT", "PRICING"]} diagramCaption="FIND / COMPARE / BUILD" />
+  {:else}
   <!-- Hero Section -->
   <div class="hero">
     <div class="hero-badge">
@@ -534,42 +619,18 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   </div>
 
   <CatalogStats />
+  {/if}
 
-  <!-- Search and Filters -->
-  <div class="search-section">
-    <div class="search-bar-container">
-      <div class="search-input-wrapper">
-        <svg class="search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
-          <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.5"/>
-          <path d="M12.5 12.5L16.5 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <input
-          id="query"
-          bind:this={searchInput}
-          bind:value={searchText}
-          on:focus={() => { searchFocused = true; }}
-          on:blur={() => { searchFocused = false; }}
-          type="text"
-          autocomplete="off"
-          name="query"
-          aria-label="Search models"
-          placeholder="Search models... (e.g., gpt-4o, claude-3.5, gemini)"
-          class="search-input"
-        />
-        {#if searchText}
-          <button class="search-clear" on:click={clearSearch} type="button">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          </button>
-        {/if}
-        {#if !searchText && !searchFocused}
-          <kbd class="search-shortcut">⌘K</kbd>
-        {/if}
-      </div>
-      
-      <ProviderDropdown bind:selectedProvider {providers} />
-    </div>
-
-    <div class="filters-row">
+  <div class="catalog-layout">
+    <aside class="catalog-sidebar" aria-label="Model filters">
+      <details class="filter-panel" open={typeof window !== "undefined" && window.innerWidth >= 1100}>
+        <summary>Filters <span>⌄</span></summary>
+        <div class="sidebar-filter-content">
+          <section class="filter-block"><h2>Input modalities</h2><span class="filter-help">Must support all selected</span>
+            {#each inputOptions as input}<label class="sidebar-check"><input type="checkbox" bind:group={inputs} value={input} /><span>{input === "file" ? "File / PDF" : input[0].toUpperCase() + input.slice(1)}</span></label>{/each}
+          </section>
+          <section class="filter-block"><h2>Provider</h2><ProviderDropdown bind:selectedProvider {providers} /></section>
+          <section class="filter-block"><h2>Context</h2>    <div class="filters-row">
       <div class="filter-group">
         <label for="maxInputTokens">Min Input Tokens</label>
         <input
@@ -592,20 +653,81 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
           class="filter-input"
         />
       </div>
+    </div></section>
+          <section class="filter-block"><h2>Pricing</h2><label class="sidebar-check"><input type="checkbox" bind:checked={freeOnly} /><span>Zero listed price</span></label></section>
+          <section class="filter-block"><h2>Capabilities</h2><label class="sidebar-check"><input type="checkbox" bind:checked={toolsOnly} /><span>Tool calling</span></label></section>
+          <p class="filter-help">Filters use reported capabilities. Unreported capabilities are not matched.</p>
+          <button class="sidebar-clear" on:click={clearFilters}>Reset filters</button>
+        </div>
+      </details>
+    </aside>
+    <div class="catalog-results">
+  <!-- Search and Filters -->
+  <div class="search-section">
+    <div class="search-bar-container">
+      <div class="search-input-wrapper">
+        <svg class="search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
+          <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M12.5 12.5L16.5 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <input
+          id="query"
+          bind:this={searchInput}
+          bind:value={query}
+          on:focus={() => { searchFocused = true; }}
+          on:blur={() => { searchFocused = false; }}
+          on:keydown={(event) => { if (event.key === "Enter") queryAnalytics.enter(); }}
+          type="text"
+          autocomplete="off"
+          name="query"
+          aria-label="Search models"
+          placeholder="Search models, providers, or free pricing"
+          class="search-input"
+        />
+        {#if query}
+          <button class="search-clear" on:click={() => { query = ""; }} type="button">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        {/if}
+        {#if !query && !searchFocused}
+          <kbd class="search-shortcut">⌘K</kbd>
+        {/if}
+      </div>
+      
+
+    </div>
+
+    {#if intent.title}
+      <div class="search-intent">
+        <div><strong>{intent.title}</strong><p>{intent.description}</p></div>
+        {#if intent.href}<a href={intent.href}>{intent.linkLabel} ↗</a>{/if}
+      </div>
+    {/if}
+
+    <div class="output-tabs" aria-label="Output modality">
+      <span>Output</span>
+      {#each outputTabs as tab}<button class:active={output === tab.value} aria-pressed={output === tab.value} on:click={() => output = tab.value}>{tab.label}</button>{/each}
     </div>
 
     {#if !loading}
       <div class="results-meta">
-        <span class="results-count">{results.length.toLocaleString()} models</span>
+        <span class="results-count" aria-live="polite">{searching ? "Searching…" : results.length.toLocaleString() + (results.length === 1 ? " model" : " models")}</span>
         <div class="results-meta-right">
-          {#if searchText || selectedProvider || maxInputTokens || maxOutputTokens}
-            <button class="clear-filters" on:click={() => { clearSearch(); selectedProvider = ""; maxInputTokens = null; maxOutputTokens = null; }}>
+          {#if query || selectedProvider || maxInputTokens != null || maxOutputTokens != null || freeOnly || output || inputs.length || toolsOnly}
+            <button class="clear-filters" on:click={() => { query = ""; clearFilters(); }}>
               Clear all filters
             </button>
           {/if}
+          <button class="clear-filters" disabled={refreshing} on:click={() => refreshCatalog(true)}>{refreshing ? "Refreshing…" : "Refresh catalog"}</button>
           <a class="results-credit" href="https://models.dev" target="_blank" rel="noopener noreferrer">Names and release dates via models.dev</a>
         </div>
       </div>
+      {#if query.trim() && !searching && hiddenCount > 0}
+        <div class="hidden-matches" role="status"><span>{hiddenCount.toLocaleString()} more matching models are hidden by your filters.</span><button on:click={clearFilters}>Clear filters</button></div>
+      {/if}
+      {#if freeOnly && !intent.freeOnly}<p class="search-note">Explicit zero prices only. Unknown prices are excluded; hosting and other charges may still apply.</p>{/if}
+      {#if catalogFetchedAt}<p class="search-note">Catalog fetched at {new Date(catalogFetchedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.</p>{/if}
+      {#if refreshError}<p class="search-note" role="alert">{refreshError}</p>{/if}
     {/if}
   </div>
 
@@ -630,17 +752,17 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div>
   {:else}
-    {#if query != "" && query === searchText && results.length < 12}
+    {#if query.trim() && !searching && results.length === 0 && intent.modelSearch !== false && hiddenCount === 0}
       <div class="add-model-section">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-        <a href={getIssueUrlForAdd(query)}>Can't find your model? Request it on GitHub</a>
+        <span>No models are listed for “{query.trim()}”.</span>
+        <button on:click={requestModel}>Request this model ↗</button>
       </div>
     {/if}
 
     <div class="table-container">
-      <table>
+      <table aria-rowcount={rowNumbers[results.length] + 1} aria-busy={searching}>
         <thead>
-          <tr>
+          <tr aria-rowindex="1">
             <th class="th-model">Model</th>
             <th class="th-sortable" on:click={() => handleSort("released")}>
               Released
@@ -668,16 +790,36 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             </th>
           </tr>
         </thead>
+        <tbody class="column-sizer" aria-hidden="true" bind:this={rowsTop}>
+          <tr>
+            <td class="model-name"></td>
+            <td class="released-cell">{sizerCells[0]}</td>
+            <td class="context-cell">{sizerCells[1]}</td>
+            <td class="cost-cell">{sizerCells[2]}</td>
+            <td class="cost-cell">{sizerCells[3]}</td>
+            <td class="cost-cell td-hide-mobile">{sizerCells[4]}</td>
+            <td class="cost-cell td-hide-mobile">{sizerCells[5]}</td>
+          </tr>
+        </tbody>
         <tbody>
-          {#each results as { item } (item.name)}
+          {#if rowsAbovePx > 0}
+            <tr class="row-spacer rows-above" aria-hidden="true">
+              <td colspan="7" style:height="{rowsAbovePx}px"></td>
+            </tr>
+          {/if}
+          {#each shownResults as { item }, shownIndex (item.name)}
             {@const name = item.name}
             {@const mode = item.mode}
             {@const litellm_provider = item.litellm_provider}
             {@const max_input_tokens = item.max_input_tokens}
             {@const max_output_tokens = item.max_output_tokens}
+            {@const rowNumber = rowNumbers[shownStart + shownIndex] + 2}
             <tr
               class="model-row"
               class:expanded={expandedRows.has(name)}
+              aria-rowindex={rowNumber}
+              data-name={name}
+              use:measureRowHeight
               on:click={() => toggleRow(name)}
             >
               <td class="model-name">
@@ -692,8 +834,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                         alt={litellm_provider}
                         class="provider-logo-img"
                         on:error={(e) => {
-                          e.currentTarget.style.display = 'none';
-                          e.currentTarget.nextElementSibling.style.display = 'flex';
+                          const image = e.currentTarget;
+                          if (!(image instanceof HTMLImageElement)) return;
+                          image.style.display = 'none';
+                          const fallback = image.nextElementSibling;
+                          if (fallback instanceof HTMLElement) fallback.style.display = 'flex';
                         }}
                       />
                       <div class="provider-initial" style="display: none;">
@@ -717,11 +862,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                       {:else}
                         <span class="model-title" title={item.display_name}>{item.display_name}</span>
                       {/if}
-                      {#if mode}
-                        <span class="mode-badge">{getModeLabel(mode)}</span>
-                      {/if}
                     </div>
-                    <span class="model-id" title={getDisplayModelName(name, litellm_provider)}>{getDisplayModelName(name, litellm_provider)}</span>
+                    <span class="model-provider">{(litellm_provider || "").replace(/_/g, " ")}</span>
                   </div>
                   <button
                     class="copy-button"
@@ -748,7 +890,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               <td class="cost-cell td-hide-mobile">{tableCacheWriteCell(item)}</td>
             </tr>
             {#if expandedRows.has(name)}
-              <tr class="expanded-content" transition:fly={{ y: -10, duration: 200 }}>
+              <tr
+                class="expanded-content"
+                aria-rowindex={rowNumber + 1}
+                data-detail-of={name}
+                use:measureRowHeight
+                transition:fly={{ y: -10, duration: 200 }}
+              >
                 <td colspan="7">
                   <div class="detail-panel">
                     <div class="detail-grid">
@@ -798,6 +946,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                       <div class="detail-section">
                         <h4 class="detail-heading">Model Info</h4>
                         <div class="info-rows">
+                          <div class="info-row">
+                            <span class="info-label">Model ID</span>
+                            <code class="info-value model-api-id">{getDisplayModelName(name, litellm_provider)}</code>
+                          </div>
                           <div class="info-row">
                             <span class="info-label">Provider</span>
                             <span class="info-value">{litellm_provider || "—"}</span>
@@ -893,16 +1045,117 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               </tr>
             {/if}
           {/each}
+          {#if rowsBelowPx > 0}
+            <tr class="row-spacer" aria-hidden="true">
+              <td colspan="7" style:height="{rowsBelowPx}px"></td>
+            </tr>
+          {/if}
         </tbody>
       </table>
     </div>
   {/if}
+    </div>
+  </div>
 </main>
 
 <style>
   .container {
     color: var(--text-color);
   }
+
+  .compact {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 48px 48px;
+  }
+
+  .compact .search-section, .compact .table-container { max-width: none; padding: 0; }
+  .compact .search-bar-container { margin-bottom: 16px; }
+  .compact .search-input, .compact .filter-input, .compact table,
+  .compact .search-shortcut { border-radius: 0; }
+  .compact .filter-group label, .compact th, .compact .results-count {
+    font-family: "DM Sans", sans-serif;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .compact .filter-group label { font-size: 11px; font-weight: 500; }
+  .compact .filters-row { max-width: 640px; }
+  .compact .filter-input { padding: 8px 12px; font-size: 12px; }
+  .compact .search-input { padding-top: 12px; padding-bottom: 12px; font-size: 13px; }
+  .compact .table-container { margin-top: 16px; }
+  .compact th { padding: 14px 16px; font-weight: 500; font-size: 11px; background: transparent; }
+  .compact thead { background: transparent; }
+  .compact .model-row { height: 66px; }
+  .compact .model-name, .compact .th-model { width: 38%; min-width: 300px; }
+  .compact .context-cell, .compact .cost-cell, .compact .released-cell { font-family: "DM Sans", sans-serif; font-size: 13px; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .compact .results-count { font-size: 12px; font-weight: 400; }
+  .compact .model-info { gap: 12px; }
+  .compact .model-name-group { gap: 3px; flex: 1; }
+  .compact td { padding: 12px 16px; }
+  .compact .provider-avatar { width: 30px; height: 30px; padding: 2px; background: #fff; border: 0; border-radius: 4px; }
+  .compact .model-title-row { gap: 0; }
+  .compact .model-title { font-family: "DM Sans", sans-serif; font-size: 14px; font-weight: 500; white-space: nowrap; line-height: 1.4; letter-spacing: 0; }
+  .model-provider { font-family: "DM Sans", sans-serif; font-size: 11px; font-weight: 400; color: var(--muted-color); line-height: 1.3; letter-spacing: 0; }
+  .model-api-id { overflow-wrap: anywhere; word-break: break-word; font-size: 11px; }
+  .search-intent, .hidden-matches { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 16px 0; border-top: 1px solid var(--border-color); }
+  .search-intent { margin-bottom: 16px; }
+  .search-intent strong { font-size: 14px; }
+  .search-intent p, .search-note { font-size: 12px; color: var(--muted-color); margin: 5px 0 0; }
+  .search-intent a, .hidden-matches button, .add-model-section button { white-space: nowrap; background: transparent; border: 0; color: var(--text-color); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; }
+  .hidden-matches { font-size: 12px; }
+  .compact .filters-row { grid-template-columns: 1fr 1fr auto; }
+  @media (max-width: 560px) { .search-intent, .hidden-matches { align-items: flex-start; flex-direction: column; gap: 8px; } .compact .filters-row { grid-template-columns: 1fr 1fr; } }
+  .compact .provider-logo-img { filter: none; }
+  .compact :global(.provider-logo) { background: #fff; padding: 3px; width: 28px; height: 28px; border-radius: 3px; box-shadow: none; filter: none; }
+  .compact :global(.dropdown-trigger), .compact :global(.dropdown-menu) { border-radius: 0; }
+
+  @media (min-width: 1600px) {
+    .compact { padding-inline: 64px; }
+  }
+  @media (max-width: 1180px) {
+    .compact { padding-inline: 28px; }
+  }
+  @media (max-width: 760px) {
+    .compact { padding: 0 20px 28px; }
+    .compact .search-input-wrapper { width: 100%; }
+    .compact .search-bar-container { align-items: stretch; }
+    .compact .filters-row { grid-template-columns: 1fr 1fr; }
+    .compact td, .compact th { padding: 10px; }
+    .compact .model-name, .compact .th-model { min-width: 260px; }
+  }
+
+
+  .catalog-layout { display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 34px; align-items: start; padding-top: 30px; }
+  .catalog-results { min-width: 0; }
+  .catalog-sidebar { padding-right: 26px; border-right: 1px solid var(--border-color); }
+  .filter-panel summary { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; list-style: none; padding-bottom: 20px; }
+  .filter-panel summary::-webkit-details-marker { display: none; }
+  .filter-panel summary span { display: none; }
+  .filter-block { padding: 0 0 22px; margin-bottom: 22px; border-bottom: 1px solid var(--border-color); }
+  .filter-block h2 { font-family: "DM Sans", sans-serif; font-size: 12px; font-weight: 600; margin: 0 0 12px; }
+  .filter-help { display: block; color: var(--muted-color); font-size: 11px; line-height: 1.5; margin-bottom: 10px; }
+  .sidebar-check { display: flex; align-items: center; gap: 10px; margin: 11px 0; font-size: 12px; cursor: pointer; }
+  .sidebar-check input { accent-color: var(--text-color); width: 14px; height: 14px; }
+  .sidebar-clear { background: transparent; border: 0; padding: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; color: var(--muted-color); }
+  .compact .catalog-sidebar .filters-row { display: flex; flex-direction: column; gap: 14px; }
+  .compact .catalog-sidebar :global(.provider-dropdown) { width: 100%; min-width: 0; }
+  .compact .catalog-sidebar :global(.dropdown-trigger) { width: 100%; }
+  .compact .catalog-sidebar .filter-input { width: 100%; }
+  .output-tabs { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; padding: 6px 0 18px; border-bottom: 1px solid var(--border-color); }
+  .output-tabs > span { font-family: "DM Sans", sans-serif; font-size: 11px; letter-spacing: 0; color: var(--muted-color); margin-right: 9px; }
+  .output-tabs button { background: transparent; border: 1px solid transparent; color: var(--muted-color); padding: 7px 12px; font-size: 12px; }
+  .output-tabs button.active { border-color: var(--border-color-strong); color: var(--text-color); background: var(--bg-secondary); }
+  .output-tabs button:hover { color: var(--text-color); border-color: var(--border-color); }
+  .compact .search-input-wrapper { flex: 1; }
+  @media (max-width: 1099px) {
+    .catalog-layout { grid-template-columns: 1fr; gap: 20px; padding-top: 22px; }
+    .catalog-sidebar { padding: 0; border: 1px solid var(--border-color); }
+    .filter-panel summary { padding: 12px 16px; cursor: pointer; }
+    .filter-panel summary span { display: inline; }
+    .sidebar-filter-content { padding: 4px 16px 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+    .filter-block { margin-bottom: 0; }
+  }
+  @media (max-width: 560px) { .output-tabs { gap: 4px; } .output-tabs button { padding: 7px 9px; } .results-meta { gap: 8px; flex-wrap: wrap; } .results-meta-right { flex-wrap: wrap; gap: 12px; } }
 
   /* Hero Section */
   .hero {
@@ -1036,15 +1289,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     filter: grayscale(0%);
   }
 
-  @media (prefers-color-scheme: dark) {
-    .trust-logo-img {
-      filter: grayscale(100%) invert(1);
-      opacity: 0.5;
-    }
-    .trust-logo-img:hover {
-      filter: none;
-      opacity: 0.9;
-    }
+  :global([data-theme="dark"]) .trust-logo-img {
+    filter: grayscale(100%) invert(1);
+    opacity: 0.5;
+  }
+  :global([data-theme="dark"]) .trust-logo-img:hover {
+    filter: none;
+    opacity: 0.9;
   }
 
   /* Search Section */
@@ -1219,16 +1470,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     gap: 0.5rem;
   }
 
-  .add-model-section svg { color: var(--litellm-primary); flex-shrink: 0; }
 
-  .add-model-section a {
-    color: var(--litellm-primary);
-    text-decoration: none;
-    font-size: 0.875rem;
-    font-weight: 500;
-  }
 
-  .add-model-section a:hover { text-decoration: underline; }
 
   /* Table */
   .table-container {
@@ -1309,6 +1552,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
   tbody tr.model-row.expanded { background-color: var(--bg-secondary); }
   tbody tr.model-row:last-child { border-bottom: none; }
+  .column-sizer tr { visibility: collapse; border: none; }
+  .column-sizer td { padding-top: 0; padding-bottom: 0; line-height: 0; }
+  .row-spacer td { padding: 0; border: none; }
+  tr.rows-above { border-bottom: 1px solid var(--border-color); }
 
   tbody tr.expanded-content { border-bottom: 1px solid var(--border-color); }
   tbody tr.expanded-content td { padding: 0; }
@@ -1435,14 +1682,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     text-overflow: ellipsis;
   }
 
-  .model-id {
-    font-family: 'Geist Mono', 'Menlo', monospace;
-    font-size: 0.6875rem;
-    color: var(--muted-color);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
 
   .released-cell {
     font-size: 0.8125rem;
@@ -1467,18 +1706,6 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     text-decoration: underline;
   }
 
-  .mode-badge {
-    font-size: 0.625rem;
-    font-weight: 600;
-    padding: 0.125rem 0.375rem;
-    background: var(--bg-tertiary);
-    color: var(--muted-color);
-    border-radius: 4px;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    flex-shrink: 0;
-  }
 
   .context-cell {
     font-weight: 600;
@@ -1712,22 +1939,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   /* {@html} snippets are not scoped — use :global so .code-kw / .code-str apply */
   .code-snippet :global(.code-kw) {
-    color: #1d4ed8;
+    color: var(--code-keyword);
   }
   .code-snippet :global(.code-str) {
-    color: #10b981;
+    color: var(--code-string);
   }
   .code-snippet :global(.code-comment) {
     color: var(--muted-color);
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .code-snippet :global(.code-kw) {
-      color: #93c5fd;
-    }
-    .code-snippet :global(.code-str) {
-      color: #34d399;
-    }
   }
 
   .detail-actions {
