@@ -302,7 +302,7 @@ describe("Discover updates", () => {
       section("ranking-overall")
         .getElementsByTagName("a")[0]
         .getAttribute("aria-label"),
-    ).toBe("View top quality on Epoch AI");
+    ).toBe("Open Epoch Capabilities Index");
     expect(rankingRows("overall")[0].textContent).toContain("150");
     expect(
       rankingLinks("overall").every((link) => link.href === EPOCH_URL),
@@ -319,7 +319,7 @@ describe("Discover updates", () => {
       section("ranking-coding")
         .getElementsByTagName("a")[0]
         .getAttribute("aria-label"),
-    ).toBe("View top coding on Terminal-Bench");
+    ).toBe("Open Terminal-Bench 4.0");
     expect(rankingRows("coding")[0].textContent).toMatch(/90(?:\.0)?%/);
     expect(rankingRows("coding")[0].textContent).toContain("Harbor Example");
     expect(
@@ -340,7 +340,9 @@ describe("Discover updates", () => {
         .getAttribute("title"),
     ).toBe("Harbor Example");
     expect(rankingRows("value")[0].textContent).toMatch(/80(?:\.0)?% solved/);
-    expect(rankingRows("value")[0].textContent).toMatch(/10\s*solved \/ \$/);
+    expect(rankingRows("value")[0].textContent).toMatch(
+      /1,000\s*solved \/ \$100/,
+    );
     expect(
       Array.from(rankingRows("value")[0].getElementsByTagName("span")).some(
         (span) => span.getAttribute("title") === "$0.08 reported per attempt",
@@ -352,6 +354,67 @@ describe("Discover updates", () => {
     expect(document.body.textContent).not.toContain("Artificial Analysis");
     expect(loadDiscoveryCatalog).toHaveBeenCalledTimes(1);
     expect(loadDiscoveryBenchmarks).toHaveBeenCalledTimes(1);
+  });
+
+  it("should show named benchmark sources, visible units and scores converted to successful attempts per $100", async () => {
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(rankingRows("overall")).toHaveLength(3));
+    const expectations = [
+      {
+        id: "overall",
+        source: "Epoch Capabilities Index",
+        href: EPOCH_URL,
+        unit: "ECI points",
+        explanation:
+          "Combined benchmark score, not a percentage. Higher is better.",
+      },
+      {
+        id: "coding",
+        source: "Terminal-Bench 4.0",
+        href: TERMINAL_BENCH_URL,
+        unit: "solved",
+        explanation:
+          "Share of attempts solved by the model + agent. Higher is better.",
+      },
+      {
+        id: "value",
+        source: "Terminal-Bench 4.0",
+        href: TERMINAL_BENCH_URL,
+        unit: "solved / $100",
+        explanation:
+          "Successful attempts per $100 of reported spend. Higher is better.",
+      },
+    ] as const;
+    for (const expected of expectations) {
+      await selectRanking(expected.id);
+      const panel = section(`ranking-${expected.id}`);
+      const sourceLink = panel.getElementsByTagName("a")[0];
+      expect(sourceLink.textContent?.replace(/\s+/g, " ").trim()).toBe(
+        `${expected.source} ↗`,
+      );
+      expect(sourceLink.getAttribute("href")).toBe(expected.href);
+      expect(sourceLink.getAttribute("aria-label")).toBe(
+        `Open ${expected.source}`,
+      );
+      expect(panel.textContent?.replace(/\s+/g, " ")).toContain(
+        expected.explanation,
+      );
+      expect(panel.textContent).not.toContain("View all");
+      const units = Array.from(panel.getElementsByClassName("metric-unit"));
+      expect(units).toHaveLength(3);
+      for (const unit of units) {
+        expect(unit.textContent).toBe(expected.unit);
+        expect(unit.classList.contains("visually-hidden")).toBe(false);
+      }
+    }
+    const metrics =
+      section("ranking-value").getElementsByClassName("rank-metric");
+    expect(metrics[0].getElementsByTagName("strong")[0].textContent).toBe(
+      "1,000",
+    );
+    expect(metrics[2].getElementsByTagName("strong")[0].textContent).toBe(
+      "750",
+    );
   });
 
   it("should expose accessible tabs with one active panel and keyboard navigation", async () => {
@@ -440,10 +503,6 @@ describe("Discover updates", () => {
     expect(barWidths("overall")[1]).toBeCloseTo((140 / 150) * 100);
     await selectRanking("coding");
     expect(barWidths("coding")).toEqual([90, 80, 75]);
-    const scale =
-      section("ranking-coding").getElementsByClassName("chart-scale")[0];
-    expect(scale.getElementsByTagName("span")[0].textContent).toBe("0");
-    expect(scale.textContent).toContain("100% solved");
     await selectRanking("value");
     expect(barWidths("value")[0]).toBe(100);
     expect(barWidths("value")[1]).toBeCloseTo((0.9 / 0.11 / 10) * 100);

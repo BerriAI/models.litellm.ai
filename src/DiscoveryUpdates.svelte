@@ -31,8 +31,11 @@
     {
       id: "overall",
       title: "Top quality",
-      description: "Epoch Capabilities Index",
+      sourceName: "Epoch Capabilities Index",
+      explanation:
+        "Combined benchmark score, not a percentage. Higher is better.",
       metric: "ECI points",
+      unit: "ECI points",
       entries: rankQuality(benchmarks?.models ?? [], "overall").slice(0, 10),
       href: EPOCH_URL,
       asOf: benchmarks?.epochAsOf,
@@ -40,8 +43,11 @@
     {
       id: "coding",
       title: "Top coding",
-      description: `Terminal-Bench ${benchmarks?.terminalBenchVersion ?? "4.0"} · model + agent`,
+      sourceName: `Terminal-Bench ${benchmarks?.terminalBenchVersion ?? "4.0"}`,
+      explanation:
+        "Share of attempts solved by the model + agent. Higher is better.",
       metric: "Tasks solved",
+      unit: "solved",
       entries: rankQuality(benchmarks?.models ?? [], "coding").slice(0, 10),
       href: TERMINAL_BENCH_URL,
       asOf: benchmarks?.terminalBenchAsOf,
@@ -49,8 +55,11 @@
     {
       id: "value",
       title: "Best Task per Dollar",
-      description: "Terminal-Bench · successful tasks per reported dollar",
-      metric: "Tasks solved per dollar",
+      sourceName: `Terminal-Bench ${benchmarks?.terminalBenchVersion ?? "4.0"}`,
+      explanation:
+        "Successful attempts per $100 of reported spend. Higher is better.",
+      metric: "Successful benchmark attempts per $100 of reported spend",
+      unit: "solved / $100",
       entries: rankValue(benchmarks?.models ?? []).slice(0, 10),
       href: TERMINAL_BENCH_URL,
       asOf: benchmarks?.terminalBenchAsOf,
@@ -144,7 +153,7 @@
     entry: QualityRanking | ValueRanking,
   ): string {
     return id === "value"
-      ? ratio(chartValue(entry))
+      ? ratio(chartValue(entry) * 100)
       : id === "coding"
         ? percent(entry.score)
         : number(entry.score);
@@ -274,16 +283,17 @@
                   {#if list.entries.length}<span class="chart-count"
                       >Top {list.entries.length}</span
                     >{/if}
-                  <span class="chart-description">{list.description}</span>
+                  <a
+                    class="benchmark-source"
+                    href={list.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={`Open ${list.sourceName}`}
+                    >{list.sourceName} <span aria-hidden="true">↗</span></a
+                  >
                 </div>
-                <a
-                  href={list.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  aria-label={`View ${list.title.toLowerCase()} on ${list.id === "overall" ? "Epoch AI" : "Terminal-Bench"}`}
-                  >View all <span aria-hidden="true">↗</span></a
-                >
               </div>
+              <p class="metric-explanation">{list.explanation}</p>
             </header>
             {#if benchmarkLoading}
               <div class="ranking-empty" role="status">Loading rankings…</div>
@@ -292,14 +302,6 @@
                 Rankings are temporarily unavailable.
               </div>
             {:else if list.entries.length}
-              <div class="chart-scale" aria-hidden="true">
-                <span>0</span>
-                <span
-                  >{list.id === "coding"
-                    ? "100% solved"
-                    : `${list.id === "value" ? ratio(chartMaximum(list.id, list.entries)) : number(chartMaximum(list.id, list.entries))} ${list.id === "value" ? "solved / $" : "ECI points"}`}</span
-                >
-              </div>
               <ol class="ranking-list" aria-label={list.title}>
                 {#each list.entries as entry, index (entry.model.slug)}
                   <li class="chart-row">
@@ -359,13 +361,7 @@
                           : list.metric}
                       >
                         <strong>{metricLabel(list.id, entry)}</strong>
-                        <small class="visually-hidden"
-                          >{list.id === "value"
-                            ? "solved / $"
-                            : list.id === "coding"
-                              ? "solved"
-                              : "ECI"}</small
-                        >
+                        <small class="metric-unit">{list.unit}</small>
                       </span>
                     </div>
                   </li>
@@ -701,10 +697,19 @@
     clip: rect(0, 0, 0, 0);
     white-space: nowrap;
   }
-  .chart-description {
-    font-size: 12px;
+  .benchmark-source {
+    font-size: 13px;
     line-height: 1.35;
-    color: var(--discovery-muted);
+    font-weight: 500;
+    color: var(--hf-accent);
+  }
+  .benchmark-source:hover {
+    text-decoration: underline;
+  }
+  .ranking-panel .metric-explanation {
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 7px;
   }
   .ranking-title {
     display: flex;
@@ -728,15 +733,6 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-  }
-  .chart-scale {
-    display: flex;
-    justify-content: space-between;
-    margin: 0 20px 0 151px;
-    padding: 0 76px 6px 0;
-    color: var(--discovery-muted);
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
   }
   .chart-row {
     padding: 4px 0;
@@ -779,7 +775,7 @@
   }
   .chart-measure {
     display: grid;
-    grid-template-columns: 100px minmax(0, 1fr) 68px;
+    grid-template-columns: 100px minmax(0, 1fr) 112px;
     align-items: center;
     gap: 9px;
     margin: 3px 0 0 22px;
@@ -809,6 +805,12 @@
   .rank-metric strong {
     font-size: 13px;
     font-weight: 600;
+  }
+  .metric-unit {
+    font-size: 11px;
+    line-height: 1.2;
+    color: var(--discovery-muted);
+    white-space: nowrap;
   }
   .chart-caption {
     display: block;
@@ -963,14 +965,9 @@
       gap: 5px;
     }
     .chart-measure {
-      grid-template-columns: 80px minmax(0, 1fr) 60px;
+      grid-template-columns: 80px minmax(0, 1fr) 100px;
       gap: 7px;
       margin-left: 18px;
-    }
-    .chart-scale {
-      margin-left: 121px;
-      margin-right: 16px;
-      padding-right: 67px;
     }
   }
 </style>
