@@ -1,8 +1,90 @@
 {
   "schemaVersion": 1,
-  "updatedAt": null,
-  "status": "preparing",
-  "message": "Final coding benchmark results will appear here once validation is complete.",
-  "cohorts": [],
-  "runs": []
+  "updatedAt": "2026-10-24T08:02:01.095910+00:00",
+  "status": "complete",
+  "message": "Final validated results for Claude Code and Codex on the same six-task pilot. Other campaign stacks are not included and may still be in progress. This is not an official full-benchmark score or an overall harness ranking.",
+  "cohorts": [
+    {
+      "id": "tb4-local-d565afa359",
+      "label": "Local pilot \u00b7 6 tasks",
+      "dataset": "Terminal-Bench",
+      "version": "4.0.0",
+      "taskIds": [
+        "session-window-debug",
+        "mvcc-lsm-compaction",
+        "react-lead-form",
+        "wal-recovery-ordering",
+        "nextjs-performance",
+        "bun-sourcemap-leak"
+      ],
+      "repetitions": 1,
+      "scope": "subset",
+      "environment": "Local Apple Silicon / Colima Docker \u00b7 Linux arm64 \u00b7 8 CPU / 16 GB",
+      "harnessLock": {
+        "schemaVersion": 1,
+        "versions": {
+          "claude-code": "2.1.310",
+          "codex": "0.164.0",
+          "pi": "1.4.0",
+          "opencode": "1.19.4",
+          "kimi-cli": "2.3.1",
+          "muse-code": "1.4.12"
+        },
+        "museArtifact": {
+          "release": "1.4.12-R6909.1",
+          "platform": "aarch64_linux",
+          "sha256": "e488288a0bcb68d548cad1e03e3026b51ff831755d1bebd22ab46edc5e715f37",
+          "bytes": 357832936
+        }
+      },
+      "budgetPolicy": {
+        "version": "reserved-generation-v1",
+        "globalCeilingUSD": 4999,
+        "perRunCeilingUSD": 150,
+        "perGenerationReservationUSD": 110,
+        "maxInflightGenerationsPerRun": 1,
+        "timingScope": "Native agent under serialized proxy generation admission"
+      }
+    }
+  ],
+  "runs": [
+    {
+      "id": "result-4cd8b9ced2bb469aa858a544",
+      "cohortId": "tb4-local-d565afa359",
+      "harness": "claude-code",
+      "provider": "anthropic",
+      "model": "claude-sonnet-5-5",
+      "modelName": "Claude Sonnet 5.5",
+      "providerName": "Anthropic",
+      "harnessVersion": "2.1.310",
+      "status": "complete",
+      "passed": 1,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 0.872614,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": 347.039,
+      "notes": "Local subset pilot. API costs include every request in this run, including unsuccessful tasks and retries; separate debugging runs are excluded. Available costs are estimates from recorded usage and configured prices, not provider invoices. Unknown API cost is not ranked. Compute is unpriced and excluded. Time measures agent execution, excluding setup and verification. 32k output cap per request; 8h agent limit per task. Generation admission is serialized per run by a $110 reservation, $150 run ceiling and $4,999 global ceiling. Timing includes proxy admission waits and is not unrestricted native-default latency. Manual pre-generation setup recoveries: 1."
+    },
+    {
+      "id": "result-86e1180d60f49df536256cd4",
+      "cohortId": "tb4-local-d565afa359",
+      "harness": "codex",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "modelName": "GPT-6.1 Sol",
+      "providerName": "OpenAI",
+      "harnessVersion": "0.164.0",
+      "status": "complete",
+      "passed": 3,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 1.0258306,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": 691.215,
+      "notes": "Local subset pilot. API costs include every request in this run, including unsuccessful tasks and retries; separate debugging runs are excluded. Available costs are estimates from recorded usage and configured prices, not provider invoices. Unknown API cost is not ranked. Compute is unpriced and excluded. Time measures agent execution, excluding setup and verification. 32k output cap per request; 8h agent limit per task. Generation admission is serialized per run by a $110 reservation, $150 run ceiling and $4,999 global ceiling. Timing includes proxy admission waits and is not unrestricted native-default latency."
+    }
+  ]
 }

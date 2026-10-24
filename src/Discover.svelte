@@ -283,6 +283,10 @@
       </div>
     {/if}
 
+    {#if completed.length && data.message && !preview}
+      <p class="comparison-scope">{data.message}</p>
+    {/if}
+
     {#if leading}
       <div class="value-summary">
         <span class="summary-icon">↗</span>
@@ -995,6 +999,12 @@
       monospace;
     letter-spacing: 0.08em;
     color: var(--hf-ink);
+  }
+  .comparison-scope {
+    margin: 0 0 16px;
+    color: var(--hf-muted);
+    font-size: 12px;
+    line-height: 1.6;
   }
   .value-summary {
     display: flex;

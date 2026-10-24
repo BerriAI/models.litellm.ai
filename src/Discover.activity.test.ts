@@ -91,6 +91,44 @@ afterEach(() => {
 });
 
 describe("coding benchmark run activity", () => {
+  it("should show partial-campaign scope once when published rows are complete", async () => {
+    component.$destroy();
+    document.body.innerHTML = "";
+    const message =
+      "Final results for two local pilot stacks only; other campaign work is still in progress.";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              ...fixture,
+              status: "complete",
+              message,
+              runs: fixture.runs.filter((run) => run.status === "complete"),
+            }),
+          ),
+      ),
+    );
+    component = new Discover({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain(message),
+    );
+    const scope = Array.from(document.getElementsByTagName("p")).filter(
+      (paragraph) => paragraph.textContent === message,
+    );
+    expect(scope).toHaveLength(1);
+    expect(scope[0].closest("dialog")).toBeNull();
+    expect(scope[0].hidden).toBe(false);
+    expect(document.body.textContent).toContain("MEASURED");
+    expect(document.body.textContent).not.toContain("Comparison complete");
+  });
+
+  it("should not invent a campaign-completion claim when scope is absent", () => {
+    expect(document.body.textContent).not.toContain("Comparison complete");
+    expect(document.getElementsByClassName("comparison-scope")).toHaveLength(0);
+  });
+
   it("should not promote zero-success stacks when the quality floor is zero", async () => {
     component.$destroy();
     document.body.innerHTML = "";
