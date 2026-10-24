@@ -49,7 +49,10 @@ jobs:
             /bin/sh -ec '
               mkdir /scratch/app
               tar --exclude=node_modules --exclude=.git --exclude=dist -C /source -cf - . | tar --no-same-owner --no-same-permissions -C /scratch/app -xf -
-              ln -s /node_modules /scratch/app/node_modules
+              mkdir /scratch/app/node_modules
+              for package in /node_modules/* /node_modules/.bin; do
+                ln -s "$package" /scratch/app/node_modules/
+              done
               cd /scratch/app
               node node_modules/vitest/vitest.mjs run --cache=false --maxWorkers=2
             '
