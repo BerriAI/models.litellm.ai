@@ -1,196 +1,195 @@
-import { describe, expect, test, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   loadDiscoveryBenchmarks,
+  parseDiscoveryBenchmarks,
+  qualityFloor,
   rankQuality,
   rankValue,
+  type DiscoveryBenchmarkModel,
 } from "./discoveryBenchmarks";
 
-const base = { n: "Alpha", lab: "Acme", in: 1, out: 4, by: "Acme" };
-const run = (
-  score: number,
-  costPerTask: number,
-  setting = "high",
-  benchmark = "DeepSWE",
-) => ({
-  benchmark,
-  score,
-  costPerTask,
-  setting,
-  modelVersion: `alpha_${setting}`,
-  harness: "mini-swe-agent",
-  date: "2026-10-01",
-  url: "javascript:alert(1)",
+function model(
+  slug: string,
+  fields: Partial<DiscoveryBenchmarkModel> = {},
+): DiscoveryBenchmarkModel {
+  return {
+    slug,
+    name: slug,
+    lab: "Example lab",
+    href: `/models/${slug}`,
+    intelligence: null,
+    coding: null,
+    costPerTask: null,
+    harness: null,
+    setting: null,
+    trials: null,
+    passed: null,
+    totalCost: null,
+    ...fields,
+  };
+}
+const catalog = (models: unknown[]) => ({
+  source: "public-feeds",
+  asOf: "2026-10-24T12:00:00.000Z",
+  models,
 });
-const load = (models: unknown) =>
-  loadDiscoveryBenchmarks(
-    vi.fn<typeof fetch>(
+
+describe("public benchmark discovery", () => {
+  it("should load same-origin results with a timeout and without credentials", async () => {
+    const fetchFn = vi.fn(
       async () =>
-        new Response(JSON.stringify({ models, asOf: "October 1, 2026" })),
-    ),
-  );
-
-describe("discovery benchmark rankings", () => {
-  test("loads numeric scores, prices and sources for real benchmark rankings", async () => {
-    const catalog = await load({
-      alpha: {
-        ...base,
-        benchmarks: {
-          eci: { score: 160.5, date: "2026-10-01" },
-          scores: [run(0.8, 4)],
-          valueRuns: [run(0.8, 4)],
-        },
-      },
+        new Response(
+          JSON.stringify(catalog([model("alpha", { intelligence: 154 })])),
+        ),
+    );
+    const data = await loadDiscoveryBenchmarks(fetchFn as typeof fetch);
+    expect(fetchFn).toHaveBeenCalledWith("/discovery/benchmarks.json", {
+      signal: expect.any(AbortSignal),
     });
-    expect(catalog.asOf).toBe("October 1, 2026");
-    expect(catalog.models[0]).toMatchObject({
-      slug: "alpha",
-      href: "/models/alpha",
-      inputPrice: 1,
-      outputPrice: 4,
-      provider: "Acme",
-    });
-    expect(rankQuality(catalog.models, "overall")[0]).toMatchObject({
-      score: 160.5,
-      date: "2026-10-01",
-    });
-    expect(rankQuality(catalog.models, "coding")[0]).toMatchObject({
+    expect(data.models[0].intelligence).toBe(154);
+  });
+  it("should preserve missing measurements instead of treating them as zero", () => {
+    const data = parseDiscoveryBenchmarks(catalog([model("alpha")]));
+    expect(rankQuality(data.models, "coding")).toEqual([]);
+    expect(rankValue(data.models)).toEqual([]);
+    expect(qualityFloor(data.models)).toBeNull();
+  });
+  it("should rank ECI points above 100 separately from coding success fractions", () => {
+    const models = [
+      model("alpha", { intelligence: 150, coding: 0.9 }),
+      model("beta", { intelligence: 155, coding: 0.8 }),
+    ];
+    expect(rankQuality(models, "overall").map((row) => row.model.slug)).toEqual(
+      ["beta", "alpha"],
+    );
+    expect(rankQuality(models, "coding").map((row) => row.model.slug)).toEqual([
+      "alpha",
+      "beta",
+    ]);
+  });
+  it("should rank successful tasks per dollar above the coding threshold, rather than cheapest trial first", () => {
+    const models = [
+      model("leader", { coding: 0.9, costPerTask: 0.11 }),
+      model("cheaper", { coding: 0.75, costPerTask: 0.1 }),
+      model("efficient", { coding: 0.8, costPerTask: 0.08 }),
+      model("weak", { coding: 0.71, costPerTask: 0.001 }),
+      model("missing", { coding: 0.9 }),
+      model("zero", { coding: 0.9, costPerTask: 0 }),
+    ];
+    expect(qualityFloor(models)).toBeCloseTo(0.72);
+    expect(rankValue(models).map((row) => row.model.slug)).toEqual([
+      "efficient",
+      "leader",
+      "cheaper",
+    ]);
+    expect(rankValue(models)[0]).toMatchObject({
       score: 0.8,
-      setting: "high",
-      sourceUrl: "https://deepswe.datacurve.ai/",
+      costPerTask: 0.08,
+      solvedPerDollar: 10,
     });
   });
-
-  test("reads legacy quality strings without inventing task costs from token prices", async () => {
-    const catalog = await load({
-      alpha: {
-        ...base,
-        b: {
-          "Epoch Capabilities Index": "160.5",
-          "GPQA Diamond": "91.2% (max)",
-          DeepSWE: "80.0%",
-        },
-      },
-    });
-    expect(rankQuality(catalog.models, "overall")[0].score).toBe(160.5);
-    expect(rankQuality(catalog.models, "reasoning")[0]).toMatchObject({
-      score: 0.912,
-      setting: "max",
-      date: null,
-    });
-    expect(rankValue(catalog.models, "coding")).toEqual([]);
+  it("should show the best qualifying configuration per exact source model id", () => {
+    const models = [
+      model("high", {
+        releaseSlug: "provider/alpha",
+        coding: 0.9,
+        costPerTask: 2,
+        harness: "Agent A",
+      }),
+      model("low", {
+        releaseSlug: "provider/alpha",
+        coding: 0.8,
+        costPerTask: 0.2,
+        harness: "Agent B",
+      }),
+      model("beta", { coding: 0.85, costPerTask: 0.5 }),
+    ];
+    expect(rankQuality(models, "coding").map((row) => row.model.slug)).toEqual([
+      "high",
+      "beta",
+    ]);
+    expect(rankValue(models).map((row) => row.model.slug)).toEqual([
+      "low",
+      "beta",
+    ]);
+    expect(rankValue(models)[0].model.harness).toBe("Agent B");
   });
-
-  test("sorts within the selected benchmark numerically and leaves missing results unranked", async () => {
-    const catalog = await load({
-      alpha: {
-        ...base,
-        b: { "Epoch Capabilities Index": "99.9", "GPQA Diamond": "95.0%" },
-      },
-      beta: {
-        ...base,
-        n: "Beta",
-        b: { "Epoch Capabilities Index": "160.5", "GPQA Diamond": "80.0%" },
-      },
-      gamma: { ...base, n: "Gamma" },
-    });
+  it("should not guess grouping from similar model names", () => {
     expect(
-      rankQuality(catalog.models, "overall").map((r) => r.model.slug),
-    ).toEqual(["beta", "alpha"]);
-    expect(
-      rankQuality(catalog.models, "reasoning").map((r) => r.model.slug),
-    ).toEqual(["alpha", "beta"]);
-    expect(rankQuality(catalog.models, "math")).toEqual([]);
+      rankQuality(
+        [
+          model("alpha-high", { intelligence: 150 }),
+          model("alpha-low", { intelligence: 140 }),
+        ],
+        "overall",
+      ),
+    ).toHaveLength(2);
   });
-
-  test("ranks values from matching runs and chooses one efficient setting per model", async () => {
-    const catalog = await load({
-      alpha: {
-        ...base,
-        benchmarks: {
-          scores: [run(0.8, 4)],
-          valueRuns: [
-            run(0.8, 4),
-            run(0.6, 1, "low"),
-            run(0.9, 0.01, "high", "ARC-AGI-2"),
-          ],
-        },
-      },
-      beta: {
-        ...base,
-        n: "Beta",
-        benchmarks: { scores: [run(0.9, 3)], valueRuns: [run(0.9, 3)] },
-      },
+  it("should reject unsafe links and sanitize invalid measurements", () => {
+    const data = parseDiscoveryBenchmarks(
+      catalog([
+        model("bad", { href: "javascript:alert(1)" }),
+        model("credentials", { href: "https://user:password@github.com/path" }),
+        model("../bad"),
+        model("alpha", { intelligence: 155, coding: 101, costPerTask: -2 }),
+        model("alpha", { intelligence: 160 }),
+      ]),
+    );
+    expect(data.models).toHaveLength(1);
+    expect(data.models[0]).toMatchObject({
+      intelligence: 155,
+      coding: null,
+      costPerTask: null,
     });
-    const ranked = rankValue(catalog.models, "coding");
-    expect(ranked.map((r) => r.model.slug)).toEqual(["alpha", "beta"]);
-    expect(ranked[0]).toMatchObject({
-      score: 0.6,
-      costPerTask: 1,
-      solvedPerDollar: 0.6,
-      setting: "low",
-    });
-    expect(rankValue(catalog.models, "coding", 0.7)[0].model.slug).toBe("beta");
-    expect(rankValue(catalog.models, "reasoning")[0]).toMatchObject({
-      score: 0.9,
-      costPerTask: 0.01,
-      solvedPerDollar: 90,
-    });
-    expect(rankQuality(catalog.models, "coding")[0].model.slug).toBe("beta");
   });
-
-  test("rejects unsafe model paths, malformed values, zero costs and partial-credit task values", async () => {
-    const catalog = await load({
-      "../unsafe": base,
-      broken: { ...base, in: "free" },
-      alpha: {
-        ...base,
-        benchmarks: {
-          scores: [run(2, 1)],
-          valueRuns: [
-            run(0.8, 0),
-            run(0.8, -1),
-            run(0.8, Infinity),
-            run(0, 1),
-            run(0.8, 1, "high", "FrontierSWE"),
-            run(2, 1),
-            { ...run(0.8, 1), costPerTask: "0.01" },
-          ],
-        },
-      },
-    });
-    expect(catalog.models.map((m) => m.slug)).toEqual(["alpha"]);
-    expect(rankQuality(catalog.models, "coding")).toEqual([]);
-    expect(rankValue(catalog.models, "coding")).toEqual([]);
+  it("should derive value from valid run counts and reported total cost rather than trusting a separately supplied estimate", () => {
+    const data = parseDiscoveryBenchmarks(
+      catalog([
+        model("run", {
+          coding: 0.99,
+          costPerTask: 0.001,
+          trials: 50,
+          passed: 30,
+          totalCost: 5,
+        }),
+        model("missing-cost", {
+          coding: 0.8,
+          costPerTask: 0.001,
+          trials: 50,
+          passed: 40,
+        }),
+        model("invalid-counts", {
+          coding: 0.8,
+          costPerTask: 0.001,
+          trials: 0,
+          passed: 40,
+          totalCost: 5,
+        }),
+      ]),
+    );
+    expect(data.models[0]).toMatchObject({ coding: 0.6, costPerTask: 0.1 });
+    expect(data.models[1].costPerTask).toBeNull();
+    expect(data.models[2].costPerTask).toBeNull();
   });
-
-  test("accepts decimal model slugs and keeps unknown evaluation dates unknown", async () => {
-    const catalog = await load({
-      "model-1.5": {
-        ...base,
-        benchmarks: { scores: [{ ...run(0.8, 1), date: "2026-02-31" }] },
-      },
+  it("should preserve independent source dates on cached results", () => {
+    const data = parseDiscoveryBenchmarks({
+      ...catalog([]),
+      epochAsOf: "2026-10-22",
+      terminalBenchAsOf: "2026-10-20T00:00:00Z",
+      terminalBenchVersion: "4.0",
     });
-    expect(catalog.models[0].href).toBe("/models/model-1.5");
-    expect(rankQuality(catalog.models, "coding")[0].date).toBeNull();
+    expect(data.epochAsOf).toBe("2026-10-22");
+    expect(data.terminalBenchAsOf).toBe("2026-10-20T00:00:00Z");
+    expect(data.terminalBenchVersion).toBe("4.0");
   });
-
-  test("does not substitute legacy scores when structured results are invalid", async () => {
-    const catalog = await load({
-      alpha: {
-        ...base,
-        b: { "Epoch Capabilities Index": "160" },
-        benchmarks: { eci: { score: "160" }, scores: [] },
-      },
-    });
-    expect(rankQuality(catalog.models, "overall")).toEqual([]);
-  });
-
-  test("reports unavailable or malformed feeds", async () => {
+  it("should reject failed requests and unexpected payloads", async () => {
     await expect(
-      loadDiscoveryBenchmarks(async () => new Response("", { status: 503 })),
+      loadDiscoveryBenchmarks(
+        vi.fn(async () => new Response("", { status: 503 })) as typeof fetch,
+      ),
     ).rejects.toThrow("unavailable");
-    await expect(
-      loadDiscoveryBenchmarks(async () => new Response("{}")),
-    ).rejects.toThrow("unavailable");
+    expect(() => parseDiscoveryBenchmarks({ models: [] })).toThrow(
+      "unavailable",
+    );
   });
 });

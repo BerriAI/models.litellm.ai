@@ -47,6 +47,8 @@ import { CHAT_MODES, IMAGE_MODES, UNIT_LABEL, leadsWithTokens } from "./pricing"
 import { providerDocsUrl, providerName, type ProviderSupport } from "./providers";
 import { COOKBOOK_URL, COST_MAP_RAW_URL, GUARDRAILS_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, providerPath } from "./site";
 import { PAGE_TITLES } from "../../src/pageTitles";
+import { loadDiscoveryBenchmarkData } from "./discovery-benchmarks";
+import { validateProviderLogos } from "../provider-logos";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
@@ -163,6 +165,12 @@ async function main(): Promise<void> {
     console.warn("seo: provider_endpoints_support.json unavailable, using built-in names", err);
   }
   const overrides = JSON.parse(readFileSync(path.join(HERE, "overrides.json"), "utf8")) as Overrides;
+  validateProviderLogos([
+    ...Object.keys(support.providers ?? {}),
+    ...Object.entries(costMap).flatMap(([key, row]) =>
+      key !== "sample_spec" && row.litellm_provider ? [row.litellm_provider] : [],
+    ),
+  ]);
   const seededDates = JSON.parse(readFileSync(path.join(HERE, "added-dates.json"), "utf8")) as Record<string, string>;
   const previous = await loadPreviousManifest(process.env.PREVIOUS_MANIFEST_URL ?? `${SITE_URL}/models/manifest.json`);
 
@@ -287,6 +295,9 @@ async function main(): Promise<void> {
       lab: v.lab,
       price,
       context: v.context,
+      mode: v.mode,
+      inputModalities: v.inputModalities,
+      outputModalities: v.outputModalities,
       providers: v.providers.map((p) => p.name),
       providerIds: v.providers.map((p) => p.hub),
       status: v.status,
@@ -513,6 +524,11 @@ ${cheapestOnProvider(h.name, list)}
   );
   // The comparison tool and its data, rebuilt with every price change so it never goes stale.
   write("compare/models.json", JSON.stringify(toolData(views, benchFor, new Set(pairs.map((p) => p.slug)))));
+  const discoveryBenchmarks = await loadDiscoveryBenchmarkData(benchData, views, {
+    snapshotFile: process.env.TERMINAL_BENCH_FILE,
+    previousSnapshotUrl: `${SITE_URL}/discovery/benchmarks.json`,
+  });
+  write("discovery/benchmarks.json", JSON.stringify(discoveryBenchmarks));
   write(
     "compare/custom.html",
     layout({

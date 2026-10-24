@@ -19,7 +19,8 @@ export default defineConfig(({ mode }) => {
             const pathname = request.url?.split("?")[0];
             if (
               pathname !== "/models/manifest.json" &&
-              pathname !== "/compare/models.json"
+              pathname !== "/compare/models.json" &&
+              pathname !== "/discovery/benchmarks.json"
             )
               return next();
             try {
@@ -55,6 +56,10 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         "/compare/": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/discovery/": {
           target: "https://models.litellm.ai",
           changeOrigin: true,
         },

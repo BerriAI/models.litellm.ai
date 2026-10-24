@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import PageHero from "./PageHero.svelte";
   import { filterProviders, supportsEndpoint } from "./providerFilters";
-  import { getProviderInitial, getProviderLogo } from "./providers";
+  import { getProviderInitial, getProviderLogo, PROVIDER_DISPLAY_NAMES } from "./providers";
   import { trackSearch } from "./analytics";
 
   type ProviderEndpoint = {
@@ -48,7 +48,7 @@
       if (data.providers) {
         providers = Object.entries(data.providers).map(([provider, info]: [string, any]) => ({
           provider,
-          display_name: info.display_name || provider,
+          display_name: PROVIDER_DISPLAY_NAMES[provider] ?? (info.display_name || provider),
           url: info.url || DOCS_URL,
           endpoints: info.endpoints || {}
         }));

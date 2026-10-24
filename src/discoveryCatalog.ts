@@ -22,6 +22,9 @@ export type DiscoveryModel = {
   firstSeen: string;
   price: string | null;
   context: number | null;
+  mode: string | null;
+  inputModalities: string[];
+  outputModalities: string[];
   providers: DiscoveryProviderReference[];
 };
 
@@ -110,6 +113,12 @@ function parseModels(value: unknown, updatedAt: string): CatalogModel[] {
         entry.context > 0
           ? entry.context
           : null,
+      mode:
+        typeof entry.mode === "string" && entry.mode.trim()
+          ? entry.mode.trim().toLowerCase()
+          : null,
+      inputModalities: modalityList(entry.inputModalities),
+      outputModalities: modalityList(entry.outputModalities),
       providerNames: stringList(entry.providers),
       providerIds: stringList(entry.providerIds).filter((id) =>
         SAFE_ID.test(id),
@@ -265,6 +274,9 @@ function buildCatalog(
       firstSeen: entry.firstSeen,
       price: entry.price,
       context: entry.context,
+      mode: entry.mode,
+      inputModalities: entry.inputModalities,
+      outputModalities: entry.outputModalities,
       providers: modelProviders,
     });
   }
@@ -321,4 +333,79 @@ export function selectDiscoveryModels(
     selected.add(model);
   }
   return models.filter((model) => selected.has(model));
+}
+
+function modalityList(value: unknown): string[] {
+  return [
+    ...new Set(stringList(value).map((item) => item.trim().toLowerCase())),
+  ];
+}
+
+type ModalityDescription = {
+  task: string;
+  input?: string[];
+  output?: string[];
+};
+
+// A mode can describe the task when a catalog row has no modality arrays.
+// Only modes that establish an input/output type supply a flow fallback.
+const MODE_MODALITIES: Record<string, ModalityDescription> = {
+  chat: { task: "Chat" },
+  responses: { task: "Generation" },
+  completion: { task: "Text completion", input: ["text"], output: ["text"] },
+  audio_speech: {
+    task: "Speech generation",
+    input: ["text"],
+    output: ["audio"],
+  },
+  audio_transcription: {
+    task: "Transcription",
+    input: ["audio"],
+    output: ["text"],
+  },
+  image_generation: { task: "Image generation", output: ["image"] },
+  image_edit: { task: "Image editing", output: ["image"] },
+  video_generation: { task: "Video generation", output: ["video"] },
+  embedding: { task: "Embeddings", output: ["embeddings"] },
+  rerank: { task: "Reranking" },
+  moderation: { task: "Moderation" },
+  extraction: { task: "Data extraction" },
+  ocr: { task: "Text extraction", output: ["text"] },
+  realtime: { task: "Realtime chat" },
+};
+
+function modalityLabel(modality: string): string {
+  if (modality === "pdf") return "PDF";
+  return modality.charAt(0).toUpperCase() + modality.slice(1);
+}
+
+/** Describe what a model does without inferring capabilities from its name or lab. */
+export function discoveryModality(
+  model: Pick<DiscoveryModel, "mode" | "inputModalities" | "outputModalities">,
+): { task: string; flow: string | null } {
+  const mode = model.mode ? MODE_MODALITIES[model.mode] : undefined;
+  const inputs = model.inputModalities.length
+    ? model.inputModalities
+    : mode?.input ?? [];
+  const outputs = model.outputModalities.length
+    ? model.outputModalities
+    : mode?.output ?? [];
+  const input = inputs.map(modalityLabel).join(" + ");
+  const output = outputs.map(modalityLabel).join(" + ");
+  const flow =
+    input && output
+      ? `${input} → ${output}`
+      : input
+        ? `Input: ${input}`
+        : output
+          ? `Output: ${output}`
+          : null;
+  return {
+    task:
+      model.mode === "responses" &&
+      new Set([...model.inputModalities, ...model.outputModalities]).size > 1
+        ? "Multimodal"
+        : mode?.task ?? (flow ? "Modalities" : "Modality not listed"),
+    flow,
+  };
 }

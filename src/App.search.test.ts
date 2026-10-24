@@ -2,7 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Exercise the browser lifecycle when the test runner resolves Svelte's server entry.
-vi.mock("svelte", () => vi.importActual<typeof import("svelte")>("svelte/internal"));
+vi.mock("svelte", () =>
+  vi.importActual<typeof import("svelte")>("svelte/internal"),
+);
 vi.mock("./searchWorker?worker", () => ({
   default: class {
     constructor() {
@@ -41,6 +43,7 @@ vi.mock("./catalogData", () => ({
 }));
 
 import App from "./App.svelte";
+import { loadCatalogData } from "./catalogData";
 
 let app: App;
 beforeEach(() => {
@@ -88,5 +91,73 @@ describe("Models page search", () => {
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("2 models"),
     );
+  });
+
+  it("should filter by the Mantle provider ID while displaying its name, prices, limits and routing snippet", async () => {
+    const mantleModel = "bedrock_mantle/anthropic.claude-opus-5-5";
+    vi.mocked(loadCatalogData).mockResolvedValueOnce({
+      items: [
+        {
+          name: mantleModel,
+          mode: "chat",
+          litellm_provider: "bedrock_mantle",
+          input_cost_per_token: 4.4e-6,
+          output_cost_per_token: 22e-6,
+          max_input_tokens: 1_000_000,
+          max_output_tokens: 128_000,
+        },
+        {
+          name: "anthropic.claude-opus-5-5",
+          mode: "chat",
+          litellm_provider: "bedrock_converse",
+          input_cost_per_token: 4e-6,
+          output_cost_per_token: 20e-6,
+          max_input_tokens: 1_000_000,
+          max_output_tokens: 64_000,
+        },
+      ],
+      lines: [],
+      metadata: Promise.resolve(new Map()),
+      fetchedAt: Date.now(),
+    });
+    app = new App({ target: document.body, props: { compact: true } });
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll(".model-row")).toHaveLength(2),
+    );
+
+    document
+      .querySelector<HTMLButtonElement>('[aria-haspopup="listbox"]')!
+      .click();
+    const mantleOption = await vi.waitFor(() => {
+      const option = [
+        ...document.querySelectorAll<HTMLButtonElement>('[role="option"]'),
+      ].find(
+        (candidate) =>
+          candidate.textContent?.trim() === "Amazon Bedrock Mantle",
+      );
+      expect(option).toBeDefined();
+      return option!;
+    });
+    mantleOption.click();
+
+    await vi.waitFor(() => {
+      const rows = document.querySelectorAll<HTMLTableRowElement>(".model-row");
+      expect(rows).toHaveLength(1);
+      expect(rows[0].dataset.name).toBe(mantleModel);
+      expect(rows[0].textContent).toContain("Amazon Bedrock Mantle");
+      expect(
+        [...rows[0].cells].map((cell) => cell.textContent?.trim()),
+      ).toEqual(expect.arrayContaining(["$4.40/M", "$22.00/M"]));
+    });
+    document.querySelector<HTMLTableRowElement>(".model-row")!.click();
+    await vi.waitFor(() => {
+      const detail = document.querySelector(".expanded-content")!;
+      expect(detail.textContent).toContain("Amazon Bedrock Mantle");
+      expect(detail.textContent).toContain("128,000 tokens");
+      expect(detail.textContent).not.toContain("64,000 tokens");
+      expect(detail.querySelector(".code-snippet")?.textContent).toContain(
+        `model="${mantleModel}"`,
+      );
+    });
   });
 });

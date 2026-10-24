@@ -32,10 +32,6 @@ export const BENCHMARKS: {
   category: BenchmarkCategory;
   url: string;
   epoch?: boolean;
-  /** Explicit source column for a newly published dataset not yet in Epoch's metadata. */
-  scoreColumn?: string;
-  /** Mean USD per attempted task; only binary task-success benchmarks qualify. */
-  costColumn?: string;
 }[] = [
   {
     file: "frontiercode_external.csv",
@@ -54,9 +50,6 @@ export const BENCHMARKS: {
     name: "DeepSWE",
     category: "Coding and agents",
     url: "https://deepswe.datacurve.ai/",
-    // Epoch republishes this file before listing it in benchmark_metadata.csv.
-    scoreColumn: "Pass@1",
-    costColumn: "Mean cost (USD)",
   },
   {
     file: "swe_bench_verified.csv",
@@ -101,7 +94,6 @@ export const BENCHMARKS: {
     name: "ARC-AGI-2",
     category: "Reasoning and knowledge",
     url: "https://arcprize.org/leaderboard",
-    costColumn: "Cost per task",
   },
   {
     file: "simpleqa_verified.csv",
@@ -151,15 +143,6 @@ export type Score = {
 export type ModelBenchmarks = {
   eci?: { score: number; date: string | null };
   scores: Score[];
-  /** All reported settings with measured cost, not just the highest-scoring setting. */
-  valueRuns?: ValueRun[];
-};
-
-export type ValueRun = Score & {
-  /** Source-reported mean USD per attempted task, at the time of evaluation. */
-  costPerTask: number;
-  modelVersion: string;
-  harness: string | null;
 };
 
 export type BenchmarkData = {
@@ -169,7 +152,6 @@ export type BenchmarkData = {
   snapshots: Map<string, string[]>;
   /** Lowercased display name -> Epoch Capabilities Index. */
   eci: Map<string, { score: number; date: string | null }>;
-  valueRuns?: Map<string, ValueRun[]>;
 };
 
 /** RFC 4180 CSV: quoted fields may hold commas, quotes and newlines. */
@@ -237,7 +219,7 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
     );
     return key ? strFromU8(files[key]) : null;
   };
-  // Epoch's metadata supplies each score column and scale; only documented new files have a fallback.
+  // Each file's score column and scale, from Epoch's own metadata; a benchmark without them is skipped.
   const meta = new Map(
     parseCsv(read("benchmark_metadata.csv") ?? "")
       .filter((m) => m.source_file)
@@ -247,24 +229,14 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
       ]),
   );
   const runs = new Map<string, Map<string, Score>>();
-  const valueRuns = new Map<string, ValueRun[]>();
   for (const b of BENCHMARKS) {
     const csv = read(b.file);
-    const m =
-      meta.get(b.file) ??
-      (b.scoreColumn ? { column: b.scoreColumn, scale: 1 } : undefined);
+    const m = meta.get(b.file);
     if (!csv || !m?.column) continue;
     for (const row of parseCsv(csv)) {
       const raw = (row[m.column] ?? "").trim();
       const value = Number(raw) / m.scale;
-      if (
-        !row["Model version"] ||
-        !raw ||
-        !Number.isFinite(value) ||
-        value < 0 ||
-        value > 1
-      )
-        continue;
+      if (!row["Model version"] || !raw || !Number.isFinite(value)) continue;
       const { id, setting } = splitVersion(row["Model version"]);
       const date =
         (
@@ -275,29 +247,18 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
         ).slice(0, 10) || null;
       const byBench = runs.get(id) ?? new Map<string, Score>();
       const prev = byBench.get(b.name);
-      const score: Score = {
-        benchmark: b.name,
-        url: b.url,
-        category: b.category,
-        epoch: !!b.epoch,
-        score: value,
-        setting,
-        date,
-      };
       // A model is often run at several reasoning settings: keep its best, and say which setting that was.
-      if (!prev || value > prev.score) byBench.set(b.name, score);
-      runs.set(id, byBench);
-      const cost = b.costColumn ? Number(row[b.costColumn]) : NaN;
-      if (Number.isFinite(cost) && cost > 0) {
-        const costed = valueRuns.get(id) ?? [];
-        costed.push({
-          ...score,
-          costPerTask: cost,
-          modelVersion: row["Model version"],
-          harness: row.Harness || null,
+      if (!prev || value > prev.score)
+        byBench.set(b.name, {
+          benchmark: b.name,
+          url: b.url,
+          category: b.category,
+          epoch: !!b.epoch,
+          score: value,
+          setting,
+          date,
         });
-        valueRuns.set(id, costed);
-      }
+      runs.set(id, byBench);
     }
   }
   const eci = new Map<string, { score: number; date: string | null }>();
@@ -313,7 +274,7 @@ export function parseBenchmarkZip(zip: Uint8Array): BenchmarkData {
     .filter((v) => v.snapshot)
     .sort((x, y) => y.snapshot!.localeCompare(x.snapshot!)))
     snapshots.set(v.model, [...(snapshots.get(v.model) ?? []), v.id]);
-  return { runs, snapshots, eci, valueRuns };
+  return { runs, snapshots, eci };
 }
 
 /**
@@ -330,22 +291,13 @@ export function benchmarksFor(
 ): ModelBenchmarks | null {
   if (!data) return null;
   const scores = new Map<string, Score>();
-  const valueRuns: ValueRun[] = [];
   const candidates = [...new Set(ids.map(normalizeId))].flatMap((id) => [
     id,
     ...(data.runs.has(id) ? [] : (data.snapshots.get(id) ?? []).slice(0, 1)),
   ]);
   for (const id of candidates) {
     for (const [name, s] of data.runs.get(id) ?? []) {
-      if (!scores.has(name)) {
-        scores.set(name, s);
-        // The same exact model/snapshot that supplies its score must supply its costs.
-        valueRuns.push(
-          ...(data.valueRuns?.get(id) ?? []).filter(
-            (r) => r.benchmark === name,
-          ),
-        );
-      }
+      if (!scores.has(name)) scores.set(name, s);
     }
   }
   const eci = names.map((n) => data.eci.get(n.toLowerCase())).find(Boolean);
@@ -356,7 +308,6 @@ export function benchmarksFor(
     scores: [...scores.values()].sort(
       (a, b) => order.indexOf(a.benchmark) - order.indexOf(b.benchmark),
     ),
-    ...(valueRuns.length ? { valueRuns } : {}),
   };
 }
 

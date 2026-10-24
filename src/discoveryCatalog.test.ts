@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import {
+  discoveryModality,
   loadDiscoveryCatalog,
   selectDiscoveryModels,
   type DiscoveryModel,
@@ -76,7 +77,7 @@ describe("discovery catalog", () => {
     ]);
     expect(catalog.models[0]).toMatchObject({
       href: "/models/newest",
-      logo: "/provider-logos/anthropic.svg",
+      logo: "/provider-logos/upstream/anthropic.png",
       price: "$2 / $10",
       context: 200000,
     });
@@ -84,7 +85,7 @@ describe("discovery catalog", () => {
       {
         id: "anthropic",
         name: "Anthropic",
-        logo: "/provider-logos/anthropic.svg",
+        logo: "/provider-logos/upstream/anthropic.png",
         href: "/providers/anthropic",
       },
       {
@@ -232,6 +233,35 @@ describe("discovery catalog", () => {
     });
   });
 
+  test("should read and normalize modality metadata from the catalog without inferring it from names", async () => {
+    const catalog = await loadDiscoveryCatalog(
+      fetchCatalog(
+        manifest({
+          speech: model("Speech", "2026-10-23", {
+            mode: " AUDIO_SPEECH ",
+            inputModalities: [" Text ", "text", false, ""],
+            outputModalities: ["Audio"],
+          }),
+          unknown: model("Unknown", "2026-10-23"),
+        }),
+      ),
+    );
+    expect(catalog.models[0]).toMatchObject({
+      mode: "audio_speech",
+      inputModalities: ["text"],
+      outputModalities: ["audio"],
+    });
+    expect(catalog.models[1]).toMatchObject({
+      mode: null,
+      inputModalities: [],
+      outputModalities: [],
+    });
+    expect(discoveryModality(catalog.models[1])).toEqual({
+      task: "Modality not listed",
+      flow: null,
+    });
+  });
+
   test.each([
     { version: 2, buildDate: "2026-10-24", models: {} },
     { version: 1, buildDate: "invalid", models: {} },
@@ -269,6 +299,9 @@ function card(slug: string, lab: string): DiscoveryModel {
     firstSeen: "2026-10-23",
     price: null,
     context: null,
+    mode: null,
+    inputModalities: [],
+    outputModalities: [],
     providers: [],
   };
 }
@@ -311,5 +344,85 @@ describe("discovery model selection", () => {
       ["a1", "a2", "b1"],
     );
     expect(selectDiscoveryModels(models, 0)).toEqual([]);
+  });
+});
+
+describe("discovery modalities", () => {
+  test.each([
+    ["audio_speech", "Speech generation", "Text → Audio"],
+    ["audio_transcription", "Transcription", "Audio → Text"],
+    ["image_generation", "Image generation", "Output: Image"],
+    ["embedding", "Embeddings", "Output: Embeddings"],
+  ])(
+    "should describe the %s task when explicit modality arrays are absent",
+    (mode, task, flow) => {
+      expect(
+        discoveryModality({ mode, inputModalities: [], outputModalities: [] }),
+      ).toEqual({ task, flow });
+    },
+  );
+
+  test("should show explicit multimodal capabilities without restricting chat to text", () => {
+    expect(
+      discoveryModality({
+        mode: "chat",
+        inputModalities: ["text", "image", "pdf"],
+        outputModalities: ["text"],
+      }),
+    ).toEqual({ task: "Chat", flow: "Text + Image + PDF → Text" });
+    expect(
+      discoveryModality({
+        mode: "chat",
+        inputModalities: [],
+        outputModalities: [],
+      }),
+    ).toEqual({ task: "Chat", flow: null });
+  });
+
+  test("should prioritize explicit catalog modalities over mode defaults", () => {
+    expect(
+      discoveryModality({
+        mode: "audio_speech",
+        inputModalities: ["audio"],
+        outputModalities: ["audio"],
+      }),
+    ).toEqual({ task: "Speech generation", flow: "Audio → Audio" });
+  });
+
+  test("should explain extraction models from their catalog mode without guessing their output", () => {
+    expect(
+      discoveryModality({
+        mode: "extraction",
+        inputModalities: ["image"],
+        outputModalities: [],
+      }),
+    ).toEqual({ task: "Data extraction", flow: "Input: Image" });
+  });
+
+  test("should describe response models by their declared modalities without assuming a chat task", () => {
+    expect(
+      discoveryModality({
+        mode: "responses",
+        inputModalities: ["text", "image", "video"],
+        outputModalities: ["text"],
+      }),
+    ).toEqual({ task: "Multimodal", flow: "Text + Image + Video → Text" });
+    expect(
+      discoveryModality({
+        mode: "responses",
+        inputModalities: [],
+        outputModalities: [],
+      }),
+    ).toEqual({ task: "Generation", flow: null });
+  });
+
+  test("should show known modalities even when the catalog introduces a new mode", () => {
+    expect(
+      discoveryModality({
+        mode: "future_mode",
+        inputModalities: ["video"],
+        outputModalities: [],
+      }),
+    ).toEqual({ task: "Modalities", flow: "Input: Video" });
   });
 });

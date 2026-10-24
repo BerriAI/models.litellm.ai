@@ -695,13 +695,6 @@ describe("comparison tool page", () => {
     );
     expect(benched.asOf).toBe("September 10, 2026");
     expect(benched.models["gpt-6-astra"].iu).toBe("December 31, 2026");
-    expect(benched.models["gpt-6-astra"].benchmarks?.scores[0]).toMatchObject({
-      score: 0.958,
-      date: "2026-09-10",
-    });
-    expect(benched.models["gpt-6-astra"].b?.["GPQA Diamond"]).toContain(
-      "95.8%",
-    );
     const html = await renderTool(benched, ["claude-opus-5-5", "gpt-6-astra"]);
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;");

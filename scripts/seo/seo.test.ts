@@ -50,6 +50,50 @@ const views = () => {
   return new Map(groups.map((g) => [g.pageKey, buildModelView(g, slugs.get(g.pageKey)!, {}, {}, "2026-09-22")]));
 };
 
+describe("model modalities", () => {
+  const view = (extra: Record<string, unknown>) => {
+    const [group] = groupCostMap({
+      "audio-model": chat("openai", 1, 2, extra),
+    });
+    return buildModelView(group, "audio-model", {}, {}, "2026-10-24");
+  };
+
+  test("should preserve positive modality capabilities when a row has no modality arrays", () => {
+    const model = view({
+      supports_audio_input: true,
+      supports_audio_output: true,
+      supports_vision: true,
+      supports_pdf_input: true,
+      supports_video_input: false,
+    });
+    expect(model.inputModalities).toEqual(["text", "image", "pdf", "audio"]);
+    expect(model.outputModalities).toEqual(["text", "audio"]);
+  });
+
+  test("should include the chat mode's text input and output without inventing additional capabilities", () => {
+    const model = view({});
+    expect(model.inputModalities).toEqual(["text"]);
+    expect(model.outputModalities).toEqual(["text"]);
+  });
+
+  test("should leave unknown modalities unknown for a mode without an established text contract", () => {
+    const model = view({ mode: "future_mode" });
+    expect(model.inputModalities).toEqual([]);
+    expect(model.outputModalities).toEqual([]);
+  });
+
+  test("should prefer explicit modality arrays over capability fallbacks", () => {
+    const model = view({
+      supported_modalities: ["text", "audio"],
+      supported_output_modalities: ["text"],
+      supports_vision: true,
+      supports_audio_output: true,
+    });
+    expect(model.inputModalities).toEqual(["text", "audio"]);
+    expect(model.outputModalities).toEqual(["text"]);
+  });
+});
+
 describe("grouping", () => {
   test("puts every provider key for one model on one page", () => {
     const groups = groupCostMap(COST_MAP);
