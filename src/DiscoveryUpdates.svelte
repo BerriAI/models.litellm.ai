@@ -10,11 +10,12 @@
     EPOCH_URL,
     TERMINAL_BENCH_URL,
     loadDiscoveryBenchmarks,
-    qualityFloor,
     rankQuality,
     rankValue,
   } from "./discoveryBenchmarks";
   import { getProviderLogo } from "./providers";
+  import ModelIdentifier from "./ModelIdentifier.svelte";
+  import type { QualityRanking, ValueRanking } from "./discoveryBenchmarks";
 
   let catalog: DiscoveryCatalog | null = null;
   let benchmarks: Awaited<ReturnType<typeof loadDiscoveryBenchmarks>> | null =
@@ -25,14 +26,13 @@
   let benchmarkFailed = false;
 
   $: models = selectDiscoveryModels(catalog?.models ?? [], 8);
-  $: minimumQuality = qualityFloor(benchmarks?.models ?? []);
   $: lists = [
     {
       id: "overall",
       title: "Top quality",
       description: "Epoch Capabilities Index",
       metric: "ECI points",
-      entries: rankQuality(benchmarks?.models ?? [], "overall").slice(0, 3),
+      entries: rankQuality(benchmarks?.models ?? [], "overall").slice(0, 10),
       href: EPOCH_URL,
     },
     {
@@ -40,18 +40,15 @@
       title: "Top coding",
       description: `Terminal-Bench ${benchmarks?.terminalBenchVersion ?? "4.0"} · model + agent`,
       metric: "Tasks solved",
-      entries: rankQuality(benchmarks?.models ?? [], "coding").slice(0, 3),
+      entries: rankQuality(benchmarks?.models ?? [], "coding").slice(0, 10),
       href: TERMINAL_BENCH_URL,
     },
     {
       id: "value",
       title: "Best value",
-      description:
-        minimumQuality === null
-          ? "Terminal-Bench · coding value at reported costs"
-          : `Terminal-Bench · reported costs · ≥${percent(minimumQuality)} solved`,
+      description: "Terminal-Bench · successful tasks per reported dollar",
       metric: "Tasks solved per dollar",
-      entries: rankValue(benchmarks?.models ?? []).slice(0, 3),
+      entries: rankValue(benchmarks?.models ?? []).slice(0, 10),
       href: TERMINAL_BENCH_URL,
     },
   ];
@@ -106,6 +103,36 @@
       maximumFractionDigits: value < 0.01 ? 4 : 2,
     }).format(value);
 
+  function chartValue(entry: QualityRanking | ValueRanking): number {
+    return "solvedPerDollar" in entry ? entry.solvedPerDollar : entry.score;
+  }
+  function chartMaximum(
+    id: string,
+    entries: (QualityRanking | ValueRanking)[],
+  ): number {
+    return id === "coding" ? 1 : Math.max(...entries.map(chartValue), 0);
+  }
+  function barWidth(
+    id: string,
+    entries: (QualityRanking | ValueRanking)[],
+    entry: QualityRanking | ValueRanking,
+  ): number {
+    const maximum = chartMaximum(id, entries);
+    return maximum > 0
+      ? Math.min(100, Math.max(0, (chartValue(entry) / maximum) * 100))
+      : 0;
+  }
+  function metricLabel(
+    id: string,
+    entry: QualityRanking | ValueRanking,
+  ): string {
+    return id === "value"
+      ? ratio(chartValue(entry))
+      : id === "coding"
+        ? percent(entry.score)
+        : number(entry.score);
+  }
+
   onMount(() => {
     void loadUpdates();
     void loadScores();
@@ -146,11 +173,7 @@
           {#each models as model (model.slug)}
             {@const modality = discoveryModality(model)}
             <li>
-              <a
-                class="model-row"
-                href={model.href}
-                aria-label={`Explore ${model.name}`}
-              >
+              <div class="model-row">
                 {#if model.logo}
                   <img
                     class="brand-logo"
@@ -163,7 +186,14 @@
                   >
                 {/if}
                 <span class="model-copy">
-                  <strong>{model.name}</strong>
+                  <span class="model-title-line">
+                    <a href={model.href} aria-label={`Explore ${model.name}`}
+                      ><strong>{model.name}</strong></a
+                    >
+                    {#if model.modelId}<ModelIdentifier
+                        modelId={model.modelId}
+                      />{/if}
+                  </span>
                   <span class="model-meta"
                     >{model.lab ?? "LiteLLM catalog"}<span aria-hidden="true"
                       >·</span
@@ -176,8 +206,7 @@
                       >{/if}</span
                   >
                 </span>
-                <span class="model-arrow" aria-hidden="true">↗</span>
-              </a>
+              </div>
             </li>
           {/each}
         </ol>
@@ -202,7 +231,12 @@
         >
           <header class="panel-heading">
             <div class="heading-line">
-              <h2 id={`ranking-${list.id}`}>{list.title}</h2>
+              <div class="ranking-title">
+                <h2 id={`ranking-${list.id}`}>{list.title}</h2>
+                {#if list.entries.length}<span class="chart-count"
+                    >Top {list.entries.length}</span
+                  >{/if}
+              </div>
               <a
                 href={list.href}
                 target="_blank"
@@ -220,15 +254,24 @@
               Rankings are temporarily unavailable.
             </div>
           {:else if list.entries.length}
-            <ol class="ranking-list" aria-label={list.title}>
+            <div class="chart-scale" aria-hidden="true">
+              <span>0</span>
+              <span
+                >{list.id === "coding"
+                  ? "100% solved"
+                  : `${list.id === "value" ? ratio(chartMaximum(list.id, list.entries)) : number(chartMaximum(list.id, list.entries))} ${list.id === "value" ? "solved / $" : "ECI points"}`}</span
+              >
+            </div>
+            <ol
+              class="ranking-list"
+              class:quality-chart={list.id === "overall"}
+              class:coding-chart={list.id === "coding"}
+              class:value-chart={list.id === "value"}
+              aria-label={list.title}
+            >
               {#each list.entries as entry, index (entry.model.slug)}
-                <li>
-                  <a
-                    class="ranking-row"
-                    href={entry.model.href}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
+                <li class="chart-row">
+                  <div class="chart-heading">
                     <span class="rank">{index + 1}</span>
                     {#if getProviderLogo(entry.model.lab ?? "")}
                       <img
@@ -244,17 +287,23 @@
                         )}</span
                       >
                     {/if}
-                    <span class="ranking-copy">
-                      <strong>{entry.model.name}</strong>
-                      <small
-                        >{list.id === "overall"
-                          ? entry.model.lab ?? ""
-                          : entry.model.harness ??
-                            "Agent not listed"}{#if list.id !== "overall" && entry.model.setting}
-                          · {entry.model.setting}{/if}{#if list.id === "value"}
-                          · {percent(entry.score)} solved{/if}</small
-                      >
-                    </span>
+                    <a
+                      class="ranking-link"
+                      href={entry.model.href}
+                      target="_blank"
+                      rel="noreferrer"><strong>{entry.model.name}</strong></a
+                    >
+                    {#if entry.model.modelId}<ModelIdentifier
+                        modelId={entry.model.modelId}
+                      />{/if}
+                  </div>
+                  <div class="chart-measure">
+                    <span class="bar-track" aria-hidden="true"
+                      ><span
+                        class="bar-fill"
+                        style:width={`${barWidth(list.id, list.entries, entry)}%`}
+                      ></span></span
+                    >
                     <span
                       class="rank-metric"
                       title={"costPerTask" in entry &&
@@ -262,14 +311,7 @@
                         ? `${dollars(entry.costPerTask)} reported per attempt`
                         : list.metric}
                     >
-                      <strong
-                        >{"solvedPerDollar" in entry &&
-                        typeof entry.solvedPerDollar === "number"
-                          ? ratio(entry.solvedPerDollar)
-                          : list.id === "coding"
-                            ? percent(entry.score)
-                            : number(entry.score)}</strong
-                      >
+                      <strong>{metricLabel(list.id, entry)}</strong>
                       <small
                         >{list.id === "value"
                           ? "solved / $"
@@ -278,10 +320,26 @@
                             : "ECI"}</small
                       >
                     </span>
-                  </a>
+                  </div>
+                  <small class="chart-caption"
+                    >{list.id === "overall"
+                      ? entry.model.lab ?? ""
+                      : entry.model.harness ??
+                        "Agent not listed"}{#if list.id !== "overall" && entry.model.setting}
+                      · {entry.model.setting}{/if}{#if list.id === "value"}
+                      · <span class="success-rate"
+                        >{percent(entry.score)} solved</span
+                      >{/if}{#if !entry.model.modelId}
+                      · LiteLLM ID not matched{/if}</small
+                  >
                 </li>
               {/each}
             </ol>
+            {#if list.entries.length < 10}<p class="coverage-note">
+                {list.entries.length} models with published {list.id === "value"
+                  ? "success and cost"
+                  : "benchmark"} data.
+              </p>{/if}
           {:else}
             <div class="ranking-empty">
               No published results are available yet.
@@ -320,10 +378,11 @@
       </p>
       <p>
         Best value ranks successful coding trials per dollar of reported total
-        run cost, keeping runs at or above 80% of the leading coding score.
-        Success counts and costs come from the same run. Terminal-Bench does not
-        confirm cost coverage for every trial; missing total costs are excluded.
-        Hover over a value to see its average cost per attempt.
+        run cost. Success rates are shown alongside efficiency so low-cost runs
+        with fewer successful attempts remain distinguishable. Success counts
+        and costs come from the same run. Terminal-Bench does not confirm cost
+        coverage for every trial; missing total costs are excluded. Hover over a
+        value to see its average cost per attempt.
       </p>
       <p>
         Public results refresh daily. If a source is unavailable, the last
@@ -379,12 +438,12 @@
   }
   .browse-button:hover,
   .model-row:hover strong,
-  .ranking-row:hover strong {
+  .ranking-link:hover strong {
     color: var(--hf-accent);
   }
   .discovery-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.3fr);
     gap: 20px;
     align-items: start;
   }
@@ -518,10 +577,13 @@
     font-size: 10px;
     line-height: 1.4;
   }
-  .model-arrow {
-    color: var(--hf-muted);
-    font-size: 13px;
-    margin-top: 4px;
+  .model-title-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 7px 10px;
+    min-width: 0;
   }
   .list-footer {
     margin-top: auto;
@@ -539,68 +601,130 @@
     gap: 14px;
     min-width: 0;
   }
+  .ranking-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .chart-count {
+    font-size: 10px;
+    color: var(--hf-muted);
+    padding: 3px 6px;
+    border: 1px solid var(--hf-line);
+    border-radius: 4px;
+  }
   .ranking-panel .panel-heading {
     padding-bottom: 12px;
   }
   .ranking-list {
     padding-bottom: 8px;
+    --bar-color: #7860de;
   }
-  .ranking-row {
+  .coding-chart {
+    --bar-color: #3888d6;
+  }
+  .value-chart {
+    --bar-color: #219b85;
+  }
+  .chart-scale {
+    display: flex;
+    justify-content: space-between;
+    margin: 0 22px 0 43px;
+    padding: 0 92px 7px 0;
+    color: var(--hf-muted);
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+  }
+  .chart-row {
+    padding: 8px 0;
+  }
+  .chart-heading {
+    line-height: 1.3;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 11px 0;
-    min-height: 0;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .rank {
-    width: 10px;
+    width: 13px;
     flex-shrink: 0;
-    font-size: 11px;
+    font-size: 10px;
     color: var(--hf-muted);
     font-variant-numeric: tabular-nums;
   }
   .ranking-logo,
   .ranking-fallback {
-    width: 25px;
-    height: 25px;
+    width: 22px;
+    height: 22px;
     flex-shrink: 0;
-    border-radius: 5px;
+    border-radius: 4px;
   }
   .ranking-fallback {
-    font-size: 12px;
+    font-size: 11px;
   }
-  .ranking-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  .ranking-link {
     flex: 1;
-    min-width: 0;
+    min-width: 80px;
   }
-  .ranking-copy strong {
+  .ranking-link strong {
     font-size: 12px;
     line-height: 1.35;
     font-weight: 500;
     overflow-wrap: anywhere;
   }
-  .ranking-copy small {
-    color: var(--hf-muted);
-    font-size: 10px;
+  .chart-measure {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 4px 0 0 21px;
+  }
+  .bar-track {
+    flex: 1;
+    height: 10px;
+    background: var(--hf-faint);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    display: block;
+    height: 100%;
+    background: var(--bar-color);
+    border-radius: 3px;
   }
   .rank-metric {
+    line-height: 1.3;
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 3px;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 4px;
+    width: 80px;
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
   .rank-metric strong {
-    font-size: 15px;
-    font-weight: 500;
+    font-size: 12px;
+    font-weight: 600;
   }
   .rank-metric small {
     color: var(--hf-muted);
     font-size: 9px;
+  }
+  .chart-caption {
+    display: block;
+    margin: 3px 0 0 21px;
+    color: var(--hf-muted);
+    font-size: 10px;
+    line-height: 1.4;
+  }
+  .success-rate {
+    color: var(--hf-ink);
+    font-weight: 500;
+  }
+  .coverage-note {
+    margin: 0;
+    padding: 0 22px 14px;
+    color: var(--hf-muted);
+    font-size: 10px;
   }
   .empty-state,
   .ranking-empty {
@@ -730,8 +854,12 @@
     .model-copy strong {
       font-size: 13px;
     }
-    .ranking-row {
-      gap: 8px;
+    .chart-heading {
+      gap: 6px;
+    }
+    .chart-scale {
+      margin-left: 37px;
+      margin-right: 16px;
     }
   }
 </style>

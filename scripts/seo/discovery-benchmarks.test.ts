@@ -3,6 +3,7 @@ import {
   fetchTerminalBench,
   loadDiscoveryBenchmarkData,
   terminalBenchModel,
+  withCatalogModelIds,
   TERMINAL_BENCH_DATASET_REF,
   TERMINAL_BENCH_VERSION,
 } from "./discovery-benchmarks";
@@ -45,6 +46,94 @@ function publicFetch(overrides: { pin?: string; submission?: unknown } = {}) {
 }
 
 describe("Terminal-Bench public discovery feed", () => {
+  it("should attach copyable LiteLLM routes only for exact catalog identifiers", () => {
+    const run = terminalBenchModel(file, submission())!;
+    const models = [
+      run,
+      { ...run, slug: "similar", releaseSlug: "provider/example-v2" },
+      { ...run, slug: "different-case", releaseSlug: "Provider/example" },
+      { ...run, slug: "vertex", releaseSlug: "vertex-example" },
+      { ...run, slug: "retired", releaseSlug: "provider/retired" },
+      { ...run, slug: "structured", releaseSlug: "openai/example-2" },
+      { ...run, slug: "wrong-provider", releaseSlug: "anthropic/example-2" },
+      {
+        ...run,
+        slug: "eci",
+        intelligence: 155,
+        coding: null,
+        href: "/models/clairic",
+      },
+    ];
+    const result = withCatalogModelIds(models, [
+      {
+        slug: "example",
+        status: "active",
+        headline: { modelString: "provider/example" },
+        rows: [
+          {
+            key: "provider/example",
+            modelString: "provider/example",
+            provider: "provider",
+          },
+        ],
+      },
+      {
+        slug: "vertex",
+        status: "active",
+        headline: { modelString: "vertex_ai/vertex-example" },
+        rows: [
+          {
+            key: "vertex-example",
+            modelString: "vertex_ai/vertex-example",
+            provider: "vertex_ai",
+          },
+        ],
+      },
+      {
+        slug: "retired",
+        status: "retired",
+        headline: { modelString: "provider/retired" },
+        rows: [
+          {
+            key: "provider/retired",
+            modelString: "provider/retired",
+            provider: "provider",
+          },
+        ],
+      },
+      {
+        slug: "example-2",
+        status: "active",
+        headline: { modelString: "example-2" },
+        rows: [
+          { key: "example-2", modelString: "example-2", provider: "openai" },
+        ],
+      },
+      {
+        slug: "clairic",
+        status: "active",
+        headline: { modelString: "cloudflare/clairic" },
+        rows: [
+          {
+            key: "cloudflare/clairic",
+            modelString: "cloudflare/clairic",
+            provider: "cloudflare",
+          },
+        ],
+      },
+    ]);
+    expect(result.map((model) => model.modelId)).toEqual([
+      "provider/example",
+      null,
+      null,
+      "vertex_ai/vertex-example",
+      null,
+      "example-2",
+      null,
+      "cloudflare/clairic",
+    ]);
+  });
+
   it("should derive reported trial cost and successful tasks per dollar from one run", () => {
     const model = terminalBenchModel(file, submission())!;
     expect(model).toMatchObject({

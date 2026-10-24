@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   loadDiscoveryBenchmarks,
   parseDiscoveryBenchmarks,
-  qualityFloor,
   rankQuality,
   rankValue,
   type DiscoveryBenchmarkModel,
@@ -17,6 +16,7 @@ function model(
     name: slug,
     lab: "Example lab",
     href: `/models/${slug}`,
+    modelId: null,
     intelligence: null,
     coding: null,
     costPerTask: null,
@@ -52,7 +52,6 @@ describe("public benchmark discovery", () => {
     const data = parseDiscoveryBenchmarks(catalog([model("alpha")]));
     expect(rankQuality(data.models, "coding")).toEqual([]);
     expect(rankValue(data.models)).toEqual([]);
-    expect(qualityFloor(data.models)).toBeNull();
   });
   it("should rank ECI points above 100 separately from coding success fractions", () => {
     const models = [
@@ -67,28 +66,34 @@ describe("public benchmark discovery", () => {
       "beta",
     ]);
   });
-  it("should rank successful tasks per dollar above the coding threshold, rather than cheapest trial first", () => {
+  it("should rank all successful measured runs per dollar while retaining each success rate", () => {
     const models = [
       model("leader", { coding: 0.9, costPerTask: 0.11 }),
       model("cheaper", { coding: 0.75, costPerTask: 0.1 }),
       model("efficient", { coding: 0.8, costPerTask: 0.08 }),
-      model("weak", { coding: 0.71, costPerTask: 0.001 }),
+      model("low-success", { coding: 0.1, costPerTask: 0.001 }),
+      model("no-success", { coding: 0, costPerTask: 0.001 }),
       model("missing", { coding: 0.9 }),
       model("zero", { coding: 0.9, costPerTask: 0 }),
     ];
-    expect(qualityFloor(models)).toBeCloseTo(0.72);
     expect(rankValue(models).map((row) => row.model.slug)).toEqual([
+      "low-success",
       "efficient",
       "leader",
       "cheaper",
     ]);
     expect(rankValue(models)[0]).toMatchObject({
+      score: 0.1,
+      costPerTask: 0.001,
+      solvedPerDollar: 100,
+    });
+    expect(rankValue(models)[1]).toMatchObject({
       score: 0.8,
       costPerTask: 0.08,
       solvedPerDollar: 10,
     });
   });
-  it("should show the best qualifying configuration per exact source model id", () => {
+  it("should show the most efficient configuration per exact source model id", () => {
     const models = [
       model("high", {
         releaseSlug: "provider/alpha",
@@ -170,6 +175,16 @@ describe("public benchmark discovery", () => {
     expect(data.models[0]).toMatchObject({ coding: 0.6, costPerTask: 0.1 });
     expect(data.models[1].costPerTask).toBeNull();
     expect(data.models[2].costPerTask).toBeNull();
+  });
+  it("should retain a source-matched LiteLLM model ID without inventing one when absent", () => {
+    const data = parseDiscoveryBenchmarks(
+      catalog([
+        model("known", { modelId: "vertex_ai/example" }),
+        { ...model("unknown"), modelId: undefined },
+      ]),
+    );
+    expect(data.models[0].modelId).toBe("vertex_ai/example");
+    expect(data.models[1].modelId).toBeNull();
   });
   it("should preserve independent source dates on cached results", () => {
     const data = parseDiscoveryBenchmarks({

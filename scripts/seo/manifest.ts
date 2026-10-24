@@ -1,6 +1,8 @@
 export type ManifestModel = {
   pageKey: string;
   name: string;
+  /** Copyable LiteLLM route; absent in older manifests. */
+  modelId?: string | null;
   lab: string | null;
   price: string | null;
   context?: number;

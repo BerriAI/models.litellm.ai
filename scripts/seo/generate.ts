@@ -47,6 +47,7 @@ import { CHAT_MODES, IMAGE_MODES, UNIT_LABEL, leadsWithTokens } from "./pricing"
 import { providerDocsUrl, providerName, type ProviderSupport } from "./providers";
 import { COOKBOOK_URL, COST_MAP_RAW_URL, GUARDRAILS_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, providerPath } from "./site";
 import { PAGE_TITLES } from "../../src/pageTitles";
+import { catalogModelId } from "../../src/litellmModelId";
 import { loadDiscoveryBenchmarkData } from "./discovery-benchmarks";
 import { validateProviderLogos } from "../provider-logos";
 
@@ -292,6 +293,7 @@ async function main(): Promise<void> {
     manifest.models[v.slug] = {
       pageKey: v.pageKey,
       name: v.name,
+      modelId: catalogModelId(v, BUILD_DATE),
       lab: v.lab,
       price,
       context: v.context,

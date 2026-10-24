@@ -4,6 +4,7 @@ import {
   type ProviderSupport,
 } from "../scripts/seo/providers";
 import { getProviderLogo } from "./providers";
+import { parseLiteLLMModelId } from "./litellmModelId";
 
 export type DiscoveryProviderReference = {
   id: string;
@@ -15,6 +16,7 @@ export type DiscoveryProviderReference = {
 export type DiscoveryModel = {
   slug: string;
   name: string;
+  modelId: string | null;
   lab: string | null;
   logo: string | null;
   href: string;
@@ -102,6 +104,7 @@ function parseModels(value: unknown, updatedAt: string): CatalogModel[] {
       slug,
       pageKey: entry.pageKey,
       name: entry.name,
+      modelId: parseLiteLLMModelId(entry.modelId),
       lab: typeof entry.lab === "string" ? entry.lab : null,
       href: `/models/${slug}`,
       // Future or malformed dates must not turn into new model announcements.
@@ -268,6 +271,7 @@ function buildCatalog(
     models.push({
       slug: entry.slug,
       name: entry.name,
+      modelId: entry.modelId,
       lab: entry.lab,
       logo,
       href: entry.href,

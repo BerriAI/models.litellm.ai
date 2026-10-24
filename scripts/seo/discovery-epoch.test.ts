@@ -33,6 +33,7 @@ describe("Epoch discovery models", () => {
       {
         slug: "alpha-model",
         name: "Alpha",
+        modelId: null,
         lab: "Example Lab",
         href: "/models/alpha-model",
         score: 160.5,
@@ -41,6 +42,7 @@ describe("Epoch discovery models", () => {
       {
         slug: "beta",
         name: "Beta",
+        modelId: null,
         lab: "Example Lab",
         href: "/models/beta",
         score: 148.2,
@@ -48,6 +50,27 @@ describe("Epoch discovery models", () => {
       },
     ]);
     expect(result.asOf).toBe("2026-10-20");
+  });
+
+  test("should preserve the catalog headline routing string for a matched ECI row", () => {
+    const result = epochDiscoveryModels(data([["alpha", 155, "2026-10-20"]]), [
+      {
+        ...catalogModel("alpha", "Alpha"),
+        headline: { modelString: "vertex_ai/alpha" },
+      },
+    ]);
+    expect(result.models[0].modelId).toBe("vertex_ai/alpha");
+  });
+
+  test("should keep an active routing identifier when a matched model has no price headline", () => {
+    const result = epochDiscoveryModels(data([["alpha", 155, "2026-10-20"]]), [
+      {
+        ...catalogModel("alpha", "Alpha"),
+        headline: null,
+        rows: [{ modelString: "provider/alpha" }],
+      },
+    ]);
+    expect(result.models[0].modelId).toBe("provider/alpha");
   });
 
   test("should accept approved exact aliases without fuzzy name matching or duplicate releases", () => {

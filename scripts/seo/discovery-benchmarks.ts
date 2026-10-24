@@ -9,6 +9,7 @@ import {
   type DiscoveryBenchmarkModel,
 } from "../../src/discoveryBenchmarks";
 import { epochDiscoveryModels } from "./discovery-epoch";
+import { catalogModelId, parseLiteLLMModelId } from "../../src/litellmModelId";
 import type { BenchmarkData } from "./benchmarks";
 import type { ModelView } from "./model-view";
 
@@ -77,6 +78,7 @@ export function terminalBenchModel(
   return {
     slug: `tb-${file.slice(0, -5)}`,
     name,
+    modelId: null,
     lab,
     href: `https://github.com/${REPOSITORY}/blob/main/leaderboard/submissions/${file}`,
     releaseSlug: modelId,
@@ -160,6 +162,47 @@ function cachedTerminalBench(file: string): TerminalBenchCapture {
     datasetRef: TERMINAL_BENCH_DATASET_REF,
   };
 }
+/** Only catalog routing identifiers establish a copyable LiteLLM route for benchmark rows. */
+export function withCatalogModelIds(
+  models: DiscoveryBenchmarkModel[],
+  views: readonly (Pick<ModelView, "slug" | "status"> & {
+    headline: Pick<
+      NonNullable<ModelView["headline"]>,
+      "modelString" | "deprecation"
+    > | null;
+    rows: readonly Pick<
+      ModelView["rows"][number],
+      "key" | "modelString" | "provider" | "deprecation"
+    >[];
+  })[],
+): DiscoveryBenchmarkModel[] {
+  const today = new Date().toISOString().slice(0, 10);
+  const routes = new Map<string, string>();
+  const pages = new Map<string, string>();
+  for (const view of views) {
+    if (view.status === "retired") continue;
+    const headlineId = catalogModelId(view, today);
+    if (headlineId) pages.set(`/models/${view.slug}`, headlineId);
+    for (const row of view.rows) {
+      if (row.deprecation && row.deprecation <= today) continue;
+      const modelId = parseLiteLLMModelId(row.modelString);
+      if (!modelId) continue;
+      routes.set(row.key, modelId);
+      routes.set(row.modelString, modelId);
+      // Benchmark providers may namespace an otherwise bare catalog key. Both fields must match exactly.
+      if (!row.key.includes("/"))
+        routes.set(`${row.provider}/${row.key}`, modelId);
+    }
+  }
+  return models.map((model) => ({
+    ...model,
+    modelId:
+      model.intelligence !== null
+        ? pages.get(model.href) ?? null
+        : routes.get(model.releaseSlug ?? "") ?? null,
+  }));
+}
+
 export async function loadDiscoveryBenchmarkData(
   data: BenchmarkData | null,
   views: ModelView[],
@@ -225,6 +268,7 @@ export async function loadDiscoveryBenchmarkData(
     : epoch.models.map((model) => ({
         slug: `eci-${model.slug}`,
         name: model.name,
+        modelId: model.modelId,
         lab: model.lab,
         href: model.href,
         intelligence: model.score,
@@ -241,7 +285,7 @@ export async function loadDiscoveryBenchmarkData(
       ? now
       : previous?.fetchedAt ?? terminal.asOf;
   return {
-    models: [...epochModels, ...terminal.models],
+    models: withCatalogModelIds([...epochModels, ...terminal.models], views),
     source: "public-feeds",
     asOf: fetchedAt,
     fetchedAt,

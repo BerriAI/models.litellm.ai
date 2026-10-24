@@ -57,6 +57,29 @@ describe("discovery catalog", () => {
     ]);
   });
 
+  test("should expose the canonical LiteLLM route and tolerate older manifests without one", async () => {
+    const catalog = await loadDiscoveryCatalog(
+      fetchCatalog(
+        manifest({
+          clairic: model("Clairic", "2026-10-23", {
+            modelId: "cloudflare/clairic",
+          }),
+          legacy: model("Legacy", "2026-10-22"),
+          invalid: model("Invalid", "2026-10-21", { modelId: 42 }),
+        }),
+      ),
+    );
+    expect(
+      catalog.models.find((entry) => entry.slug === "clairic")?.modelId,
+    ).toBe("cloudflare/clairic");
+    expect(
+      catalog.models.find((entry) => entry.slug === "legacy")?.modelId,
+    ).toBeNull();
+    expect(
+      catalog.models.find((entry) => entry.slug === "invalid")?.modelId,
+    ).toBeNull();
+  });
+
   test("should load canonical catalog additions newest first with real provider links and logos", async () => {
     const fetchFn = fetchCatalog(
       manifest({
@@ -292,6 +315,7 @@ describe("discovery catalog", () => {
 function card(slug: string, lab: string): DiscoveryModel {
   return {
     slug,
+    modelId: null,
     name: slug,
     lab,
     logo: null,

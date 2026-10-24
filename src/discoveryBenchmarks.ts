@@ -1,11 +1,13 @@
+import { parseLiteLLMModelId } from "./litellmModelId";
 /** Public benchmark feeds. Composite capability scores and success rates keep their own scales. */
 export const EPOCH_URL = "https://epoch.ai/eci";
 export const TERMINAL_BENCH_URL = "https://www.tbench.ai/?version=4";
-export const VALUE_QUALITY_FRACTION = 0.8;
 export type QualityBenchmarkId = "overall" | "coding";
 export type DiscoveryBenchmarkModel = {
   slug: string;
   name: string;
+  /** Copyable LiteLLM route, set only when matched to the supported catalog. */
+  modelId: string | null;
   lab: string | null;
   href: string;
   releaseSlug?: string;
@@ -101,6 +103,7 @@ function parseModel(value: unknown): DiscoveryBenchmarkModel | null {
   return {
     slug: value.slug,
     name,
+    modelId: parseLiteLLMModelId(value.modelId),
     lab: text(value.lab),
     href,
     ...(text(value.releaseSlug)
@@ -194,23 +197,14 @@ export function rankQuality(
       ),
   );
 }
-export function qualityFloor(models: DiscoveryBenchmarkModel[]): number | null {
-  const scores = models.flatMap((model) =>
-    model.coding === null ? [] : [model.coding],
-  );
-  return scores.length ? Math.max(...scores) * VALUE_QUALITY_FRACTION : null;
-}
-/** Successful trials / source-reported USD, with a coding success floor. Cost coverage is not reported. */
+/** Successful trials / source-reported USD. Each result retains its success rate; cost coverage is not reported. */
 export function rankValue(models: DiscoveryBenchmarkModel[]): ValueRanking[] {
-  const floor = qualityFloor(models);
-  if (floor === null) return [];
   return oneConfigurationPerRelease(
     models
       .flatMap((model): ValueRanking[] => {
         if (
           model.coding === null ||
           model.coding <= 0 ||
-          model.coding < floor ||
           model.costPerTask === null ||
           model.costPerTask <= 0
         )

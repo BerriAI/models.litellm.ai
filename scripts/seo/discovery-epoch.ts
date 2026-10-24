@@ -1,9 +1,11 @@
 import type { BenchmarkData } from "./benchmarks";
+import { catalogModelId } from "../../src/litellmModelId";
 import type { ModelView } from "./model-view";
 
 export type EpochDiscoveryModel = {
   slug: string;
   name: string;
+  modelId: string | null;
   lab: string | null;
   href: string;
   /** Epoch Capabilities Index points; this is not a percentage. */
@@ -15,7 +17,16 @@ export type EpochDiscoveryModel = {
 type CatalogModel = Pick<
   ModelView,
   "slug" | "name" | "lab" | "alsoKnownAs" | "status"
->;
+> & {
+  headline?: Pick<
+    NonNullable<ModelView["headline"]>,
+    "modelString" | "deprecation"
+  > | null;
+  rows?: readonly Pick<
+    ModelView["rows"][number],
+    "modelString" | "deprecation"
+  >[];
+};
 
 function sourceReportedDate(value: string | null): string | null {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -45,6 +56,7 @@ export function epochDiscoveryModels(
     models.push({
       slug: view.slug,
       name: view.name,
+      modelId: catalogModelId(view),
       lab: view.lab,
       href: `/models/${view.slug}`,
       score: eci.score,

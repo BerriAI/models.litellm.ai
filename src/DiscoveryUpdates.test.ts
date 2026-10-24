@@ -43,6 +43,7 @@ const catalog: DiscoveryCatalog = {
     {
       slug: "eleven-example",
       name: "Eleven Example",
+      modelId: "elevenlabs/eleven-example",
       lab: "ElevenLabs",
       logo: elevenlabs.logo,
       href: "/models/eleven-example",
@@ -57,6 +58,7 @@ const catalog: DiscoveryCatalog = {
     {
       slug: "claude-example",
       name: "Claude Example",
+      modelId: "anthropic/claude-example",
       lab: "Anthropic",
       logo: anthropic.logo,
       href: "/models/claude-example",
@@ -88,6 +90,7 @@ const catalog: DiscoveryCatalog = {
 };
 
 const unmeasured = {
+  modelId: null,
   intelligence: null,
   coding: null,
   costPerTask: null,
@@ -124,6 +127,7 @@ const benchmarks: DiscoveryBenchmarkCatalog = {
     {
       ...unmeasured,
       slug: "epoch-gemini-example",
+      modelId: "vertex_ai/gemini-example",
       name: "Gemini Example",
       lab: "Google",
       href: EPOCH_URL,
@@ -177,7 +181,10 @@ beforeEach(() => {
   vi.mocked(loadDiscoveryCatalog).mockReset().mockResolvedValue(catalog);
   vi.mocked(loadDiscoveryBenchmarks).mockReset().mockResolvedValue(benchmarks);
 });
-afterEach(() => component?.$destroy());
+afterEach(() => {
+  component?.$destroy();
+  vi.restoreAllMocks();
+});
 
 function section(titleId: string): HTMLElement {
   const result = Array.from(document.getElementsByTagName("section")).find(
@@ -196,6 +203,27 @@ function recentLinks(): HTMLAnchorElement[] {
 function rankingLinks(id: "overall" | "coding" | "value"): HTMLAnchorElement[] {
   const list = section(`ranking-${id}`).getElementsByTagName("ol")[0];
   return list ? Array.from(list.getElementsByTagName("a")) : [];
+}
+
+function rankingRows(id: "overall" | "coding" | "value"): HTMLLIElement[] {
+  const list = section(`ranking-${id}`).getElementsByTagName("ol")[0];
+  return list ? Array.from(list.getElementsByTagName("li")) : [];
+}
+
+function barWidths(id: "overall" | "coding" | "value"): number[] {
+  return Array.from(
+    section(`ranking-${id}`).getElementsByClassName("bar-fill"),
+  ).map((bar) => Number.parseFloat((bar as HTMLElement).style.width));
+}
+
+function copyButton(
+  scope: HTMLElement,
+  modelId: string,
+): HTMLButtonElement | undefined {
+  return Array.from(scope.getElementsByTagName("button")).find(
+    (button) =>
+      button.getAttribute("aria-label") === `Copy model ID ${modelId}`,
+  );
 }
 
 function rankingNames(id: "overall" | "coding" | "value"): string[] {
@@ -268,15 +296,15 @@ describe("Discover updates", () => {
       "Best value",
     );
     expect(section("ranking-overall").textContent).toContain("Epoch");
-    expect(rankingLinks("overall")[0].textContent).toContain("150");
+    expect(rankingRows("overall")[0].textContent).toContain("150");
     expect(section("ranking-coding").textContent).toContain("Terminal-Bench");
-    expect(rankingLinks("coding")[0].textContent).toMatch(/90(?:\.0)?%/);
-    expect(rankingLinks("coding")[0].textContent).toContain("Harbor Example");
-    expect(rankingLinks("value")[0].textContent).toContain("Harbor Example");
-    expect(rankingLinks("value")[0].textContent).toMatch(/80(?:\.0)?% solved/);
-    expect(rankingLinks("value")[0].textContent).toMatch(/10\s*solved \/ \$/);
+    expect(rankingRows("coding")[0].textContent).toMatch(/90(?:\.0)?%/);
+    expect(rankingRows("coding")[0].textContent).toContain("Harbor Example");
+    expect(rankingRows("value")[0].textContent).toContain("Harbor Example");
+    expect(rankingRows("value")[0].textContent).toMatch(/80(?:\.0)?% solved/);
+    expect(rankingRows("value")[0].textContent).toMatch(/10\s*solved \/ \$/);
     expect(
-      Array.from(rankingLinks("value")[0].getElementsByTagName("span")).some(
+      Array.from(rankingRows("value")[0].getElementsByTagName("span")).some(
         (span) => span.getAttribute("title") === "$0.08 reported per attempt",
       ),
     ).toBe(true);
@@ -288,6 +316,139 @@ describe("Discover updates", () => {
       const source = id === "overall" ? EPOCH_URL : TERMINAL_BENCH_URL;
       expect(rankingLinks(id).every((link) => link.href === source)).toBe(true);
     }
+  });
+
+  it("should show only the top ten measured results in each chart when twelve are available", async () => {
+    const qualityModels = Array.from({ length: 12 }, (_, index) => ({
+      ...unmeasured,
+      slug: `quality-${index}`,
+      name: `Quality model ${index}`,
+      lab: "Example lab",
+      href: EPOCH_URL,
+      intelligence: 200 - index,
+    }));
+    const codingModels = Array.from({ length: 12 }, (_, index) => ({
+      ...unmeasured,
+      slug: `coding-${index}`,
+      name: `Coding model ${index}`,
+      lab: "Example lab",
+      href: TERMINAL_BENCH_URL,
+      coding: (95 - index * 5) / 100,
+      costPerTask: 1,
+      trials: 100,
+      passed: 95 - index * 5,
+      totalCost: 100,
+      harness: "Example agent",
+    }));
+    vi.mocked(loadDiscoveryBenchmarks).mockResolvedValue({
+      ...benchmarks,
+      models: [...qualityModels, ...codingModels],
+    });
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(rankingRows("overall")).toHaveLength(10));
+    expect(rankingNames("overall")).toEqual(
+      qualityModels.slice(0, 10).map((model) => model.name),
+    );
+    for (const id of ["coding", "value"] as const) {
+      expect(rankingRows(id)).toHaveLength(10);
+      expect(rankingNames(id)).toEqual(
+        codingModels.slice(0, 10).map((model) => model.name),
+      );
+    }
+  });
+
+  it("should scale quality and value bars to their leaders and coding bars to absolute success percentages", async () => {
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(rankingRows("overall")).toHaveLength(3));
+    expect(barWidths("overall")[0]).toBe(100);
+    expect(barWidths("overall")[1]).toBeCloseTo((140 / 150) * 100);
+    expect(barWidths("coding")).toEqual([90, 80, 75]);
+    expect(barWidths("value")[0]).toBe(100);
+    expect(barWidths("value")[1]).toBeCloseTo((0.9 / 0.11 / 10) * 100);
+    expect(barWidths("value")[2]).toBe(75);
+    const scale =
+      section("ranking-coding").getElementsByClassName("chart-scale")[0];
+    expect(scale.getElementsByTagName("span")[0].textContent).toBe("0");
+    expect(scale.textContent).toContain("100% solved");
+  });
+
+  it("should copy canonical LiteLLM IDs from new models and rankings without following model links", async () => {
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockResolvedValue(undefined);
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
+    const beforeUrl = window.location.href;
+    const recentCopy = copyButton(
+      section("new-models-title"),
+      "elevenlabs/eleven-example",
+    );
+    expect(recentCopy).toBeDefined();
+    expect(recentCopy!.closest("a")).toBeNull();
+    recentCopy!.click();
+    await vi.waitFor(() =>
+      expect(section("new-models-title").textContent).toContain("Copied"),
+    );
+    expect(writeText).toHaveBeenNthCalledWith(1, "elevenlabs/eleven-example");
+    const rankedCopy = copyButton(
+      section("ranking-overall"),
+      "vertex_ai/gemini-example",
+    );
+    expect(rankedCopy).toBeDefined();
+    expect(rankedCopy!.closest("a")).toBeNull();
+    rankedCopy!.click();
+    await vi.waitFor(() =>
+      expect(section("ranking-overall").textContent).toContain("Copied"),
+    );
+    expect(writeText).toHaveBeenNthCalledWith(2, "vertex_ai/gemini-example");
+    expect(window.location.href).toBe(beforeUrl);
+  });
+
+  it("should keep detail links but omit copy buttons rather than invent missing LiteLLM IDs", async () => {
+    vi.mocked(loadDiscoveryCatalog).mockResolvedValue({
+      ...catalog,
+      models: catalog.models.map((model) => ({ ...model, modelId: null })),
+    });
+    vi.mocked(loadDiscoveryBenchmarks).mockResolvedValue({
+      ...benchmarks,
+      models: benchmarks.models.map((model) => ({ ...model, modelId: null })),
+    });
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
+    expect(
+      Array.from(document.getElementsByTagName("button")).some((button) =>
+        button.getAttribute("aria-label")?.startsWith("Copy model ID "),
+      ),
+    ).toBe(false);
+    expect(document.getElementsByTagName("code")).toHaveLength(0);
+    expect(recentLinks().map((link) => link.getAttribute("href"))).toEqual([
+      "/models/eleven-example",
+      "/models/claude-example",
+    ]);
+    expect(rankingRows("overall")[0].textContent).toContain(
+      "LiteLLM ID not matched",
+    );
+  });
+
+  it("should report clipboard failure honestly and allow a successful retry", async () => {
+    const writeText = vi
+      .spyOn(navigator.clipboard, "writeText")
+      .mockRejectedValueOnce(new Error("Clipboard denied"))
+      .mockResolvedValue(undefined);
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
+    const recent = section("new-models-title");
+    const button = copyButton(recent, "elevenlabs/eleven-example")!;
+    button.click();
+    await vi.waitFor(() =>
+      expect(recent.textContent).toContain("Couldn't copy"),
+    );
+    expect(recent.textContent).not.toContain("Copied");
+    expect(button.textContent).toContain("elevenlabs/eleven-example");
+    button.click();
+    await vi.waitFor(() => expect(recent.textContent).toContain("Copied"));
+    expect(recent.textContent).not.toContain("Couldn't copy");
+    expect(writeText).toHaveBeenCalledTimes(2);
   });
 
   it("should keep new models focused without duplicated ranking tabs or provider filters and cards", async () => {
