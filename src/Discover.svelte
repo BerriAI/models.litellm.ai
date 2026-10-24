@@ -820,19 +820,29 @@
   h3 {
     font-weight: 500;
   }
+  .discover-page :global(.page-hero) {
+    min-height: 180px;
+    padding: 16px 0;
+  }
+  .discover-page :global(.page-hero h1) {
+    margin: 10px 0;
+  }
+  .discover-page :global(.blueprint) {
+    height: 150px;
+  }
   .benchmark-section {
     border-top: 1px solid var(--hf-line);
-    padding-top: 30px;
+    padding-top: 20px;
   }
   .section-top {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 20px;
-    margin-bottom: 25px;
+    margin-bottom: 16px;
   }
   .section-top h2 {
-    margin-top: 10px;
+    margin-top: 6px;
   }
   .outline-button {
     display: inline-flex;
@@ -891,7 +901,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    min-height: 67px;
+    min-height: 52px;
     border-bottom: 1px solid var(--hf-line);
   }
   .data-controls {
@@ -938,7 +948,7 @@
     justify-content: space-between;
     align-items: center;
     gap: 30px;
-    padding: 20px 0 24px;
+    padding: 14px 0;
   }
   .quality-control {
     width: 235px;
@@ -985,8 +995,8 @@
     display: flex;
     gap: 10px;
     align-items: center;
-    padding: 12px 15px;
-    margin-bottom: 16px;
+    padding: 8px 12px;
+    margin-bottom: 10px;
     border: 1px solid var(--hf-line);
     border-radius: 3px;
     font-size: 11px;
@@ -1001,7 +1011,7 @@
     color: var(--hf-ink);
   }
   .comparison-scope {
-    margin: 0 0 16px;
+    margin: 0 0 10px;
     color: var(--hf-muted);
     font-size: 12px;
     line-height: 1.6;
@@ -1012,8 +1022,8 @@
     gap: 16px;
     border: 1px solid var(--hf-line);
     border-left: 2px solid var(--hf-accent);
-    padding: 16px 20px;
-    margin-bottom: 20px;
+    padding: 12px 16px;
+    margin-bottom: 14px;
     border-radius: 3px;
   }
   .summary-icon {
@@ -1096,7 +1106,7 @@
     color: var(--hf-muted);
     font-size: 10px;
     line-height: 1.5;
-    margin: 6px 0 24px;
+    margin: 6px 0 8px;
   }
   .chart-caption > span:last-child {
     text-align: right;
@@ -1174,7 +1184,7 @@
   .chart-row.selected .bar {
     background: var(--hf-accent);
   }
-  .below-floor {
+  .below-floor .bar {
     opacity: 0.45;
   }
   .axis {
@@ -1606,8 +1616,67 @@
     margin-top: 20px;
   }
   @media (min-width: 1300px) {
+    .discover-page :global(.page-hero) {
+      min-height: 130px;
+      padding: 8px 0;
+    }
+    .discover-page :global(.page-hero h1) {
+      font-size: 64px;
+      margin: 8px 0;
+    }
+    .discover-page :global(.page-hero h1 span) {
+      font-size: 52px;
+      vertical-align: 3px;
+    }
+    .discover-page :global(.blueprint) {
+      height: 114px;
+    }
+    .benchmark-section {
+      display: grid;
+      grid-template-columns: 43% 3% 54%;
+      padding-top: 14px;
+    }
+    .benchmark-section > * {
+      grid-column: 1 / -1;
+    }
+    .section-top {
+      margin-bottom: 8px;
+    }
+    .harness-tabs button {
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    .filter-row {
+      min-height: 54px;
+      grid-column: 1;
+      grid-row: 3;
+    }
+    .comparison-controls {
+      min-height: 54px;
+      grid-column: 3;
+      grid-row: 3;
+      box-sizing: border-box;
+      padding: 0;
+      gap: 16px;
+      border-bottom: 1px solid var(--hf-line);
+    }
+    .quality-control {
+      width: 200px;
+    }
+    .pilot-notice {
+      margin-top: 8px;
+      margin-bottom: 8px;
+      padding: 6px 12px;
+    }
+    .value-summary {
+      padding: 10px 16px;
+      margin-bottom: 10px;
+    }
+    .value-summary > div:not(.summary-number) {
+      gap: 3px;
+    }
     .chart-panel {
-      padding: 22px 24px 16px;
+      padding: 16px 24px;
     }
     .chart-caption {
       font-size: 11px;
