@@ -1,5 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from "svelte";
+  import CodingBenchmarks from "./CodingBenchmarks.svelte";
   import DiscoveryUpdates from "./DiscoveryUpdates.svelte";
   import { getProviderLogo } from "./providers";
   import {
@@ -95,6 +96,7 @@
 
 <div class="discover-page">
   <DiscoveryUpdates />
+  <CodingBenchmarks embedded />
 
   <details class="benchmarks ruled" bind:this={evaluationWorkspace}>
     <summary class="evaluation-summary">

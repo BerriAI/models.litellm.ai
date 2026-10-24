@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { homePage, searchPage } from "./app-pages";
+import { codingBenchmarksPage, homePage, searchPage } from "./app-pages";
 import { siteNodes } from "./jsonld";
 import { SITE_URL } from "./site";
 
@@ -58,5 +58,21 @@ describe("Discover and search pages", () => {
       expect(schema[1]).not.toContain("SearchAction");
       expect(schema[1]).not.toContain("search_term_string");
     }
+  });
+});
+
+
+describe("coding benchmark static page", () => {
+  test("should publish only complete same-cohort rows and withhold timing", () => {
+    const data = JSON.parse(readFileSync("public/benchmarks/results.json", "utf8"));
+    const partial = { ...data.runs[0], id: "partial-fixture", modelName: "Unfinished fixture", status: "running", attempts: 1 };
+    const page = codingBenchmarksPage({ ...data, runs: [...data.runs, partial] });
+    expect(page.body).toContain("6 tasks × 1 trial(s)");
+    expect(page.body).toContain("4 / 6");
+    expect(page.body).toContain("Successful tasks / USD");
+    expect(page.body).not.toContain("Unfinished fixture");
+    expect(page.body).not.toContain("seconds");
+    expect(page.body).toContain("timing is not ranked");
+    expect(page.breadcrumbs.at(-1)?.path).toBe("/benchmarks");
   });
 });

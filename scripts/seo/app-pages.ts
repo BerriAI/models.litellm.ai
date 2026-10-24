@@ -4,6 +4,7 @@
  * crawlers that don't run JavaScript read the same content the app shows.
  * Every count comes from the data the app reads; nothing here is typed by hand.
  */
+import { defaultBenchmarkCohort, parseBenchmarkResults, runMetrics, harnessName } from "../../src/codingBenchmarks";
 import { escapeHtml as esc, int, longDate } from "./format";
 import { hubProvider, type ProviderSupport } from "./providers";
 import { PROVIDER_DISPLAY_NAMES } from "../../src/providers";
@@ -62,7 +63,7 @@ export function homePage(
     lastmod,
     body: `<h1>Discover AI models</h1>
 <p>Explore ${int(models)} AI models across ${int(hubs.length)} providers, with prices and context windows from LiteLLM's open-source price file, as of ${longDate(lastmod)}.</p>
-<p><a href="/search">Search models</a>, <a href="/compare">compare models and published benchmarks</a>, browse <a href="/new-models">new models</a>, or estimate your costs with the <a href="/calculator">pricing calculator</a>.</p>
+<p><a href="/search">Search models</a>, <a href="/compare">compare models and published benchmarks</a>, browse <a href="/new-models">new models</a>, view the <a href="/benchmarks">coding agent pilot</a>, or estimate your costs with the <a href="/calculator">pricing calculator</a>.</p>
 ${modelLists(hubs, recent)}`,
   };
 }
@@ -188,5 +189,31 @@ export function guardrailsPage(
 <h1>Custom code guardrails</h1>
 <p>${list.length ? `${int(list.length)} ready-made guardrails` : "Guardrails"} you can copy, customize and deploy on the LiteLLM AI Gateway to check requests and responses. See the <a href="https://docs.litellm.ai/docs/proxy/guardrails/custom_code_guardrail">custom code guardrails docs</a>.</p>
 ${sections}`,
+  };
+}
+
+/** Completed-only pilot content from the same manifest consumed by the app. */
+export function codingBenchmarksPage(raw: unknown): AppPage {
+  const data = parseBenchmarkResults(raw);
+  const cohort = defaultBenchmarkCohort(data);
+  const rows = data.runs.filter(
+    (run) => run.cohortId === cohort?.id && runMetrics(run, "api").complete,
+  );
+  const scope = cohort
+    ? `${cohort.taskIds.length} tasks × ${cohort.repetitions} trial(s)`
+    : "Results pending validation";
+  return {
+    breadcrumbs: crumbs({ name: "Coding benchmarks", path: "/benchmarks" }),
+    ...(data.updatedAt ? { lastmod: data.updatedAt.slice(0, 10) } : {}),
+    body: `<h1>Coding agent benchmarks</h1><p>Pilot: ${esc(scope)}. Directional results, not a stable overall ranking.</p>
+${data.message ? `<p>${esc(data.message)}</p>` : ""}
+<table><thead><tr><th>Harness</th><th>Model</th><th>Provider</th><th>Tasks resolved</th><th>Successful tasks / USD</th><th>Estimated API cost</th></tr></thead><tbody>${rows
+      .map((run) => {
+        const metrics = runMetrics(run, "api");
+        return `<tr><td>${esc(harnessName(run.harness))}</td><td>${esc(run.modelName)}</td><td>${esc(run.providerName)}</td><td>${run.passed} / ${run.attempts}</td><td>${metrics.tasksPerDollar === null ? "Unavailable" : metrics.tasksPerDollar.toFixed(2)}</td><td>${run.apiCostUsd === null ? "Unavailable" : `$${run.apiCostUsd.toFixed(4)}`}</td></tr>`;
+      })
+      .join(
+        "",
+      )}</tbody></table><p>API estimates include failed attempts and retries; compute is excluded. Different cohorts are never combined. Missing or incomparable timing is not ranked.</p>`,
   };
 }
