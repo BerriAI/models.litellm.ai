@@ -43,13 +43,13 @@ jobs:
             --cap-drop ALL --security-opt no-new-privileges \
             --tmpfs /scratch:rw,nosuid,nodev,size=512m \
             --mount "type=bind,source=$test_source,target=/source,readonly" \
-            --mount "type=bind,source=$GITHUB_WORKSPACE/node_modules,target=/dependencies,readonly" \
+            --mount "type=bind,source=$GITHUB_WORKSPACE/node_modules,target=/node_modules,readonly" \
             --entrypoint /usr/bin/env node:22-bookworm-slim \
             -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/scratch TMPDIR=/scratch \
             /bin/sh -ec '
               mkdir /scratch/app
               tar --exclude=node_modules --exclude=.git --exclude=dist -C /source -cf - . | tar --no-same-owner --no-same-permissions -C /scratch/app -xf -
-              ln -s /dependencies /scratch/app/node_modules
+              ln -s /node_modules /scratch/app/node_modules
               cd /scratch/app
               node node_modules/vitest/vitest.mjs run --cache=false --maxWorkers=2
             '
