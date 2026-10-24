@@ -114,20 +114,20 @@ describe("traffic and reconstruction", () => {
   });
 });
 describe("evaluation and spending", { timeout: 15000 }, () => {
-  it("never copies model names or catalog-like private labels into reports", async () => {
-    const privateName = "gpt-example-private-project";
+  it("preserves exact gateway model IDs so report recommendations are actionable", async () => {
+    const selectedName = "example-team/deployment-v2";
     const result = await run(new FixtureGateway(), {
       ...options,
-      candidates: [{ ...candidates[0], id: privateName, label: privateName }],
-      judge: { ...judge, id: privateName, label: privateName },
-      baselineLabels: { "example-current": privateName },
-    } as any);
-    expect(JSON.stringify(result)).not.toContain(privateName);
-    expect(result.judge).toBe("Selected gateway judge");
+      candidates: [{ ...candidates[0], id: selectedName }],
+      judge: { ...judge, id: "example-team/judge-v1" },
+    });
+    expect(result.judge).toBe("example-team/judge-v1");
     expect(result.workloads[0].rows.map((r) => r.name)).toEqual([
-      "Current traffic",
-      "Candidate 1",
+      "Current · example-current",
+      selectedName,
     ]);
+    const { allocation } = await import("../../src/benchmark/allocation");
+    expect(allocation(result, 95).choices[0].model).toBe(selectedName);
   });
   it("checks output schemas, finish reasons and tool arguments independently of judging", async () => {
     const e = example();
@@ -200,7 +200,7 @@ describe("evaluation and spending", { timeout: 15000 }, () => {
     ).toBe(false);
     const serialized = JSON.stringify(result);
     expect(serialized).not.toContain("Invoice total:");
-    expect(serialized).not.toContain("example-current");
+    expect(serialized).toContain("example-current");
     expect(serialized).not.toContain("example-0");
     expect(serialized).not.toContain("proxy_server_request");
   });
@@ -331,6 +331,8 @@ describe("local report and TUI", () => {
   });
   it("bundles the actual Svelte view, fonts and images into offline HTML", async () => {
     const report = await run(new FixtureGateway(), options);
+    const untrustedName = '</script><img data-model-injection="true" src=x>';
+    report.judge = untrustedName;
     const html = await renderReport(report);
     expect(html).toContain("connect-src 'none'");
     expect(html).toContain("script-src 'sha256-");
@@ -338,8 +340,13 @@ describe("local report and TUI", () => {
     expect(html).not.toMatch(/<script[^>]*\bsrc=/);
     expect(html).not.toMatch(/<link[^>]*\bhref=/);
     expect(html).not.toContain("Invoice total:");
-    expect(html).toContain("Current traffic");
-    expect(html).toContain("Candidate 1");
+    expect(html).toContain("Current · example-current");
+    expect(html).toContain("example-candidate");
+    expect(html).not.toContain(untrustedName);
+    const data = html.match(
+      /<script id="benchmark-data" type="application\/json">([\s\S]*?)<\/script>/,
+    )![1];
+    expect(JSON.parse(data).report.judge).toBe(untrustedName);
   }, 20000);
 });
 

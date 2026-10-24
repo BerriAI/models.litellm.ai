@@ -35,6 +35,16 @@ it("renders readiness without falling back to demo charts", () => {
   expect(document.body.textContent).toContain("No evaluable requests");
   expect(document.body.textContent).toContain("Missing request body");
 });
+it("renders gateway-provided model names as inert text", () => {
+  const r = report();
+  r.judge = '<img data-model-injection="true" src=x>';
+  component = new Discover({
+    target: document.body,
+    props: { report: r, reportIcon: "data:image/svg+xml,<svg/>" },
+  });
+  expect(document.body.textContent).toContain(r.judge);
+  expect(document.querySelector("[data-model-injection]")).toBeNull();
+});
 it("keeps zero-cost baselines finite and unavailable metrics explicit", () => {
   const r = report();
   r.status = "complete";

@@ -1,4 +1,4 @@
-/** Deliberately contains no prompts, responses, credentials, request IDs or gateway addresses. */
+/** Local report: includes gateway model IDs; excludes raw traffic and connection settings. */
 export interface BenchmarkRow {
   id: string;
   name: string;
