@@ -24,8 +24,9 @@
   let failed = false;
   let benchmarkLoading = true;
   let benchmarkFailed = false;
+  let selectedRanking = "overall";
 
-  $: models = selectDiscoveryModels(catalog?.models ?? [], 8);
+  $: models = selectDiscoveryModels(catalog?.models ?? [], 6);
   $: lists = [
     {
       id: "overall",
@@ -34,6 +35,7 @@
       metric: "ECI points",
       entries: rankQuality(benchmarks?.models ?? [], "overall").slice(0, 10),
       href: EPOCH_URL,
+      asOf: benchmarks?.epochAsOf,
     },
     {
       id: "coding",
@@ -42,16 +44,31 @@
       metric: "Tasks solved",
       entries: rankQuality(benchmarks?.models ?? [], "coding").slice(0, 10),
       href: TERMINAL_BENCH_URL,
+      asOf: benchmarks?.terminalBenchAsOf,
     },
     {
       id: "value",
-      title: "Best value",
+      title: "Best Task per Dollar",
       description: "Terminal-Bench · successful tasks per reported dollar",
       metric: "Tasks solved per dollar",
       entries: rankValue(benchmarks?.models ?? []).slice(0, 10),
       href: TERMINAL_BENCH_URL,
+      asOf: benchmarks?.terminalBenchAsOf,
     },
   ];
+
+  function handleTabKey(event: KeyboardEvent, index: number) {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % lists.length;
+    else if (event.key === "ArrowLeft")
+      next = (index + lists.length - 1) % lists.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = lists.length - 1;
+    else return;
+    event.preventDefault();
+    selectedRanking = lists[next].id;
+    document.getElementById(`ranking-tab-${selectedRanking}`)?.focus();
+  }
 
   async function loadUpdates() {
     loading = true;
@@ -223,133 +240,166 @@
       </footer>
     </section>
 
-    <div class="rankings">
+    <div class="rankings panel">
+      <div class="ranking-tabs" role="tablist" aria-label="Model rankings">
+        {#each lists as list, index}
+          <button
+            id={`ranking-tab-${list.id}`}
+            type="button"
+            role="tab"
+            aria-selected={selectedRanking === list.id}
+            aria-controls={`ranking-panel-${list.id}`}
+            tabindex={selectedRanking === list.id ? 0 : -1}
+            on:click={() => (selectedRanking = list.id)}
+            on:keydown={(event) => handleTabKey(event, index)}
+            >{list.title}</button
+          >
+        {/each}
+      </div>
       {#each lists as list (list.id)}
-        <section
-          class="ranking-panel panel"
-          aria-labelledby={`ranking-${list.id}`}
-        >
-          <header class="panel-heading">
-            <div class="heading-line">
-              <div class="ranking-title">
-                <h2 id={`ranking-${list.id}`}>{list.title}</h2>
-                {#if list.entries.length}<span class="chart-count"
-                    >Top {list.entries.length}</span
-                  >{/if}
+        {#if selectedRanking === list.id}
+          <div
+            class="ranking-panel"
+            id={`ranking-panel-${list.id}`}
+            role="tabpanel"
+            tabindex="0"
+            aria-labelledby={`ranking-tab-${list.id}`}
+          >
+            <header class="panel-heading">
+              <div class="heading-line">
+                <div class="ranking-title">
+                  <h2 class="visually-hidden" id={`ranking-${list.id}`}>
+                    {list.title}
+                  </h2>
+                  {#if list.entries.length}<span class="chart-count"
+                      >Top {list.entries.length}</span
+                    >{/if}
+                  <span class="chart-description">{list.description}</span>
+                </div>
+                <a
+                  href={list.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={`View ${list.title.toLowerCase()} on ${list.id === "overall" ? "Epoch AI" : "Terminal-Bench"}`}
+                  >View all <span aria-hidden="true">↗</span></a
+                >
               </div>
-              <a
-                href={list.href}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`View ${list.title.toLowerCase()} on ${list.id === "overall" ? "Epoch AI" : "Terminal-Bench"}`}
-                >View all <span aria-hidden="true">↗</span></a
-              >
-            </div>
-            <p>{list.description}</p>
-          </header>
-          {#if benchmarkLoading}
-            <div class="ranking-empty" role="status">Loading rankings…</div>
-          {:else if benchmarkFailed}
-            <div class="ranking-empty">
-              Rankings are temporarily unavailable.
-            </div>
-          {:else if list.entries.length}
-            <div class="chart-scale" aria-hidden="true">
-              <span>0</span>
-              <span
-                >{list.id === "coding"
-                  ? "100% solved"
-                  : `${list.id === "value" ? ratio(chartMaximum(list.id, list.entries)) : number(chartMaximum(list.id, list.entries))} ${list.id === "value" ? "solved / $" : "ECI points"}`}</span
-              >
-            </div>
-            <ol
-              class="ranking-list"
-              class:quality-chart={list.id === "overall"}
-              class:coding-chart={list.id === "coding"}
-              class:value-chart={list.id === "value"}
-              aria-label={list.title}
-            >
-              {#each list.entries as entry, index (entry.model.slug)}
-                <li class="chart-row">
-                  <div class="chart-heading">
-                    <span class="rank">{index + 1}</span>
-                    {#if getProviderLogo(entry.model.lab ?? "")}
-                      <img
-                        class="ranking-logo"
-                        src={getProviderLogo(entry.model.lab ?? "") ?? ""}
-                        alt=""
-                      />
-                    {:else}
-                      <span class="ranking-fallback" aria-hidden="true"
-                        >{(entry.model.lab ?? entry.model.name).slice(
-                          0,
-                          1,
-                        )}</span
+            </header>
+            {#if benchmarkLoading}
+              <div class="ranking-empty" role="status">Loading rankings…</div>
+            {:else if benchmarkFailed}
+              <div class="ranking-empty">
+                Rankings are temporarily unavailable.
+              </div>
+            {:else if list.entries.length}
+              <div class="chart-scale" aria-hidden="true">
+                <span>0</span>
+                <span
+                  >{list.id === "coding"
+                    ? "100% solved"
+                    : `${list.id === "value" ? ratio(chartMaximum(list.id, list.entries)) : number(chartMaximum(list.id, list.entries))} ${list.id === "value" ? "solved / $" : "ECI points"}`}</span
+                >
+              </div>
+              <ol class="ranking-list" aria-label={list.title}>
+                {#each list.entries as entry, index (entry.model.slug)}
+                  <li class="chart-row">
+                    <div class="chart-heading">
+                      <span class="rank">{index + 1}</span>
+                      {#if getProviderLogo(entry.model.lab ?? "")}
+                        <img
+                          class="ranking-logo"
+                          src={getProviderLogo(entry.model.lab ?? "") ?? ""}
+                          alt=""
+                        />
+                      {:else}
+                        <span class="ranking-fallback" aria-hidden="true"
+                          >{(entry.model.lab ?? entry.model.name).slice(
+                            0,
+                            1,
+                          )}</span
+                        >
+                      {/if}
+                      <a
+                        class="ranking-link"
+                        href={entry.model.href}
+                        target="_blank"
+                        rel="noreferrer"><strong>{entry.model.name}</strong></a
                       >
-                    {/if}
-                    <a
-                      class="ranking-link"
-                      href={entry.model.href}
-                      target="_blank"
-                      rel="noreferrer"><strong>{entry.model.name}</strong></a
-                    >
-                    {#if entry.model.modelId}<ModelIdentifier
-                        modelId={entry.model.modelId}
-                      />{/if}
-                  </div>
-                  <div class="chart-measure">
-                    <span class="bar-track" aria-hidden="true"
-                      ><span
-                        class="bar-fill"
-                        style:width={`${barWidth(list.id, list.entries, entry)}%`}
-                      ></span></span
-                    >
-                    <span
-                      class="rank-metric"
-                      title={"costPerTask" in entry &&
-                      typeof entry.costPerTask === "number"
-                        ? `${dollars(entry.costPerTask)} reported per attempt`
-                        : list.metric}
-                    >
-                      <strong>{metricLabel(list.id, entry)}</strong>
+                      {#if entry.model.modelId}<ModelIdentifier
+                          modelId={entry.model.modelId}
+                        />{:else}<span class="id-unmatched">ID not matched</span
+                        >{/if}
+                    </div>
+                    <div class="chart-measure">
                       <small
-                        >{list.id === "value"
-                          ? "solved / $"
-                          : list.id === "coding"
-                            ? "solved"
-                            : "ECI"}</small
+                        class="chart-caption"
+                        title={list.id === "overall"
+                          ? entry.model.lab ?? ""
+                          : `${entry.model.harness ?? "Agent not listed"}${entry.model.setting ? ` · ${entry.model.setting}` : ""}`}
+                        >{#if list.id === "value"}<span class="success-rate"
+                            >{percent(entry.score)} solved</span
+                          >
+                        {:else}{list.id === "overall"
+                            ? entry.model.lab ?? ""
+                            : entry.model.harness ??
+                              "Agent not listed"}{#if list.id !== "overall" && entry.model.setting}
+                            · {entry.model.setting}{/if}{/if}</small
                       >
-                    </span>
-                  </div>
-                  <small class="chart-caption"
-                    >{list.id === "overall"
-                      ? entry.model.lab ?? ""
-                      : entry.model.harness ??
-                        "Agent not listed"}{#if list.id !== "overall" && entry.model.setting}
-                      · {entry.model.setting}{/if}{#if list.id === "value"}
-                      · <span class="success-rate"
-                        >{percent(entry.score)} solved</span
-                      >{/if}{#if !entry.model.modelId}
-                      · LiteLLM ID not matched{/if}</small
-                  >
-                </li>
-              {/each}
-            </ol>
-            {#if list.entries.length < 10}<p class="coverage-note">
-                {list.entries.length} models with published {list.id === "value"
-                  ? "success and cost"
-                  : "benchmark"} data.
-              </p>{/if}
-          {:else}
-            <div class="ranking-empty">
-              No published results are available yet.
-              <a href={list.href} target="_blank" rel="noreferrer"
-                >Explore {list.id === "overall" ? "Epoch AI" : "Terminal-Bench"}
-                ↗</a
+                      <span class="bar-track" aria-hidden="true"
+                        ><span
+                          class="bar-fill"
+                          style:width={`${barWidth(list.id, list.entries, entry)}%`}
+                        ></span></span
+                      >
+                      <span
+                        class="rank-metric"
+                        title={"costPerTask" in entry &&
+                        typeof entry.costPerTask === "number"
+                          ? `${dollars(entry.costPerTask)} reported per attempt`
+                          : list.metric}
+                      >
+                        <strong>{metricLabel(list.id, entry)}</strong>
+                        <small class="visually-hidden"
+                          >{list.id === "value"
+                            ? "solved / $"
+                            : list.id === "coding"
+                              ? "solved"
+                              : "ECI"}</small
+                        >
+                      </span>
+                    </div>
+                  </li>
+                {/each}
+              </ol>
+              {#if list.entries.length < 10}<p class="coverage-note">
+                  {list.entries.length} models with published {list.id ===
+                  "value"
+                    ? "success and cost"
+                    : "benchmark"} data.
+                </p>{/if}
+            {:else}
+              <div class="ranking-empty">
+                No published results are available yet.
+                <a href={list.href} target="_blank" rel="noreferrer"
+                  >Explore {list.id === "overall"
+                    ? "Epoch AI"
+                    : "Terminal-Bench"}
+                  ↗</a
+                >
+              </div>
+            {/if}
+            <footer class="list-footer">
+              <span
+                >From {list.id === "overall"
+                  ? "Epoch AI"
+                  : "Terminal-Bench"}</span
               >
-            </div>
-          {/if}
-        </section>
+              {#if list.asOf}
+                <span>Updated {addedDate(list.asOf)}</span>
+              {/if}
+            </footer>
+          </div>
+        {/if}
       {/each}
       {#if benchmarkFailed}<div class="benchmark-error" role="status">
           <span>Benchmark rankings couldn't be loaded.</span><button
@@ -377,12 +427,12 @@
           "4.0"} and reflect each model's listed agent and reasoning setting.
       </p>
       <p>
-        Best value ranks successful coding trials per dollar of reported total
-        run cost. Success rates are shown alongside efficiency so low-cost runs
-        with fewer successful attempts remain distinguishable. Success counts
-        and costs come from the same run. Terminal-Bench does not confirm cost
-        coverage for every trial; missing total costs are excluded. Hover over a
-        value to see its average cost per attempt.
+        Best Task per Dollar ranks successful coding trials per dollar of
+        reported total run cost. Success rates are shown alongside efficiency so
+        low-cost runs with fewer successful attempts remain distinguishable.
+        Success counts and costs come from the same run. Terminal-Bench does not
+        confirm cost coverage for every trial; missing total costs are excluded.
+        Hover over a value to see its average cost per attempt.
       </p>
       <p>
         Public results refresh daily. If a source is unavailable, the last
@@ -401,14 +451,15 @@
 
 <style>
   .discovery-updates {
-    padding: 38px 0 30px;
+    --discovery-muted: color-mix(in srgb, var(--hf-ink) 74%, var(--hf-dialog));
+    padding: 26px 0 22px;
   }
   .discover-heading {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     gap: 20px;
-    margin-bottom: 28px;
+    margin-bottom: 16px;
   }
   h1 {
     font-size: 30px;
@@ -419,7 +470,7 @@
   }
   .discover-heading p {
     margin: 0;
-    color: var(--hf-muted);
+    color: var(--discovery-muted);
     font-size: 15px;
   }
   a {
@@ -443,9 +494,9 @@
   }
   .discovery-grid {
     display: grid;
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.3fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
     gap: 20px;
-    align-items: start;
+    align-items: stretch;
   }
   .panel {
     border: 1px solid var(--hf-line);
@@ -459,7 +510,7 @@
     flex-direction: column;
   }
   .panel-heading {
-    padding: 20px 22px 16px;
+    padding: 18px 20px 14px;
   }
   .heading-line {
     display: flex;
@@ -476,13 +527,13 @@
   .heading-line > a {
     font-size: 11px;
     white-space: nowrap;
-    color: var(--hf-muted);
+    color: var(--discovery-muted);
   }
   .heading-line > a:hover {
     color: var(--hf-accent);
   }
   .panel-heading p {
-    color: var(--hf-muted);
+    color: var(--discovery-muted);
     font-size: 11px;
     margin: 7px 0 0;
     line-height: 1.5;
@@ -499,7 +550,7 @@
   .model-list,
   .ranking-list {
     list-style: none;
-    padding: 0 22px;
+    padding: 0 20px;
     margin: 0;
   }
   .model-list li,
@@ -512,7 +563,7 @@
     gap: 12px;
     min-width: 0;
     min-height: 0;
-    padding: 16px 0;
+    padding: 9px 0;
   }
   .brand-logo,
   .brand-fallback {
@@ -540,7 +591,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    gap: 6px;
+    gap: 4px;
     flex: 1;
   }
   .model-copy strong {
@@ -553,8 +604,8 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    color: var(--hf-muted);
-    font-size: 10px;
+    color: var(--discovery-muted);
+    font-size: 12px;
   }
   .modality-line {
     display: flex;
@@ -568,20 +619,20 @@
     border: 1px solid var(--hf-line);
     border-radius: 4px;
     padding: 3px 6px;
-    font-size: 10px;
-    line-height: 1.1;
+    font-size: 11px;
+    line-height: 1.2;
     background: var(--hf-faint);
   }
   .modality-flow {
-    color: var(--hf-muted);
-    font-size: 10px;
+    color: var(--discovery-muted);
+    font-size: 12px;
     line-height: 1.4;
   }
   .model-title-line {
-    display: flex;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(90px, 45%);
     align-items: baseline;
     justify-content: space-between;
-    flex-wrap: wrap;
     gap: 7px 10px;
     min-width: 0;
   }
@@ -592,14 +643,68 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 10px;
-    font-size: 10px;
-    color: var(--hf-muted);
+    font-size: 11px;
+    color: var(--discovery-muted);
     border-top: 1px solid var(--hf-line);
   }
   .rankings {
-    display: grid;
-    gap: 14px;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .ranking-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .ranking-panel:focus-visible {
+    outline: 2px solid var(--hf-accent);
+    outline-offset: -3px;
+  }
+  .ranking-tabs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
+    gap: 4px;
+    margin: 12px 12px 0;
+    padding: 4px;
+    border-radius: 7px;
+    background: var(--hf-faint);
+  }
+  .ranking-tabs button {
+    min-width: 0;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 8px 4px;
+    background: transparent;
+    color: var(--discovery-muted);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.3;
+  }
+  .ranking-tabs button[aria-selected="true"] {
+    background: var(--hf-dialog);
+    border-color: var(--hf-line);
+    color: var(--hf-accent);
+    box-shadow: 0 1px 3px #00000008;
+  }
+  .ranking-tabs button:hover:not([aria-selected="true"]) {
+    color: var(--hf-ink);
+    background: var(--hf-dialog);
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+  }
+  .chart-description {
+    font-size: 12px;
+    line-height: 1.35;
+    color: var(--discovery-muted);
   }
   .ranking-title {
     display: flex;
@@ -607,129 +712,128 @@
     gap: 8px;
   }
   .chart-count {
-    font-size: 10px;
-    color: var(--hf-muted);
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 11px;
+    color: var(--discovery-muted);
     padding: 3px 6px;
     border: 1px solid var(--hf-line);
     border-radius: 4px;
   }
   .ranking-panel .panel-heading {
-    padding-bottom: 12px;
+    padding: 14px 20px 10px;
   }
   .ranking-list {
-    padding-bottom: 8px;
-    --bar-color: #7860de;
-  }
-  .coding-chart {
-    --bar-color: #3888d6;
-  }
-  .value-chart {
-    --bar-color: #219b85;
+    padding-bottom: 4px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
   .chart-scale {
     display: flex;
     justify-content: space-between;
-    margin: 0 22px 0 43px;
-    padding: 0 92px 7px 0;
-    color: var(--hf-muted);
-    font-size: 9px;
+    margin: 0 20px 0 151px;
+    padding: 0 76px 6px 0;
+    color: var(--discovery-muted);
+    font-size: 11px;
     font-variant-numeric: tabular-nums;
   }
   .chart-row {
-    padding: 8px 0;
+    padding: 4px 0;
+    flex: 1;
   }
   .chart-heading {
     line-height: 1.3;
-    display: flex;
+    display: grid;
+    grid-template-columns: 15px 22px minmax(0, 1fr) minmax(90px, 38%);
     align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 7px;
   }
   .rank {
-    width: 13px;
-    flex-shrink: 0;
-    font-size: 10px;
-    color: var(--hf-muted);
+    font-size: 11px;
+    color: var(--discovery-muted);
     font-variant-numeric: tabular-nums;
   }
   .ranking-logo,
   .ranking-fallback {
     width: 22px;
     height: 22px;
-    flex-shrink: 0;
     border-radius: 4px;
   }
   .ranking-fallback {
     font-size: 11px;
   }
   .ranking-link {
-    flex: 1;
-    min-width: 80px;
+    min-width: 0;
+  }
+  .id-unmatched {
+    justify-self: end;
+    font-size: 11px;
+    color: var(--discovery-muted);
   }
   .ranking-link strong {
-    font-size: 12px;
+    font-size: 13px;
     line-height: 1.35;
-    font-weight: 500;
+    font-weight: 600;
     overflow-wrap: anywhere;
   }
   .chart-measure {
-    display: flex;
+    display: grid;
+    grid-template-columns: 100px minmax(0, 1fr) 68px;
     align-items: center;
-    gap: 12px;
-    margin: 4px 0 0 21px;
+    gap: 9px;
+    margin: 3px 0 0 22px;
   }
   .bar-track {
-    flex: 1;
-    height: 10px;
+    min-width: 0;
+    height: 7px;
     background: var(--hf-faint);
-    border-radius: 3px;
+    border-radius: 2px;
     overflow: hidden;
   }
   .bar-fill {
     display: block;
     height: 100%;
-    background: var(--bar-color);
-    border-radius: 3px;
+    background: var(--hf-accent);
+    opacity: 0.8;
+    border-radius: 2px;
   }
   .rank-metric {
-    line-height: 1.3;
+    line-height: 1.25;
     display: flex;
     align-items: baseline;
     justify-content: flex-end;
     gap: 4px;
-    width: 80px;
-    flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
   .rank-metric strong {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-  }
-  .rank-metric small {
-    color: var(--hf-muted);
-    font-size: 9px;
   }
   .chart-caption {
     display: block;
-    margin: 3px 0 0 21px;
-    color: var(--hf-muted);
-    font-size: 10px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--discovery-muted);
+    font-size: 11px;
     line-height: 1.4;
   }
   .success-rate {
     color: var(--hf-ink);
-    font-weight: 500;
+    font-weight: 600;
   }
   .coverage-note {
     margin: 0;
-    padding: 0 22px 14px;
-    color: var(--hf-muted);
-    font-size: 10px;
+    padding: 0 20px 14px;
+    color: var(--discovery-muted);
+    font-size: 11px;
   }
   .empty-state,
   .ranking-empty {
     padding: 24px 22px;
-    color: var(--hf-muted);
+    color: var(--discovery-muted);
     font-size: 12px;
     line-height: 1.7;
   }
@@ -760,7 +864,7 @@
     flex-wrap: wrap;
     gap: 12px;
     font-size: 11px;
-    color: var(--hf-muted);
+    color: var(--discovery-muted);
   }
   .benchmark-error button {
     border: 0;
@@ -772,9 +876,9 @@
     display: flex;
     justify-content: space-between;
     gap: 20px;
-    padding-top: 16px;
-    font-size: 10px;
-    color: var(--hf-muted);
+    padding-top: 12px;
+    font-size: 11px;
+    color: var(--discovery-muted);
     line-height: 1.5;
   }
   .source-note a:hover {
@@ -798,7 +902,7 @@
     outline: 2px solid var(--hf-accent);
     outline-offset: 4px;
   }
-  @media (max-width: 800px) {
+  @media (max-width: 1000px) {
     .discovery-grid {
       grid-template-columns: minmax(0, 1fr);
     }
@@ -855,11 +959,18 @@
       font-size: 13px;
     }
     .chart-heading {
-      gap: 6px;
+      grid-template-columns: 13px 20px minmax(0, 1fr) minmax(80px, 35%);
+      gap: 5px;
+    }
+    .chart-measure {
+      grid-template-columns: 80px minmax(0, 1fr) 60px;
+      gap: 7px;
+      margin-left: 18px;
     }
     .chart-scale {
-      margin-left: 37px;
+      margin-left: 121px;
       margin-right: 16px;
+      padding-right: 67px;
     }
   }
 </style>

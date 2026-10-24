@@ -14,7 +14,7 @@
   }
 </script>
 
-<span class="identifier">
+<span class="identifier" class:failed>
   <button
     type="button"
     on:click={copy}
@@ -24,13 +24,16 @@
     <code>{modelId}</code>
     <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
   </button>
-  <span class="copy-feedback" role="status">
+  <span class="copy-feedback" class:visually-hidden={!failed} role="status">
     {#if failed}Couldn't copy — select the ID.{:else if copied}Copied{/if}
   </span>
 </span>
 
 <style>
   .identifier {
+    position: relative;
+    justify-content: flex-end;
+    width: 100%;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -42,21 +45,25 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
+    min-width: 0;
     max-width: 100%;
     padding: 3px 6px;
     border: 1px solid var(--hf-line);
     border-radius: 4px;
-    background: var(--hf-faint);
-    color: var(--hf-muted);
-    font-size: 10px;
+    background: transparent;
+    color: var(--hf-ink);
+    font-size: 11px;
     line-height: 1.4;
     cursor: pointer;
     text-align: left;
   }
   code {
-    font-size: 10px;
+    font-size: 11px;
     line-height: 1.4;
-    overflow-wrap: anywhere;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     user-select: text;
   }
   button:hover {
@@ -67,8 +74,24 @@
     outline: 2px solid var(--hf-accent);
     outline-offset: 3px;
   }
+  .failed code {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .identifier.failed {
+    flex-wrap: wrap;
+  }
   .copy-feedback {
-    font-size: 10px;
-    color: var(--hf-muted);
+    font-size: 11px;
+    color: var(--hf-ink);
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
   }
 </style>

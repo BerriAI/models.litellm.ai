@@ -162,6 +162,7 @@ const benchmarks: DiscoveryBenchmarkCatalog = {
     {
       ...unmeasured,
       slug: "terminal-gemini-example",
+      modelId: "vertex_ai/gemini-example",
       name: "Gemini Example",
       lab: "Google",
       href: TERMINAL_BENCH_URL,
@@ -187,11 +188,26 @@ afterEach(() => {
 });
 
 function section(titleId: string): HTMLElement {
-  const result = Array.from(document.getElementsByTagName("section")).find(
-    (element) => element.getAttribute("aria-labelledby") === titleId,
-  );
+  const result = titleId.startsWith("ranking-")
+    ? document.getElementById(titleId.replace("ranking-", "ranking-panel-"))
+    : document.getElementById(titleId)?.closest("section");
   expect(result, `Section ${titleId} should be available`).toBeDefined();
   return result!;
+}
+
+type RankingId = "overall" | "coding" | "value";
+function rankingTab(id: RankingId): HTMLButtonElement {
+  const tab = document.getElementById(`ranking-tab-${id}`) as HTMLButtonElement;
+  expect(tab?.getAttribute("role")).toBe("tab");
+  return tab;
+}
+
+async function selectRanking(id: RankingId): Promise<void> {
+  rankingTab(id).click();
+  await vi.waitFor(() => {
+    expect(rankingTab(id).getAttribute("aria-selected")).toBe("true");
+    expect(document.getElementById(`ranking-panel-${id}`)).not.toBeNull();
+  });
 }
 
 function recentLinks(): HTMLAnchorElement[] {
@@ -201,12 +217,16 @@ function recentLinks(): HTMLAnchorElement[] {
 }
 
 function rankingLinks(id: "overall" | "coding" | "value"): HTMLAnchorElement[] {
-  const list = section(`ranking-${id}`).getElementsByTagName("ol")[0];
+  const list = document
+    .getElementById(`ranking-panel-${id}`)
+    ?.getElementsByTagName("ol")[0];
   return list ? Array.from(list.getElementsByTagName("a")) : [];
 }
 
 function rankingRows(id: "overall" | "coding" | "value"): HTMLLIElement[] {
-  const list = section(`ranking-${id}`).getElementsByTagName("ol")[0];
+  const list = document
+    .getElementById(`ranking-panel-${id}`)
+    ?.getElementsByTagName("ol")[0];
   return list ? Array.from(list.getElementsByTagName("li")) : [];
 }
 
@@ -267,7 +287,7 @@ describe("Discover updates", () => {
     ).toBe(true);
   });
 
-  it("should show Epoch quality and Terminal-Bench coding and value as separate ranked lists", async () => {
+  it("should switch one ranking panel between quality, coding and value without refetching data", async () => {
     component = new DiscoveryUpdates({ target: document.body });
     await vi.waitFor(() => expect(rankingLinks("overall")).toHaveLength(3));
     expect(rankingNames("overall")).toEqual([
@@ -275,32 +295,50 @@ describe("Discover updates", () => {
       "Claude Example",
       "Gemini Example",
     ]);
+    expect(rankingTab("overall").getAttribute("aria-selected")).toBe("true");
+    expect(document.getElementById("ranking-panel-coding")).toBeNull();
+    expect(document.getElementById("ranking-panel-value")).toBeNull();
+    expect(
+      section("ranking-overall")
+        .getElementsByTagName("a")[0]
+        .getAttribute("aria-label"),
+    ).toBe("View top quality on Epoch AI");
+    expect(rankingRows("overall")[0].textContent).toContain("150");
+    expect(
+      rankingLinks("overall").every((link) => link.href === EPOCH_URL),
+    ).toBe(true);
+
+    await selectRanking("coding");
+    expect(document.getElementById("ranking-panel-overall")).toBeNull();
     expect(rankingNames("coding")).toEqual([
       "Claude Example",
       "Gemini Example",
       "GPT Example",
     ]);
+    expect(
+      section("ranking-coding")
+        .getElementsByTagName("a")[0]
+        .getAttribute("aria-label"),
+    ).toBe("View top coding on Terminal-Bench");
+    expect(rankingRows("coding")[0].textContent).toMatch(/90(?:\.0)?%/);
+    expect(rankingRows("coding")[0].textContent).toContain("Harbor Example");
+    expect(
+      rankingLinks("coding").every((link) => link.href === TERMINAL_BENCH_URL),
+    ).toBe(true);
+
+    await selectRanking("value");
+    expect(document.getElementById("ranking-panel-coding")).toBeNull();
     // Solved tasks per dollar differs from simply sorting by the cheapest trial.
     expect(rankingNames("value")).toEqual([
       "Gemini Example",
       "Claude Example",
       "GPT Example",
     ]);
-    expect(document.getElementById("ranking-overall")?.textContent).toBe(
-      "Top quality",
-    );
-    expect(document.getElementById("ranking-coding")?.textContent).toBe(
-      "Top coding",
-    );
-    expect(document.getElementById("ranking-value")?.textContent).toBe(
-      "Best value",
-    );
-    expect(section("ranking-overall").textContent).toContain("Epoch");
-    expect(rankingRows("overall")[0].textContent).toContain("150");
-    expect(section("ranking-coding").textContent).toContain("Terminal-Bench");
-    expect(rankingRows("coding")[0].textContent).toMatch(/90(?:\.0)?%/);
-    expect(rankingRows("coding")[0].textContent).toContain("Harbor Example");
-    expect(rankingRows("value")[0].textContent).toContain("Harbor Example");
+    expect(
+      rankingRows("value")[0]
+        .getElementsByClassName("chart-caption")[0]
+        .getAttribute("title"),
+    ).toBe("Harbor Example");
     expect(rankingRows("value")[0].textContent).toMatch(/80(?:\.0)?% solved/);
     expect(rankingRows("value")[0].textContent).toMatch(/10\s*solved \/ \$/);
     expect(
@@ -308,13 +346,50 @@ describe("Discover updates", () => {
         (span) => span.getAttribute("title") === "$0.08 reported per attempt",
       ),
     ).toBe(true);
+    expect(
+      rankingLinks("value").every((link) => link.href === TERMINAL_BENCH_URL),
+    ).toBe(true);
     expect(document.body.textContent).not.toContain("Artificial Analysis");
-    for (const id of ["overall", "coding", "value"] as const) {
-      expect(section(`ranking-${id}`).getElementsByTagName("ol")).toHaveLength(
-        1,
+    expect(loadDiscoveryCatalog).toHaveBeenCalledTimes(1);
+    expect(loadDiscoveryBenchmarks).toHaveBeenCalledTimes(1);
+  });
+
+  it("should expose accessible tabs with one active panel and keyboard navigation", async () => {
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(rankingRows("overall")).toHaveLength(3));
+    function expectSelected(id: RankingId) {
+      const tab = rankingTab(id);
+      expect(tab.getAttribute("aria-selected")).toBe("true");
+      expect(tab.tabIndex).toBe(0);
+      const panel = document.getElementById(tab.getAttribute("aria-controls")!);
+      expect(panel?.getAttribute("role")).toBe("tabpanel");
+      expect(panel?.getAttribute("aria-labelledby")).toBe(tab.id);
+      expect(
+        Array.from(document.getElementsByTagName("*")).filter(
+          (element) => element.getAttribute("role") === "tabpanel",
+        ),
+      ).toHaveLength(1);
+      for (const other of ["overall", "coding", "value"] as const) {
+        if (other === id) continue;
+        expect(rankingTab(other).getAttribute("aria-selected")).toBe("false");
+        expect(rankingTab(other).tabIndex).toBe(-1);
+      }
+    }
+    expectSelected("overall");
+    rankingTab("overall").focus();
+    for (const [key, expected] of [
+      ["ArrowRight", "coding"],
+      ["End", "value"],
+      ["Home", "overall"],
+      ["ArrowLeft", "value"],
+    ] as const) {
+      document.activeElement!.dispatchEvent(
+        new KeyboardEvent("keydown", { key, bubbles: true }),
       );
-      const source = id === "overall" ? EPOCH_URL : TERMINAL_BENCH_URL;
-      expect(rankingLinks(id).every((link) => link.href === source)).toBe(true);
+      await vi.waitFor(() => {
+        expectSelected(expected);
+        expect(document.activeElement).toBe(rankingTab(expected));
+      });
     }
   });
 
@@ -350,6 +425,7 @@ describe("Discover updates", () => {
       qualityModels.slice(0, 10).map((model) => model.name),
     );
     for (const id of ["coding", "value"] as const) {
+      await selectRanking(id);
       expect(rankingRows(id)).toHaveLength(10);
       expect(rankingNames(id)).toEqual(
         codingModels.slice(0, 10).map((model) => model.name),
@@ -357,19 +433,21 @@ describe("Discover updates", () => {
     }
   });
 
-  it("should scale quality and value bars to their leaders and coding bars to absolute success percentages", async () => {
+  it("should preserve each chart's scale when switching between rankings", async () => {
     component = new DiscoveryUpdates({ target: document.body });
     await vi.waitFor(() => expect(rankingRows("overall")).toHaveLength(3));
     expect(barWidths("overall")[0]).toBe(100);
     expect(barWidths("overall")[1]).toBeCloseTo((140 / 150) * 100);
+    await selectRanking("coding");
     expect(barWidths("coding")).toEqual([90, 80, 75]);
-    expect(barWidths("value")[0]).toBe(100);
-    expect(barWidths("value")[1]).toBeCloseTo((0.9 / 0.11 / 10) * 100);
-    expect(barWidths("value")[2]).toBe(75);
     const scale =
       section("ranking-coding").getElementsByClassName("chart-scale")[0];
     expect(scale.getElementsByTagName("span")[0].textContent).toBe("0");
     expect(scale.textContent).toContain("100% solved");
+    await selectRanking("value");
+    expect(barWidths("value")[0]).toBe(100);
+    expect(barWidths("value")[1]).toBeCloseTo((0.9 / 0.11 / 10) * 100);
+    expect(barWidths("value")[2]).toBe(75);
   });
 
   it("should copy canonical LiteLLM IDs from new models and rankings without following model links", async () => {
@@ -390,15 +468,16 @@ describe("Discover updates", () => {
       expect(section("new-models-title").textContent).toContain("Copied"),
     );
     expect(writeText).toHaveBeenNthCalledWith(1, "elevenlabs/eleven-example");
+    await selectRanking("value");
     const rankedCopy = copyButton(
-      section("ranking-overall"),
+      section("ranking-value"),
       "vertex_ai/gemini-example",
     );
     expect(rankedCopy).toBeDefined();
     expect(rankedCopy!.closest("a")).toBeNull();
     rankedCopy!.click();
     await vi.waitFor(() =>
-      expect(section("ranking-overall").textContent).toContain("Copied"),
+      expect(section("ranking-value").textContent).toContain("Copied"),
     );
     expect(writeText).toHaveBeenNthCalledWith(2, "vertex_ai/gemini-example");
     expect(window.location.href).toBe(beforeUrl);
@@ -425,9 +504,7 @@ describe("Discover updates", () => {
       "/models/eleven-example",
       "/models/claude-example",
     ]);
-    expect(rankingRows("overall")[0].textContent).toContain(
-      "LiteLLM ID not matched",
-    );
+    expect(rankingRows("overall")[0].textContent).toContain("ID not matched");
   });
 
   it("should report clipboard failure honestly and allow a successful retry", async () => {
@@ -455,8 +532,11 @@ describe("Discover updates", () => {
     component = new DiscoveryUpdates({ target: document.body });
     await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
     expect(document.getElementsByTagName("select")).toHaveLength(0);
-    expect(buttonNamed("Top quality")).toBeUndefined();
-    expect(buttonNamed("Best value")).toBeUndefined();
+    expect(
+      section("new-models-title").getElementsByTagName("button"),
+    ).toHaveLength(2);
+    expect(rankingTab("overall").textContent).toBe("Top quality");
+    expect(rankingTab("value").textContent).toBe("Best Task per Dollar");
     expect(document.body.textContent).not.toContain("Provider updates");
     expect(document.body.textContent).not.toContain("Most viewed");
     expect(section("new-models-title").textContent).not.toContain(
@@ -481,7 +561,7 @@ describe("Discover updates", () => {
     expect(buttonNamed("Try again")).toBeUndefined();
   });
 
-  it("should preserve new model modalities and retry only rankings when their source fails", async () => {
+  it("should preserve new model modalities and the selected tab when retrying a ranking failure", async () => {
     vi.mocked(loadDiscoveryBenchmarks).mockRejectedValueOnce(
       new Error("Unavailable"),
     );
@@ -491,9 +571,14 @@ describe("Discover updates", () => {
       expect(buttonNamed("Retry rankings")).toBeDefined();
     });
     expect(section("new-models-title").textContent).toContain("Text → Audio");
-    expect(rankingLinks("overall")).toHaveLength(0);
+    await selectRanking("value");
+    expect(rankingLinks("value")).toHaveLength(0);
+    expect(section("ranking-value").textContent).toContain(
+      "temporarily unavailable",
+    );
     clickButton("Retry rankings");
-    await vi.waitFor(() => expect(rankingLinks("overall")).toHaveLength(3));
+    await vi.waitFor(() => expect(rankingLinks("value")).toHaveLength(3));
+    expect(rankingTab("value").getAttribute("aria-selected")).toBe("true");
     expect(loadDiscoveryBenchmarks).toHaveBeenCalledTimes(2);
     expect(loadDiscoveryCatalog).toHaveBeenCalledTimes(1);
     expect(buttonNamed("Retry rankings")).toBeUndefined();
@@ -510,31 +595,39 @@ describe("Discover updates", () => {
     component = new DiscoveryUpdates({ target: document.body });
     await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
     for (const id of ["overall", "coding", "value"] as const) {
+      await selectRanking(id);
       expect(rankingLinks(id)).toHaveLength(0);
+      expect(
+        section(`ranking-${id}`).textContent?.replace(/\s+/g, " "),
+      ).toContain("No published results");
     }
     expect(document.body.textContent).not.toContain("GPT Example");
     expect(document.body.textContent).not.toContain("Gemini Example");
     expect(document.body.textContent).not.toContain("0.00");
   });
 
-  it("should preserve coding and value when the Epoch source is unavailable", async () => {
+  it("should allow switching to coding and value when the Epoch source is unavailable", async () => {
     vi.mocked(loadDiscoveryBenchmarks).mockResolvedValue({
       ...benchmarks,
       epochAsOf: null,
       models: benchmarks.models.filter((model) => model.coding !== null),
     });
     component = new DiscoveryUpdates({ target: document.body });
-    await vi.waitFor(() => expect(rankingLinks("coding")).toHaveLength(3));
+    await vi.waitFor(() =>
+      expect(
+        section("ranking-overall").textContent?.replace(/\s+/g, " "),
+      ).toContain("No published results"),
+    );
     expect(rankingLinks("overall")).toHaveLength(0);
-    expect(rankingLinks("value")).toHaveLength(3);
-    expect(
-      section("ranking-overall").textContent?.replace(/\s+/g, " "),
-    ).toContain("No published results");
     expect(section("ranking-overall").textContent).not.toContain("150");
+    await selectRanking("coding");
+    expect(rankingLinks("coding")).toHaveLength(3);
+    await selectRanking("value");
+    expect(rankingLinks("value")).toHaveLength(3);
     expect(recentLinks()).toHaveLength(2);
   });
 
-  it("should preserve quality when the Terminal-Bench source is unavailable", async () => {
+  it("should preserve quality while coding and value show missing-source states", async () => {
     vi.mocked(loadDiscoveryBenchmarks).mockResolvedValue({
       ...benchmarks,
       terminalBenchAsOf: null,
@@ -542,15 +635,16 @@ describe("Discover updates", () => {
     });
     component = new DiscoveryUpdates({ target: document.body });
     await vi.waitFor(() => expect(rankingLinks("overall")).toHaveLength(3));
-    expect(rankingLinks("coding")).toHaveLength(0);
-    expect(rankingLinks("value")).toHaveLength(0);
-    expect(
-      section("ranking-coding").textContent?.replace(/\s+/g, " "),
-    ).toContain("No published results");
-    expect(
-      section("ranking-value").textContent?.replace(/\s+/g, " "),
-    ).toContain("No published results");
+    for (const id of ["coding", "value"] as const) {
+      await selectRanking(id);
+      expect(rankingLinks(id)).toHaveLength(0);
+      expect(
+        section(`ranking-${id}`).textContent?.replace(/\s+/g, " "),
+      ).toContain("No published results");
+    }
     expect(section("ranking-value").textContent).not.toContain("$0");
+    await selectRanking("overall");
+    expect(rankingLinks("overall")).toHaveLength(3);
     expect(recentLinks()).toHaveLength(2);
   });
 
@@ -564,9 +658,11 @@ describe("Discover updates", () => {
       })),
     });
     component = new DiscoveryUpdates({ target: document.body });
-    await vi.waitFor(() => expect(rankingLinks("coding")).toHaveLength(3));
+    await vi.waitFor(() => expect(rankingLinks("overall")).toHaveLength(3));
+    await selectRanking("coding");
+    expect(rankingLinks("coding")).toHaveLength(3);
+    await selectRanking("value");
     expect(rankingLinks("value")).toHaveLength(0);
-    expect(rankingLinks("overall")).toHaveLength(3);
     expect(
       section("ranking-value").textContent?.replace(/\s+/g, " "),
     ).toContain("No published results");
