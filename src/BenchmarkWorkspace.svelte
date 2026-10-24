@@ -11,8 +11,10 @@
   } from "./discoverDemo";
   import type { BenchmarkReport } from "./benchmark/types";
   import ReportDetails from "./benchmark/ReportDetails.svelte";
+  import ReportSummary from "./benchmark/ReportSummary.svelte";
   export let report: BenchmarkReport | null = null;
   export let reportIcon = "";
+  export let showRunLink = false;
   let copyLabel = "Copy command";
   const runCommand =
     "git clone https://github.com/BerriAI/models.litellm.ai.git && cd models.litellm.ai && npm ci && npm run benchmark";
@@ -29,6 +31,7 @@
   let source: DatasetSource = report ? "private" : "public";
   let selected: string = report?.workloads[0]?.rows[1]?.id ?? "kimi";
   let qualityFloor = report ? 95 : 99;
+  let activeMetric = "quality";
   let volume = 200000;
   let runDialog: HTMLDialogElement;
   let methodDialog: HTMLDialogElement;
@@ -111,9 +114,7 @@
     {
       id: "quality",
       name: "Quality",
-      subtitle: report
-        ? "Requests meeting inferred criteria · %"
-        : "Tasks passed · %",
+      subtitle: report ? "Requests passing checks · %" : "Tasks passed · %",
       direction: "HIGHER IS BETTER",
       max: 100,
       format: (v: number) => v.toFixed(1) + "%",
@@ -149,24 +150,40 @@
 
 <div class="discover-page">
   <slot name="hero">
-    <PageHero
-      id="evaluate"
-      title="EVALUATE"
-      eyebrow="YOUR GATEWAY · LOCAL REPORT"
-      description="Quality, speed, and cost on your gateway traffic."
-    />
+    {#if report}
+      <header class="report-heading">
+        <div>
+          <h1 id="evaluate-title">
+            {report.synthetic ? "Sample report" : "Evaluation report"}
+          </h1>
+          <p>
+            {report.synthetic
+              ? "All models, traffic, costs, and scores here are fictional."
+              : `${report.heldout.toLocaleString()} held-out requests · ${report.periodDays} days · ${report.status}`}
+          </p>
+        </div>
+        {#if showRunLink}<a href="/evaluate">Run on your traffic ↗</a>{/if}
+      </header>
+    {:else}
+      <PageHero
+        id="evaluate"
+        title="EVALUATE"
+        eyebrow="YOUR GATEWAY · LOCAL REPORT"
+        description="Quality, speed, and cost on your gateway traffic."
+      />
+    {/if}
   </slot>
+  {#if report && report.workloads.length}<ReportSummary
+      {report}
+      {qualityFloor}
+    />{/if}
   <section class="benchmarks ruled" aria-label="Evaluation report">
     <div class="section-heading">
       <div class="heading-pair">
-        <h2 id="benchmarks-title">Benchmarks</h2>
-        <span class="eyebrow version"
-          >{report
-            ? report.synthetic
-              ? "SYNTHETIC SAMPLE"
-              : "YOUR GATEWAY · " + report.status.toUpperCase()
-            : "DEMO DATA"}</span
-        >
+        <h2 id="benchmarks-title">
+          {report ? "Compare models" : "Benchmarks"}
+        </h2>
+        {#if !report}<span class="eyebrow version">DEMO DATA</span>{/if}
       </div>
       {#if !report}<div
           class="source-toggle"
@@ -199,9 +216,20 @@
           >Methodology ↗</button
         >
       </div>
+      <div class="metric-tabs" aria-label="Comparison metric">
+        {#each charts as chart}<button
+            aria-pressed={activeMetric === chart.id}
+            class:active={activeMetric === chart.id}
+            on:click={() => (activeMetric = chart.id)}>{chart.name}</button
+          >{/each}
+      </div>
       <div class="charts">
         {#each charts as chart}
-          <section class="chart-panel" aria-label={chart.name + " comparison"}>
+          <section
+            class="chart-panel"
+            class:active-metric={activeMetric === chart.id}
+            aria-label={chart.name + " comparison"}
+          >
             <div class="chart-heading">
               <h3>
                 {chart.name}<span>{chart.id === "quality" ? "↑" : "↓"}</span>
@@ -284,94 +312,100 @@
           >
         </div>
       {:else}
-        <section class="savings" aria-label="Monthly cost estimate">
-          <div class="savings-heading">
-            <div>
-              <div class="eyebrow">
-                {report
-                  ? "AT YOUR VOLUME · EXPLORATORY ESTIMATE"
-                  : "AT YOUR VOLUME · ILLUSTRATIVE ESTIMATE"}
-              </div>
-              <h2 class="savings-number">
-                {!spend.valid
-                  ? report
-                    ? "Not enough comparable data"
-                    : "Enter your volume"
-                  : !spend.eligible
-                    ? "Below your quality floor"
-                    : spend.difference > 0
-                      ? usd(spend.difference) + " less / month"
-                      : spend.difference < 0
-                        ? usd(-spend.difference) + " more / month"
-                        : "Same monthly spend"}
-              </h2>
-              <p class:warning={!spend.eligible}>
-                {!spend.valid
-                  ? report
-                    ? "Complete quality and cost measurements are needed for this comparison."
-                    : "Enter a positive volume and a quality floor from 0–100%."
-                  : !spend.eligible
-                    ? candidate.quality +
-                      "% passed · " +
-                      qualityFloor +
-                      "% required. Savings not counted."
-                    : spend.current === 0
-                      ? "Baseline recorded cost is $0. Compare absolute spend."
-                      : (
-                          (Math.abs(spend.difference) / spend.current) *
-                          100
-                        ).toFixed(0) +
-                        "% " +
-                        (spend.difference >= 0 ? "lower" : "higher") +
-                        " spend · Includes unsuccessful attempts."}
-              </p>
-            </div>
-            <div class="savings-controls">
-              <label
-                >Requests / month<input
-                  aria-label="Requests per month"
-                  type="number"
-                  min="1"
-                  step="1000"
-                  bind:value={volume}
-                /></label
-              ><label
-                >Minimum quality %<input
-                  aria-label="Minimum quality percentage"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step=".1"
-                  bind:value={qualityFloor}
-                /></label
-              >
-            </div>
-          </div>
-          {#if spend.valid}<div class="spend-bars">
-              {#each [{ model: baseline, cost: spend.current, current: true }, { model: candidate, cost: spend.candidate, current: false }] as item}
-                <div>
-                  <div class="spend-label">
-                    <span class="model-name"
-                      ><img
-                        class="provider-logo"
-                        src={logo(item.model.provider)}
-                        alt={item.model.providerName}
-                      />{item.model.name}<small
-                        >{item.current ? "CURRENT" : "SELECTED"}</small
-                      ></span
-                    ><strong>{usd(item.cost)}</strong>
-                  </div>
-                  <div class="spend-track">
-                    <div
-                      class="spend-bar"
-                      class:current={item.current}
-                      style={"width:" + (item.cost / maxSpend) * 100 + "%"}
-                    ></div>
-                  </div>
+        <details class="calculator">
+          <summary
+            >Explore monthly costs <span>Adjust volume and quality</span
+            ></summary
+          >
+          <section class="savings" aria-label="Monthly cost estimate">
+            <div class="savings-heading">
+              <div>
+                <div class="eyebrow">
+                  {report
+                    ? "AT YOUR VOLUME · EXPLORATORY ESTIMATE"
+                    : "AT YOUR VOLUME · ILLUSTRATIVE ESTIMATE"}
                 </div>
-              {/each}
-            </div>{/if}
-        </section>
+                <h2 class="savings-number">
+                  {!spend.valid
+                    ? report
+                      ? "Not enough comparable data"
+                      : "Enter your volume"
+                    : !spend.eligible
+                      ? "Below your quality floor"
+                      : spend.difference > 0
+                        ? usd(spend.difference) + " less / month"
+                        : spend.difference < 0
+                          ? usd(-spend.difference) + " more / month"
+                          : "Same monthly spend"}
+                </h2>
+                <p class:warning={!spend.eligible}>
+                  {!spend.valid
+                    ? report
+                      ? "Complete quality and cost measurements are needed for this comparison."
+                      : "Enter a positive volume and a quality floor from 0–100%."
+                    : !spend.eligible
+                      ? candidate.quality +
+                        "% passed · " +
+                        qualityFloor +
+                        "% required. Savings not counted."
+                      : spend.current === 0
+                        ? "Baseline recorded cost is $0. Compare absolute spend."
+                        : (
+                            (Math.abs(spend.difference) / spend.current) *
+                            100
+                          ).toFixed(0) +
+                          "% " +
+                          (spend.difference >= 0 ? "lower" : "higher") +
+                          " spend · Includes unsuccessful attempts."}
+                </p>
+              </div>
+              <div class="savings-controls">
+                <label
+                  >Requests / month<input
+                    aria-label="Requests per month"
+                    type="number"
+                    min="1"
+                    step="1000"
+                    bind:value={volume}
+                  /></label
+                ><label
+                  >Minimum quality %<input
+                    aria-label="Minimum quality percentage"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step=".1"
+                    bind:value={qualityFloor}
+                  /></label
+                >
+              </div>
+            </div>
+            {#if spend.valid}<div class="spend-bars">
+                {#each [{ model: baseline, cost: spend.current, current: true }, { model: candidate, cost: spend.candidate, current: false }] as item}
+                  <div>
+                    <div class="spend-label">
+                      <span class="model-name"
+                        ><img
+                          class="provider-logo"
+                          src={logo(item.model.provider)}
+                          alt={item.model.providerName}
+                        />{item.model.name}<small
+                          >{item.current ? "CURRENT" : "SELECTED"}</small
+                        ></span
+                      ><strong>{usd(item.cost)}</strong>
+                    </div>
+                    <div class="spend-track">
+                      <div
+                        class="spend-bar"
+                        class:current={item.current}
+                        style={"width:" + (item.cost / maxSpend) * 100 + "%"}
+                      ></div>
+                    </div>
+                  </div>
+                {/each}
+              </div>{/if}
+          </section>
+        </details>
       {/if}
     {:else}
       <p>
@@ -379,11 +413,7 @@
         below.
       </p>
     {/if}
-    {#if report}<ReportDetails
-        {report}
-        {qualityFloor}
-        workload={measured}
-      />{/if}
+    {#if report}<ReportDetails {report} workload={measured} />{/if}
   </section>
 
   {#if !report}<div class="explore-strip">
@@ -459,8 +489,8 @@
       Requests are sampled by session, with separate development and evaluation
       sessions. Checks are inferred from supplied instructions. Quality includes
       deterministic validation and a model judge. Tool turns are assessed
-      against recorded history, not executed. Inspect coverage and inferred
-      criteria below the charts.
+      against recorded history, not executed. Open Evaluation details for
+      coverage and inferred criteria.
     </p>{:else}<p>
       All values in this design prototype are synthetic, including the public
       benchmark view. They are not claims about model performance.
@@ -1265,6 +1295,130 @@
     }
     .savings .eyebrow {
       font-size: 8px;
+    }
+  }
+  .report-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 36px 0 28px;
+  }
+  .report-heading h1 {
+    font-size: 30px;
+    line-height: 1.2;
+    font-weight: 500;
+    letter-spacing: -1px;
+    margin: 0 0 8px;
+  }
+  .report-heading p {
+    font-size: 13px;
+    color: var(--hf-muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+  .report-heading a {
+    color: var(--hf-accent);
+    font-size: 13px;
+    white-space: nowrap;
+    text-underline-offset: 4px;
+  }
+  .metric-tabs {
+    display: none;
+  }
+  .model-name {
+    overflow-wrap: anywhere;
+  }
+  .calculator {
+    margin: 24px 0 0;
+    border-top: 1px solid var(--hf-line);
+  }
+  .calculator summary {
+    cursor: pointer;
+    padding: 20px 0;
+    font-size: 14px;
+  }
+  .calculator summary span {
+    margin-left: 12px;
+    color: var(--hf-muted);
+    font-size: 12px;
+  }
+  .calculator .savings {
+    padding-top: 0;
+  }
+  summary:focus-visible {
+    outline: 2px solid var(--hf-accent);
+    outline-offset: 4px;
+  }
+  @media (max-width: 1000px) {
+    .metric-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 0;
+    }
+    .metric-tabs button {
+      padding: 10px 14px;
+      font-size: 13px;
+      color: var(--hf-muted);
+      border-bottom: 2px solid transparent;
+    }
+    .metric-tabs button.active {
+      color: var(--hf-accent);
+      border-bottom-color: var(--hf-accent);
+    }
+    .charts {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .chart-panel {
+      display: none;
+    }
+    .chart-panel.active-metric {
+      display: block;
+      border-left: 0;
+      padding: 20px 0;
+    }
+    .row-label {
+      display: flex;
+      font-size: 13px;
+    }
+    .model-name {
+      font-size: 13px;
+    }
+    .value {
+      margin: 0;
+      font-size: 12px;
+    }
+    .chart-unit {
+      min-height: 0;
+      font-size: 11px;
+      margin-bottom: 20px;
+    }
+    .bar-track {
+      height: 12px;
+    }
+    .chart-heading h3 {
+      font-size: 18px;
+    }
+    .direction {
+      display: none;
+    }
+  }
+  @media (max-width: 600px) {
+    .report-heading {
+      display: block;
+      padding-top: 28px;
+    }
+    .report-heading a {
+      display: inline-block;
+      margin-top: 16px;
+    }
+    .toolbar {
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .calculator summary span {
+      display: block;
+      margin: 6px 0 0 16px;
     }
   }
   @media (prefers-reduced-motion: reduce) {

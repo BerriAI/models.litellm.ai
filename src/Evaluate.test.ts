@@ -127,3 +127,35 @@ it("loads the sample directly, labels fictional data, and responds to history na
   expect(document.querySelector(".charts")).toBeNull();
   expect(document.querySelector("#workflow-title")).not.toBeNull();
 });
+
+it("keeps the report focused while comparison controls update the result", async () => {
+  await mount("/evaluate/sample");
+  const summary = document.querySelector('[aria-label="Savings opportunity"]')!;
+  expect(summary.textContent).toContain("60%");
+  expect(summary.textContent).toContain("$411");
+  expect(
+    document.querySelector<HTMLDetailsElement>("details.calculator")?.open,
+  ).toBe(false);
+  expect(
+    document.querySelector<HTMLDetailsElement>("details.details")?.open,
+  ).toBe(false);
+
+  const metric = document.querySelector<HTMLButtonElement>(
+    ".metric-tabs button:last-child",
+  )!;
+  metric.click();
+  await tick();
+  expect(metric.getAttribute("aria-pressed")).toBe("true");
+  expect(
+    document.querySelector(".active-metric")?.getAttribute("aria-label"),
+  ).toBe("Cost comparison");
+
+  const floor = document.querySelector<HTMLInputElement>(
+    '[aria-label="Minimum quality percentage"]',
+  )!;
+  floor.value = "99";
+  floor.dispatchEvent(new Event("input", { bubbles: true }));
+  await tick();
+  expect(summary.textContent).toContain("Keep your current models for now");
+  expect(summary.textContent).not.toContain("$411");
+});
