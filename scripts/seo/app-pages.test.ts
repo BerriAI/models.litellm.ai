@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { homePage, searchPage } from "./app-pages";
+import {
+  homePage,
+  providerCatalogPaths,
+  providersPage,
+  searchPage,
+} from "./app-pages";
 import { siteNodes } from "./jsonld";
 import { SITE_URL } from "./site";
 
@@ -58,5 +63,106 @@ describe("Discover and search pages", () => {
       expect(schema[1]).not.toContain("SearchAction");
       expect(schema[1]).not.toContain("search_term_string");
     }
+  });
+});
+
+describe("Provider catalog and setup links", () => {
+  const support = {
+    providers: {
+      zai: {
+        display_name: "Z.AI (`zai`)",
+        url: "https://docs.litellm.ai/docs/providers/zai",
+        endpoints: { chat_completions: true },
+      },
+    },
+  };
+
+  test("should map provider variants only to generated catalog hubs", () => {
+    expect(
+      providerCatalogPaths(
+        {
+          providers: {
+            ...support.providers,
+            vertex_ai: {},
+            "vertex_ai-language-models": {},
+            cohere_chat: {},
+            bedrock_converse: {},
+            "fireworks_ai-embedding-models": {},
+            custom: {},
+          },
+        },
+        ["zai", "vertex_ai", "cohere", "bedrock", "fireworks_ai", "openai"].map(
+          (hub) => ({ hub }),
+        ),
+      ),
+    ).toEqual({
+      zai: "/providers/zai",
+      vertex_ai: "/providers/vertex_ai",
+      "vertex_ai-language-models": "/providers/vertex_ai",
+      cohere_chat: "/providers/cohere",
+      bedrock_converse: "/providers/bedrock",
+      "fireworks_ai-embedding-models": "/providers/fireworks_ai",
+    });
+    expect(providerCatalogPaths(support, [])).toEqual({});
+    expect(providerCatalogPaths({}, [{ hub: "zai" }])).toEqual({});
+  });
+
+  test("should link Z.AI models to its catalog separately from setup docs", () => {
+    const page = providersPage(
+      support,
+      [{ hub: "zai", name: "Z.AI", count: 12 }],
+      "2026-10-24",
+    );
+
+    expect(page.body).toContain("<td>Z.AI</td>");
+    expect(page.body).toContain(
+      'href="/providers/zai">Models &amp; pricing</a> (12 models)',
+    );
+    expect(page.body).toContain(
+      'href="https://docs.litellm.ai/docs/providers/zai">Setup docs</a>',
+    );
+    expect(page.body).not.toContain(
+      'href="https://docs.litellm.ai/docs/providers/zai">Z.AI</a>',
+    );
+  });
+
+  test("should use exact provider search when the catalog has no generated hub", () => {
+    const page = providersPage(support, [], "2026-10-24");
+
+    expect(page.body).toContain(
+      'href="/search?provider=zai">Models &amp; pricing</a>',
+    );
+    expect(page.body).not.toContain('href="/providers/zai"');
+    expect(page.body).toContain(
+      'href="https://docs.litellm.ai/docs/providers/zai">Setup docs</a>',
+    );
+  });
+
+  test("should derive new provider links and model counts from catalog data", () => {
+    const page = providersPage(
+      {
+        providers: {
+          ...support.providers,
+          "custom/provider & region": { display_name: "Custom provider" },
+          "vertex_ai-language-models": { display_name: "Vertex AI" },
+        },
+      },
+      [
+        { hub: "zai", name: "Z.AI", count: 17 },
+        { hub: "vertex_ai", name: "Google Vertex AI", count: 5 },
+      ],
+      "2026-10-24",
+    );
+
+    expect(page.body).toContain(
+      'href="/providers/zai">Models &amp; pricing</a> (17 models)',
+    );
+    expect(page.body).toContain(
+      'href="/search?provider=custom%2Fprovider%20%26%20region">Models &amp; pricing</a>',
+    );
+    expect(page.body).toContain(
+      'href="/providers/vertex_ai">Models &amp; pricing</a> (5 models)',
+    );
+    expect(page.body.match(/<tr><td>/g)).toHaveLength(3);
   });
 });

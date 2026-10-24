@@ -32,11 +32,22 @@
   let filteredProviders: ProviderEndpoint[] = [];
   let matchingProviders: ProviderEndpoint[] = [];
   let hiddenProviderMatches = 0;
+  let providerCatalog: Record<string, string> = {};
 
   const PROVIDERS_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/provider_endpoints_support.json";
   const DOCS_URL = "https://docs.litellm.ai/docs/providers";
 
   onMount(async () => {
+    fetch("/provider-catalog.json")
+      .then((response) => response.ok ? response.json() : {})
+      .then((catalog: unknown) => {
+        if (!catalog || typeof catalog !== "object" || Array.isArray(catalog)) return;
+        providerCatalog = Object.fromEntries(Object.entries(catalog).filter(
+          ([, path]) => typeof path === "string" && /^\/providers\/[^/?#]+$/.test(path),
+        ));
+      })
+      .catch(() => { /* Exact-provider search also works without generated pages. */ });
+
     try {
       const response = await fetch(PROVIDERS_URL);
       const data = await response.json();
@@ -217,6 +228,7 @@
             {filteredProviders.length} {filteredProviders.length === 1 ? 'provider' : 'providers'}
             {#if selectedEndpoint} support {formatEndpointName(selectedEndpoint)}{:else} across all endpoints{/if}
           </p>
+          <p class="catalog-note">Browse the current catalog for models and pricing. Setup docs cover authentication and usage examples.</p>
         </div>
         {#if searchQuery.trim() && hiddenProviderMatches > 0}
           <div class="filter-notice" role="status">
@@ -227,7 +239,7 @@
         {#if filteredProviders.length > 0}
           <div class="providers-grid">
             {#each filteredProviders as { provider, display_name, url } (provider)}
-              <a href={url} target="_blank" rel="noopener noreferrer" class="provider-card">
+              <article class="provider-card">
                 <div class="provider-card-header">
                   <div class="provider-avatar">
                     {#if getProviderLogo(provider)}
@@ -257,9 +269,12 @@
                 </p>
                 <div class="provider-meta">
                   <span class="provider-key">{provider}</span>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
                 </div>
-              </a>
+                <div class="provider-actions">
+                  <a href={providerCatalog[provider] ?? `/search?provider=${encodeURIComponent(provider)}`} aria-label={`Models & pricing for ${display_name}`}>Models &amp; pricing <span aria-hidden="true">→</span></a>
+                  <a href={url} target="_blank" rel="noopener noreferrer" aria-label={`Setup docs for ${display_name}`}>Setup docs <span aria-hidden="true">↗</span></a>
+                </div>
+              </article>
             {/each}
           </div>
         {:else}
@@ -389,6 +404,13 @@
 
   .endpoint-subtitle { font-size: 0.9375rem; color: var(--muted-color); margin: 0; }
 
+  .catalog-note { font-size: 0.8125rem; color: var(--muted-color); margin: 0.75rem 0 0; line-height: 1.6; }
+
+  .provider-actions { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; margin-top: auto; }
+  .provider-actions a { color: var(--hf-accent); font-size: 0.8125rem; font-weight: 600; text-decoration: none; }
+  .provider-actions a:hover { text-decoration: underline; }
+  .provider-actions a:focus-visible { outline: 2px solid var(--hf-accent); outline-offset: 4px; }
+
   .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted-color); }
 
   .providers-grid {
@@ -446,8 +468,6 @@
     font-family: 'Geist Mono', monospace;
   }
 
-  .provider-meta svg { color: var(--muted-color); opacity: 0.4; }
-  .provider-card:hover .provider-meta svg { opacity: 1; color: var(--litellm-primary); }
 
   @media (max-width: 1024px) {
     .container { flex-direction: column; }

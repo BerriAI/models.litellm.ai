@@ -2,7 +2,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Exercise the browser lifecycle when the test runner resolves Svelte's server entry.
-vi.mock("svelte", () => vi.importActual<typeof import("svelte")>("svelte/internal"));
+vi.mock("svelte", () =>
+  vi.importActual<typeof import("svelte")>("svelte/internal"),
+);
 vi.mock("./searchWorker?worker", () => ({
   default: class {
     constructor() {
@@ -65,6 +67,25 @@ describe("Models page search", () => {
       expect(document.body.textContent).toContain("2 models");
       expect(document.body.textContent).toContain("Claude Sonnet 4");
       expect(document.body.textContent).toContain("Kimi K2");
+      expect(document.querySelector(".skeleton-table")).toBeNull();
+    });
+  });
+
+  it("should open the exact provider catalog from a provider card link", async () => {
+    window.history.replaceState({}, "", "/search?provider=moonshot");
+    app = new App({ target: document.body, props: { compact: true } });
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("1 model");
+      expect(document.body.textContent).toContain("Kimi K2");
+      expect(document.body.textContent).not.toContain("Claude Sonnet 4");
+    });
+  });
+
+  it("should combine a provider link with a model search", async () => {
+    window.history.replaceState({}, "", "/search?provider=anthropic&q=kimi");
+    app = new App({ target: document.body, props: { compact: true } });
+    await vi.waitFor(() => {
+      expect(document.body.textContent).toContain("0 models");
       expect(document.querySelector(".skeleton-table")).toBeNull();
     });
   });

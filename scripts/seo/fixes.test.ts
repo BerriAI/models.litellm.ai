@@ -146,7 +146,9 @@ describe("providers page", () => {
     expect(page.body).toContain("LiteLLM supports 3 AI providers");
     expect(page.body).toContain("2 of them have model prices");
     expect(page.body.match(/<tr><td>/g)).toHaveLength(3);
-    expect(page.body).toContain('href="/providers/openai">120 models');
+    expect(page.body).toContain(
+      'href="/providers/openai">Models &amp; pricing</a> (120 models)',
+    );
     expect(page.breadcrumbs.map((c) => c.name)).toEqual(["Home", "Providers"]);
   });
 

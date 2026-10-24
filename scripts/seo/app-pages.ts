@@ -43,6 +43,19 @@ const nav = (items: Crumb[]) =>
 export type Hub = { hub: string; name: string; count: number };
 export type RecentModel = { slug: string; name: string; price: string | null };
 
+/** Directory provider IDs can share a catalog hub with other API variants. */
+export function providerCatalogPaths(
+  support: ProviderSupport,
+  hubs: readonly Pick<Hub, "hub">[],
+): Record<string, string> {
+  const available = new Set(hubs.map((h) => h.hub));
+  return Object.fromEntries(
+    Object.keys(support.providers ?? {})
+      .filter((id) => available.has(hubProvider(id)))
+      .map((id) => [id, providerPath(hubProvider(id))]),
+  );
+}
+
 function modelLists(hubs: Hub[], recent: RecentModel[]): string {
   return `<h2>Recently added models</h2>
 <ul>${recent.map((m) => `<li><a href="${modelPath(m.slug)}">${esc(m.name)}</a>${m.price ? `: ${esc(m.price)}` : ""}</li>`).join("")}</ul>
@@ -91,6 +104,7 @@ export function providersPage(
 ): AppPage {
   const supported = Object.entries(support.providers ?? {});
   const priced = new Map(hubs.map((h) => [h.hub, h]));
+  const catalogPaths = providerCatalogPaths(support, hubs);
   const labels = endpointLabels(support);
   const rows = supported
     .map(([id, p]) => {
@@ -118,14 +132,14 @@ export function providersPage(
     lastmod,
     body: `${nav(crumbs({ name: "Providers", path: "/providers" }))}
 <h1>AI provider integrations</h1>
-<p>LiteLLM supports ${int(supported.length)} AI providers through one OpenAI-compatible API. ${int(hubs.length)} of them have model prices on this site. The table lists the endpoints LiteLLM supports for each provider and links its docs.</p>
+<p>LiteLLM supports ${int(supported.length)} AI providers through one OpenAI-compatible API. ${int(hubs.length)} of them have model prices on this site. Explore models and pricing from the LiteLLM catalog, or open setup docs for configuration and usage.</p>
 <h2>Providers with model prices</h2>
 <ul>${hubs.map((h) => `<li><a href="${providerPath(h.hub)}">${esc(h.name)} pricing</a>: ${int(h.count)} models</li>`).join("")}</ul>
 <h2>Every supported provider and its endpoints</h2>
-<table><thead><tr><th>Provider</th><th>Supported endpoints</th><th>Prices</th></tr></thead><tbody>${rows
+<table><thead><tr><th>Provider</th><th>Supported endpoints</th><th>Models &amp; pricing</th><th>Setup docs</th></tr></thead><tbody>${rows
       .map(
         (r) =>
-          `<tr><td>${r.docs ? `<a href="${esc(r.docs)}">${esc(r.name)}</a>` : esc(r.name)}</td><td>${esc(r.endpoints.join(", ") || "–")}</td><td>${r.hub ? `<a href="${providerPath(r.hub.hub)}">${int(r.hub.count)} models</a>` : "–"}</td></tr>`,
+          `<tr><td>${esc(r.name)}</td><td>${esc(r.endpoints.join(", ") || "–")}</td><td><a href="${catalogPaths[r.id] ?? `/search?provider=${encodeURIComponent(r.id)}`}">Models &amp; pricing</a>${r.hub ? ` (${int(r.hub.count)} models)` : ""}</td><td>${r.docs ? `<a href="${esc(r.docs)}">Setup docs</a>` : "–"}</td></tr>`,
       )
       .join("")}</tbody></table>`,
   };
