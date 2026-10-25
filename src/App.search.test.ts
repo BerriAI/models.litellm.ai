@@ -121,9 +121,11 @@ describe("Models page search", () => {
       fetchedAt: Date.now(),
     });
     app = new App({ target: document.body, props: { compact: true } });
-    await vi.waitFor(() =>
-      expect(document.querySelectorAll(".model-row")).toHaveLength(2),
-    );
+    await vi.waitFor(() => {
+      const rows = document.querySelectorAll(".model-row");
+      expect(rows).toHaveLength(1);
+      expect(rows[0].textContent).toContain("2 providers");
+    });
 
     document
       .querySelector<HTMLButtonElement>('[aria-haspopup="listbox"]')!
