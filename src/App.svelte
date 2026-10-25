@@ -46,6 +46,7 @@
   import { createModelSearcher, type ModelSearcher, type SearchReply } from "./backgroundSearch";
   import SearchWorker from "./searchWorker?worker";
   import { longestPerColumn, rowOffsets, rowsInView } from "./rowWindow";
+  import { cheapestBy, groupByModel, providerCount } from "./modelGroups";
 
   export let compact = false;
   const dispatch = createEventDispatcher<{ querychange: { query: string } }>();
@@ -84,6 +85,7 @@
   let output: NonNullable<ModelFilters["output"]> = "";
   let inputs: NonNullable<ModelFilters["inputs"]> = [];
   let toolsOnly = false;
+  let groupByModelView = true;
   const outputTabs: { value: NonNullable<ModelFilters["output"]>; label: string }[] = [{ value: "", label: "All" }, { value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "video", label: "Video" }, { value: "audio", label: "Speech" }, { value: "embedding", label: "Embeddings" }];
   const inputOptions: NonNullable<ModelFilters["inputs"]> = ["text", "image", "file", "audio", "video"];
   let hiddenCount = 0;
@@ -129,7 +131,8 @@
     query = sanitizeSearchQuery(urlParams.get("q"));
 
     fetch("/models/slugs.json")
-      .then((res) => (res.ok ? res.json() : {}))
+      .then((res) => (res.ok ? res : import.meta.env.DEV ? fetch("https://models.litellm.ai/models/slugs.json") : null))
+      .then((res) => (res?.ok ? res.json() : {}))
       .then((map: Record<string, string>) => {
         modelPages = map;
       })
@@ -303,11 +306,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     results.map(
       ({ item }) =>
         (rowHeights.get(item.name) ?? typicalRowHeight) +
-        (expandedRows.has(item.name) ? (detailHeights.get(item.name) ?? 0) : 0),
+        (expandedRows.has(item.name) && !item.members ? (detailHeights.get(item.name) ?? 0) : 0),
     ),
   );
   $: rowNumbers = rowOffsets(
-    results.map(({ item }) => (expandedRows.has(item.name) ? 2 : 1)),
+    results.map(({ item }) => (expandedRows.has(item.name) && !item.members ? 2 : 1)),
   );
   $: shownRange = renderAllRows
     ? { start: 0, end: results.length }
@@ -406,8 +409,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     }
   }
 
+  $: listings = matches?.length ?? 0;
   $: if (matches) {
-    results = sortResults(matches.map((item, refIndex) => ({ item, refIndex })));
+    const rows = groupByModelView ? groupByModel(matches, modelPages, chatSortInput) : matches;
+    sortedRows = sortResults(rows.map((item, refIndex) => ({ item, refIndex })));
     loading = false;
   }
 
@@ -449,6 +454,9 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function getSortValue(item: any, column: string): number {
+    if (item.members && column !== "context") {
+      return getSortValue(cheapestBy(item.members, (m) => getSortValue(m, column)), column);
+    }
     if (isImagePricingMode(item.mode)) {
       switch (column) {
         case "context":
@@ -492,8 +500,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     });
   }
 
+  let sortedRows: ResultItem[] = [];
+  $: results = sortedRows.flatMap((row) =>
+    row.item.members && expandedRows.has(row.item.name)
+      ? [row, ...row.item.members.map((m: Item) => ({ item: { ...m, memberOf: row.item.name }, refIndex: row.refIndex }))]
+      : [row],
+  );
+
   function applySorting() {
-    results = sortResults(results);
+    sortedRows = sortResults(sortedRows);
   }
 
   function formatDetailTokenField(v: unknown): string {
@@ -503,21 +518,34 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function tableInputCell(item: any): string {
+    if (item.members) return groupPrefix(item, "input") + tableInputCell(cheapestBy(item.members, (m) => getSortValue(m, "input")));
     return isImagePricingMode(item.mode) ? tableImageInputCost(item) : displayChatInputCost(item);
   }
 
   function tableOutputCell(item: any): string {
+    if (item.members) return groupPrefix(item, "output") + tableOutputCell(cheapestBy(item.members, (m) => getSortValue(m, "output")));
     return isImagePricingMode(item.mode) ? tableImageOutputCost(item) : displayChatOutputCost(item);
   }
 
   function tableCacheReadCell(item: any): string {
+    if (item.members) return groupPrefix(item, "cache_read") + tableCacheReadCell(cheapestBy(item.members, (m) => getSortValue(m, "cache_read")));
     if (isImagePricingMode(item.mode)) return "—";
     return displayChatCacheRead(item);
   }
 
   function tableCacheWriteCell(item: any): string {
+    if (item.members) return groupPrefix(item, "cache_write") + tableCacheWriteCell(cheapestBy(item.members, (m) => getSortValue(m, "cache_write")));
     if (isImagePricingMode(item.mode)) return "—";
     return displayChatCacheWrite(item);
+  }
+
+  function groupProviders(members: Item[]): string[] {
+    return [...new Set(members.map((m) => String(m.litellm_provider ?? "")))].slice(0, 3);
+  }
+
+  function groupPrefix(item: any, column: string): string {
+    const values = new Set(item.members.map((m: any) => getSortValue(m, column)).filter((v: number) => v > 0));
+    return values.size > 1 ? "from " : "";
   }
 
   function formatContext(tokens: number | undefined): string {
@@ -711,7 +739,11 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
     {#if !loading}
       <div class="results-meta">
-        <span class="results-count" aria-live="polite">{searching ? "Searching…" : results.length.toLocaleString() + (results.length === 1 ? " model" : " models")}</span>
+        <span class="results-count" aria-live="polite">{searching ? "Searching…" : sortedRows.length.toLocaleString() + (sortedRows.length === 1 ? " model" : " models") + (groupByModelView && listings !== sortedRows.length ? ` · ${listings.toLocaleString()} provider listings` : "")}</span>
+        <div class="view-toggle" role="group" aria-label="Rows">
+          <button class:active={groupByModelView} aria-pressed={groupByModelView} on:click={() => { groupByModelView = true; expandedRows = new Set(); }}>By model</button>
+          <button class:active={!groupByModelView} aria-pressed={!groupByModelView} on:click={() => { groupByModelView = false; expandedRows = new Set(); }}>All listings</button>
+        </div>
         <div class="results-meta-right">
           {#if query || selectedProvider || maxInputTokens != null || maxOutputTokens != null || freeOnly || output || inputs.length || toolsOnly}
             <button class="clear-filters" on:click={() => { query = ""; clearFilters(); }}>
@@ -816,6 +848,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             {@const rowNumber = rowNumbers[shownStart + shownIndex] + 2}
             <tr
               class="model-row"
+              class:member-row={!!item.memberOf}
               class:expanded={expandedRows.has(name)}
               aria-rowindex={rowNumber}
               data-name={name}
@@ -827,6 +860,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                   <svg class="expand-icon" class:expanded={expandedRows.has(name)} width="14" height="14" viewBox="0 0 16 16" fill="none">
                     <path d="M6 4L10 8L6 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
+                  {#if item.members}
+                    <div class="provider-stack" aria-hidden="true">
+                      {#each groupProviders(item.members) as p}
+                        <div class="provider-avatar stacked">
+                          {#if getProviderLogo(p)}<img src={getProviderLogo(p)} alt="" class="provider-logo-img" />{:else}<div class="provider-initial">{getProviderInitial(p)}</div>{/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {:else}
                   <div class="provider-avatar">
                     {#if getProviderLogo(litellm_provider)}
                       <img 
@@ -850,9 +892,21 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                       </div>
                     {/if}
                   </div>
+                  {/if}
                   <div class="model-name-group">
                     <div class="model-title-row">
-                      {#if modelPages[name]}
+                      {#if item.members && item.groupSlug}
+                        <a
+                          class="model-title model-page-link"
+                          href={`/models/${item.groupSlug}`}
+                          title={`${item.display_name} pricing and providers`}
+                          on:click|stopPropagation
+                        >{item.display_name}</a>
+                      {:else if item.members}
+                        <span class="model-title" title={item.display_name}>{item.display_name}</span>
+                      {:else if item.memberOf}
+                        <span class="model-title">{getProviderDisplayName(litellm_provider)}</span>
+                      {:else if modelPages[name]}
                         <a
                           class="model-title model-page-link"
                           href={`/models/${modelPages[name]}`}
@@ -863,8 +917,16 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                         <span class="model-title" title={item.display_name}>{item.display_name}</span>
                       {/if}
                     </div>
-                    <span class="model-provider">{getProviderDisplayName(litellm_provider)}</span>
+                    {#if item.members}
+                      {@const count = providerCount(item.members)}
+                      <span class="model-provider">{count} {count === 1 ? "provider" : "providers"}{item.members.length > count ? ` · ${item.members.length} listings` : ""}</span>
+                    {:else if item.memberOf}
+                      <span class="model-provider">{getDisplayModelName(name, litellm_provider)}</span>
+                    {:else}
+                      <span class="model-provider">{getProviderDisplayName(litellm_provider)}</span>
+                    {/if}
                   </div>
+                  {#if !item.members}
                   <button
                     class="copy-button"
                     on:click|stopPropagation={() => copyToClipboard(getDisplayModelName(name, litellm_provider))}
@@ -880,6 +942,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                       </svg>
                     {/if}
                   </button>
+                  {/if}
                 </div>
               </td>
               <td class="released-cell">{formatReleaseMonth(item.release_date)}</td>
@@ -889,7 +952,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               <td class="cost-cell td-hide-mobile">{tableCacheReadCell(item)}</td>
               <td class="cost-cell td-hide-mobile">{tableCacheWriteCell(item)}</td>
             </tr>
-            {#if expandedRows.has(name)}
+            {#if expandedRows.has(name) && !item.members}
               <tr
                 class="expanded-content"
                 aria-rowindex={rowNumber + 1}
@@ -1685,6 +1748,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     color: var(--text-secondary);
     white-space: nowrap;
   }
+
+  .view-toggle { display: inline-flex; margin-left: 12px; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; vertical-align: middle; }
+  .view-toggle button { font-size: 0.75rem; padding: 4px 10px; background: transparent; color: var(--muted-color); border: 0; cursor: pointer; }
+  .view-toggle button.active { background: var(--bg-secondary); color: var(--text-color); }
+  .provider-stack { display: flex; flex-shrink: 0; width: 44px; }
+  .provider-avatar.stacked { width: 24px; height: 24px; margin-right: -14px; box-shadow: 0 0 0 2px var(--bg-color); }
+  tbody tr.member-row td.model-name { padding-left: 2.5rem; }
+  tbody tr.member-row:not(.expanded) { background-color: var(--bg-secondary); }
 
   .results-meta-right {
     display: flex;
