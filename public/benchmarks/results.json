@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-10-24T18:34:20.065494+00:00",
+  "updatedAt": "2026-10-24T23:45:20.340096+00:00",
   "status": "complete",
   "message": "Completed runs from a six-task local pilot, one trial per task. Other campaign runs remain in progress. This is not an official full Terminal-Bench score or a stable overall model ranking. Timing comparisons are withheld because instrumentation and operational interruptions differed.",
   "cohorts": [
@@ -94,6 +94,25 @@
       "attempts": 6,
       "plannedAttempts": 6,
       "apiCostUsd": 0.610841,
+      "computeCostUsd": null,
+      "costSource": "estimated",
+      "totalSeconds": null,
+      "notes": "Six-task local pilot, one attempt per task. API cost estimates include all requests in the completed run, including failed tasks and native retries; separate debugging runs and local compute are excluded. Costs use recorded token usage and configured public prices, not invoices. Native output limits are preserved without a benchmark 32k clamp; task and proxy request limits are 8 hours. Generation is serialized per run under a $150 run cap. Timing is withheld because host scanning overhead varied and one Codex task continued through a supervisor/proxy interruption; no durations were subtracted or completed tasks rerun."
+    },
+    {
+      "id": "result-8f3e88e992034da7e7b1112e",
+      "cohortId": "tb4-local-a053489e33",
+      "harness": "pi",
+      "provider": "openai",
+      "model": "gpt-6.1-sol",
+      "modelName": "GPT-6.1 Sol",
+      "providerName": "OpenAI",
+      "harnessVersion": "1.4.0",
+      "status": "complete",
+      "passed": 2,
+      "attempts": 6,
+      "plannedAttempts": 6,
+      "apiCostUsd": 0.639888,
       "computeCostUsd": null,
       "costSource": "estimated",
       "totalSeconds": null,
