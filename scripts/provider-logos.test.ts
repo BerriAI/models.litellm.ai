@@ -30,15 +30,16 @@ describe("audited provider artwork", () => {
     ).toEqual(["alpha-new", "zeta-new"]);
   });
 
-  it("should fail the build when an audited provider loses its logo entry", () => {
+  it("should fail the build when a provider from the audited catalog loses its logo entry", () => {
+    const { baseten: _dropped, ...logosWithoutBaseten } = providerLogos;
     expect(() =>
-      auditProviderLogos(["Dropped-Provider", "new-provider"], undefined, new Set(["dropped-provider"])),
-    ).toThrow("dropped-provider: listed in scripts/provider-logo-catalog.json");
+      auditProviderLogos(["Baseten", "new-provider"], { logos: logosWithoutBaseten }),
+    ).toThrow("baseten: listed in scripts/provider-logo-catalog.json");
   });
 
   it("should still fail the build when a mapped logo file is missing", () => {
     expect(() =>
-      auditProviderLogos(["new-provider", "baseten"], "/nonexistent"),
+      auditProviderLogos(["new-provider", "baseten"], { publicDir: "/nonexistent" }),
     ).toThrow("baseten: missing");
   });
 

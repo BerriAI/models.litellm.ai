@@ -2,22 +2,25 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import auditedCatalog from "./provider-logo-catalog.json";
 import providerLogos from "../src/providerLogos.json";
-import { getProviderLogo, providerLogoKey } from "../src/providers";
+import { providerLogoKey } from "../src/providers";
 
-const auditedProviders: ReadonlySet<string> = new Set(auditedCatalog);
+type AuditInputs = {
+  publicDir?: string;
+  audited?: ReadonlySet<string>;
+  logos?: Readonly<Record<string, string | null>>;
+};
 
 export function auditProviderLogos(
   providers: Iterable<string>,
-  publicDir = path.resolve("public"),
-  audited = auditedProviders,
+  { publicDir = path.resolve("public"), audited = new Set(auditedCatalog), logos = providerLogos }: AuditInputs = {},
 ): string[] {
   const unique = [...new Set(Array.from(providers, providerLogoKey))];
-  const unmapped = unique.filter((provider) => !Object.hasOwn(providerLogos, provider));
+  const unmapped = unique.filter((provider) => !Object.hasOwn(logos, provider));
   const failures = [
     ...unique.flatMap((provider) => {
-      const logo = getProviderLogo(provider);
-      return logo && !existsSync(path.join(publicDir, logo))
-        ? [`${provider}: missing ${logo}`]
+      const file = Object.hasOwn(logos, provider) ? logos[provider] : null;
+      return file && !existsSync(path.join(publicDir, "provider-logos", file))
+        ? [`${provider}: missing /provider-logos/${file}`]
         : [];
     }),
     ...unmapped
