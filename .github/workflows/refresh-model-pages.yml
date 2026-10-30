@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      deployed: ${{ (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true') && env.DEPLOY_HOOK != '' }}
+      deployed: ${{ steps.wait.outcome == 'success' }}
     env:
       SITE: https://models.litellm.ai
       PRICE_FILE: https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
@@ -90,6 +90,7 @@ jobs:
         run: curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null
 
       - name: Wait for the new build to go live
+        id: wait
         if: (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true') && env.DEPLOY_HOOK != ''
         run: |
           for _ in $(seq 1 40); do
@@ -154,7 +155,8 @@ jobs:
     steps:
       - name: Name the providers the live build shows with initials
         run: |
-          providers=$(curl -fsSL "$SITE/build-info.json" | jq -r '(.unauditedProviders // [])[]')
+          build_info=$(curl -fsSL "$SITE/build-info.json")
+          providers=$(jq -r '.unauditedProviders | if type == "array" then .[] else error("build-info.json has no unauditedProviders list") end' <<< "$build_info")
           if [ -z "$providers" ]; then
             echo "Every provider in the live build has an audited logo."
             exit 0
