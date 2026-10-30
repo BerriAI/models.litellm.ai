@@ -161,7 +161,9 @@ jobs:
             echo "Every provider in the live build has an audited logo."
             exit 0
           fi
+          echo "Providers that need an audited logo:" >> "$GITHUB_STEP_SUMMARY"
           while read -r provider; do
+            echo "- $provider" >> "$GITHUB_STEP_SUMMARY"
             echo "::error title=Provider logo needed::$provider has no entry in src/providerLogos.json, so models.litellm.ai shows its initials. Add its audited artwork as public/provider-logos/NOTICE.md describes."
           done <<< "$providers"
           exit 1

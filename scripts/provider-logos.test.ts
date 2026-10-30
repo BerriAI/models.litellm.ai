@@ -26,8 +26,14 @@ describe("audited provider artwork", () => {
 
   it("should return new unaudited providers once each instead of failing the build", () => {
     expect(
-      auditProviderLogos(["zeta-new", "Baseten", "alpha-new", "zeta-new"]),
+      auditProviderLogos(["zeta-new", "Baseten", "alpha-new", " Zeta-New "]),
     ).toEqual(["alpha-new", "zeta-new"]);
+  });
+
+  it("should fail the build when an audited provider loses its logo entry", () => {
+    expect(() =>
+      auditProviderLogos(["Dropped-Provider", "new-provider"], undefined, new Set(["dropped-provider"])),
+    ).toThrow("dropped-provider: listed in scripts/provider-logo-catalog.json");
   });
 
   it("should still fail the build when a mapped logo file is missing", () => {
