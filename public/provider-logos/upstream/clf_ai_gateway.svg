@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="CLF AI Gateway">
+  <title>CLF AI Gateway</title>
+  <!--
+    Bản CHÍNH — tile tự mang nền, dùng cho payOS/Dodo/app store/favicon.
+    Vì sao là tile đặc chứ không phải glyph trong suốt: logo này sẽ nằm trên trang thanh toán
+    nền TRẮNG của bên thứ ba lẫn trên app nền đen của ta. Glyph trong suốt sẽ biến mất ở một
+    trong hai. Tile giữ tương phản cố định ở mọi nơi.
+
+    Màu lấy nguyên từ _design_system/01_design_tokens.json — không có màu nào ngoài bảng:
+      nền   #0b0b0b  (dark.bg — xám trung tính tuyệt đối, B−R = 0)
+      dấu   #f2f2f2  (dark.text)
+      nhấn  #4a8cff  (dark.accent — dùng ĐÚNG MỘT chi tiết, đúng kỷ luật rule 60 §4b)
+    KHÔNG dùng #00d4a0 (money): màu đó độc quyền cho tiền, đưa vào logo là làm loãng nghĩa.
+    Không gradient, không đổ bóng, không viền trang trí.
+
+    Hình: dấu ngoặc vuông mở sang phải = vừa là chữ C (CLF) vừa là cái cổng;
+    chevron bên trong = request đi xuyên qua cổng ra ngoài.
+  -->
+  <rect width="512" height="512" rx="112" fill="#0b0b0b"/>
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="52">
+    <path d="M252 116 H152 V396 H252" stroke="#f2f2f2"/>
+    <path d="M280 186 L360 256 L280 326" stroke="#4a8cff"/>
+  </g>
+</svg>

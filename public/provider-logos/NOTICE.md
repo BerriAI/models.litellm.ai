@@ -4,9 +4,13 @@ The active mapping is `src/providerLogos.json`. The October 24, 2026 audit cover
 
 Six entries intentionally retain labeled initials: `auto_router`, `custom`, `custom_openai`, and `openai_like` describe generic adapters rather than independent brands; `infinity` and `pg_vector` have no published logo in their upstream repositories or documentation. LlamaGate's website was unavailable during the audit; its icon is the globe supplied by its maintainer in the linked Dify integration, not a newly invented brand mark.
 
+The October 30, 2026 additions cover ai& and eight other providers that LiteLLM's catalogs gained after that audit, which brings `scripts/provider-logo-catalog.json` to 224 provider identifiers. BigModel, CLF AI Gateway, eu/jev, Kyma API, Refuseless, StreamLake and ZeroGPU use the unchanged icons their own websites serve, and Amazon OpenSearch shares the AWS mark that the other AWS services use.
+
 When adding a provider, add its verified artwork and provenance together, update the shared mapping and the audited catalog fixture in `scripts/provider-logo-catalog.json`, and run `npm test`, `npm run check`, and `npm run build`. The build validates the live provider lists, so an unaudited provider or a missing bundled file fails before deployment. All image URLs remain local; visitors do not contact upstream sites to load these marks.
 
 OpenCode Go uses the unchanged square light brand mark from the official OpenCode repository, pinned to the commit recorded in `sources.json`.
+
+ai& uses the unchanged icon from its brand kit, submitted by ai& and pinned to the commit recorded in `sources.json`.
 
 ## Previously bundled artwork
 
