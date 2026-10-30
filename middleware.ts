@@ -6,7 +6,7 @@
  * rewrites, which is why neither can be a rewrite rule.
  */
 export const config = {
-  matcher: ["/models/:path*", "/compare/:path*", "/rankings/:path*", "/new-models/:path*", "/404"],
+  matcher: ["/models/:path*", "/compare/:path*", "/rankings/:path*", "/new-models/:path*", "/deprecated-models/:path*", "/404"],
 };
 
 const INDEXES_WITHOUT_MARKDOWN = new Set(["/models", "/rankings", "/new-models"]);

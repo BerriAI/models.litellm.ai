@@ -50,6 +50,9 @@ import { PAGE_TITLES } from "../../src/pageTitles";
 import { catalogModelId } from "../../src/litellmModelId";
 import { loadDiscoveryBenchmarkData } from "./discovery-benchmarks";
 import { auditProviderLogos } from "../provider-logos";
+import { buildDeprecations } from "./deprecations";
+import { groupDeprecations } from "../../src/deprecations";
+import { deprecationBody, deprecationMarkdown, deprecationPath } from "./deprecation-pages";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
@@ -149,7 +152,7 @@ function addedLabel(date: string | null): string | null {
 
 async function main(): Promise<void> {
   // Start clean so pages for regrouped or renamed models never linger.
-  for (const dir of ["models", "providers", "compare", "rankings", "new-models", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
+  for (const dir of ["models", "providers", "compare", "rankings", "new-models", "deprecated-models", "sitemaps", "og"]) rmSync(path.join(OUT, dir), { recursive: true, force: true });
   // raw.githubusercontent.com serves `main` from a cache for up to five minutes, so a deploy
   // triggered right after a price change could rebuild the old file. A commit URL is never stale.
   const lastCommit = await github<{ sha?: string; commit?: { committer?: { date?: string } } }[]>(
@@ -231,6 +234,7 @@ async function main(): Promise<void> {
   const hubSet = new Set(hubList.map((h) => h.hub));
 
   const manifest: Manifest = { version: 1, buildDate: BUILD_DATE, costMapHash: sha(costMapText), models: {} };
+  manifest.deprecations = buildDeprecations(views, costMap, previous?.deprecations, BUILD_DATE);
   const modelEntries: SitemapEntry[] = [];
   const changed: string[] = [];
   /** Share images of changed pages; the refresh workflow loads them once so the CDN has them cached. */
@@ -648,6 +652,7 @@ ${cheapestOnProvider(h.name, list)}
       title: newTitle,
       description: newDescription.length <= 160 ? newDescription : "The AI models most recently added to LiteLLM's price file, with prices and context windows, newest first.",
       path: "/new-models",
+      rssPath: "/new-models.xml",
       body: newModelsHubBody(latestNew.map(newRow), months, BUILD_DATE),
       jsonLd: listGraph("/new-models", newTitle, newDescription, latestNew[0]?.addedDate?.length === 10 ? latestNew[0].addedDate : BUILD_DATE, [{ name: "New models", path: "/new-models" }], latestNew.map((v) => ({ name: v.name, path: modelPath(v.slug) }))),
       image: writeCard(OUT, "pages", "new-models", { kicker: "LiteLLM Model Catalog", title: "New AI models", subtitle: "Latest additions to LiteLLM's price file", stats: latestNew[0] ? [{ value: shortDate(latestNew[0].addedDate!.length === 10 ? latestNew[0].addedDate! : `${latestNew[0].addedDate}-01`), label: `latest: ${latestNew[0].name}` }] : [] }),
@@ -662,6 +667,38 @@ ${cheapestOnProvider(h.name, list)}
       dated.slice(0, 50).map((v) => ({ title: `${v.name} added to LiteLLM`, link: abs(modelPath(v.slug)), description: [shortPrice(v.headline), v.context ? `${tokensShort(v.context)} context` : null, v.lab ? `by ${v.lab}` : null].filter(Boolean).join(", "), date: v.addedDate! })),
     ),
   );
+
+  // Effective deprecations share one durable dataset across HTML, RSS and the discovery tabs.
+  const deprecations = groupDeprecations(manifest.deprecations);
+  const deprecated = deprecations.filter((entry) => entry.date <= BUILD_DATE);
+  const deprecationMonths = [...new Set(deprecations.map((entry) => entry.date.slice(0, 7)))].sort().reverse()
+    .map((ym) => ({ ym, count: deprecations.filter((entry) => entry.date.startsWith(ym)).length }));
+  const deprecationEntries: SitemapEntry[] = [];
+  for (const ym of [null, ...deprecationMonths.map((month) => month.ym)]) {
+    const pagePath = `/deprecated-models${ym ? `/${ym}` : ""}`;
+    const entries = ym ? deprecations.filter((entry) => entry.date.startsWith(ym)) : deprecations;
+    const heading = ym ? `AI model deprecations in ${longDate(`${ym}-01`).replace(/ 1, /, " ")}` : "Deprecated AI models on LiteLLM";
+    const title = `${heading} | LiteLLM`;
+    const description = "Track AI model deprecations by provider, with effective dates, affected listings, upcoming changes, monthly history and an RSS feed.";
+    write(`${pagePath.slice(1)}.html`, layout({
+      title, description, path: pagePath,
+      body: deprecationBody(entries, deprecationMonths, BUILD_DATE, ym ?? undefined),
+      markdownPath: `${pagePath}.md`, rssPath: "/deprecated-models.xml",
+      jsonLd: listGraph(pagePath, title, description, BUILD_DATE, [{ name: "Deprecated models", path: "/deprecated-models" }, ...(ym ? [{ name: ym, path: pagePath }] : [])], entries.map((entry) => ({ name: `${entry.name} on ${entry.providerName}`, path: deprecationPath(entry) }))),
+      image: writeCard(OUT, "pages", `deprecated-models${ym ? `-${ym}` : ""}`, { kicker: "LiteLLM Model Catalog", title: heading, subtitle: "Effective dates, by provider", stats: [{ value: int(entries.length), label: "recorded deprecations" }] }),
+    }));
+    write(`${pagePath.slice(1)}.md`, deprecationMarkdown(entries, heading, BUILD_DATE));
+    if (ym) deprecationEntries.push({ path: pagePath, lastmod: BUILD_DATE });
+  }
+  write("deprecated-models.xml", rssFeed(
+    "Recently deprecated AI models on LiteLLM", abs("/deprecated-models"),
+    "Provider-specific model deprecations recorded by LiteLLM. Publication dates are effective deprecation dates, not announcement dates.",
+    deprecated.map((entry) => ({
+      title: `${entry.name} listings deprecated on ${entry.providerName}`,
+      link: abs(deprecationPath(entry)), guid: `urn:litellm:deprecation:${entry.id}`, date: entry.date,
+      description: `Effective ${entry.date} on ${entry.providerName}. Affected listings: ${[...new Set(entry.listings.map((row) => row.modelId))].join(", ")}. Other versions or providers may still offer this model.`,
+    })), "/deprecated-models.xml",
+  ));
 
   // Cost calculator for every model still sold and priced per input and output token.
   const calcModels: CalcModel[] = views
@@ -796,6 +833,7 @@ ${cheapestOnProvider(h.name, list)}
     { path: "/compare", lastmod: BUILD_DATE },
     { path: "/rankings", lastmod: BUILD_DATE },
     { path: "/new-models", lastmod: BUILD_DATE },
+    { path: "/deprecated-models", lastmod: BUILD_DATE },
     { path: "/calculator", lastmod: BUILD_DATE },
     ...appEntries,
   ];
@@ -805,6 +843,7 @@ ${cheapestOnProvider(h.name, list)}
   write("sitemaps/compare.xml", urlset(compareEntries));
   write("sitemaps/rankings.xml", urlset(rankingEntries));
   write("sitemaps/new-models.xml", urlset(newModelEntries));
+  write("sitemaps/deprecated-models.xml", urlset(deprecationEntries));
   write(
     "sitemap.xml",
     sitemapIndex([
@@ -814,6 +853,7 @@ ${cheapestOnProvider(h.name, list)}
       { path: "/sitemaps/compare.xml", lastmod: BUILD_DATE },
       { path: "/sitemaps/rankings.xml", lastmod: BUILD_DATE },
       { path: "/sitemaps/new-models.xml", lastmod: BUILD_DATE },
+      { path: "/sitemaps/deprecated-models.xml", lastmod: BUILD_DATE },
     ]),
   );
   write("robots.txt", robotsTxt());

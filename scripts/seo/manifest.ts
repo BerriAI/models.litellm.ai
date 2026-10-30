@@ -1,3 +1,5 @@
+import type { DeprecationListing } from "../../src/deprecations";
+
 export type ManifestModel = {
   pageKey: string;
   name: string;
@@ -26,6 +28,7 @@ export type Manifest = {
   buildDate: string;
   costMapHash: string;
   models: Record<string, ManifestModel>;
+  deprecations?: DeprecationListing[];
   /** Comparison pages and when each was first published; caps how many new ones each week releases. */
   compare?: Record<string, { firstSeen: string; kind: string }>;
   /** Ranking pages already published; each keeps its page while any model is left on it. */

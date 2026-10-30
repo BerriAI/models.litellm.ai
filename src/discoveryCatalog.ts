@@ -5,6 +5,11 @@ import {
 } from "../scripts/seo/providers";
 import { getProviderLogo } from "./providers";
 import { parseLiteLLMModelId } from "./litellmModelId";
+import {
+  groupDeprecations,
+  parseDeprecations,
+  type Deprecation,
+} from "./deprecations";
 
 export type DiscoveryProviderReference = {
   id: string;
@@ -42,6 +47,7 @@ export type DiscoveryCatalog = {
   updatedAt: string;
   models: DiscoveryModel[];
   providers: DiscoveryProvider[];
+  deprecations?: Deprecation[];
 };
 
 type CatalogModel = Omit<DiscoveryModel, "logo" | "firstSeen" | "providers"> & {
@@ -291,6 +297,9 @@ function buildCatalog(
   return {
     updatedAt,
     models,
+    deprecations: groupDeprecations(
+      parseDeprecations(manifest.deprecations),
+    ).filter((entry) => entry.date <= updatedAt),
     providers: [...providers.values()].sort(
       (a, b) =>
         (b.latestModelDate ?? "").localeCompare(a.latestModelDate ?? "") ||

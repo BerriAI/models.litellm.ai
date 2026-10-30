@@ -17,6 +17,7 @@ import { DOCS_URL, GITHUB_URL, PRICE_FILE_URL, SITE_NAME, abs, modelPath, provid
 const POSTHOG_KEY = "phc_upsFA5iBuDFKnznEdV9pA5HYW8fwsLMJ8pF2p4xZzzpD";
 
 const CSS = `
+.update-nav{display:flex;gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--rule);border-radius:8px;width:fit-content;max-width:100%}.update-nav a{padding:9px 14px;border-radius:5px;color:var(--muted);font-size:14px;white-space:nowrap}.update-nav a[aria-current]{background:var(--bg);color:var(--fg);box-shadow:0 1px 3px #0001}.update-nav a:hover{text-decoration:none;color:var(--fg)}.affected-routes{max-width:380px;white-space:normal}.affected-routes code{overflow-wrap:anywhere;font-size:12px}.affected-routes summary{cursor:pointer;color:var(--muted)}.affected-routes ul{padding-left:16px}.affected-routes li{margin:8px 0}
 :root{--bg:#fff;--bg2:#f7f8fc;--bg3:#f0f2fc;--fg:#272b37;--fg2:#3a3e4b;--muted:#646875;--rule:#e9eaf0;--rule2:#d3d8f3;--accent:#0117be;--on-accent:#fff;--ring:rgba(1,23,190,.22);--code:#f7f8fc;--warn:#b45309;--warn-bg:#fff8eb;--ok:#047857;--no:#9a9caa;--shadow:0 1px 2px rgba(16,24,64,.05);--nav:rgba(255,255,255,.78);--mesh:radial-gradient(48% 540px at 4% -6%,rgba(1,23,190,.07) 0%,rgba(1,23,190,0) 64%),radial-gradient(42% 500px at 98% -4%,rgba(56,170,240,.12) 0%,rgba(56,170,240,0) 66%);color-scheme:light}
 @media (prefers-color-scheme:dark){:root{--bg:#080b26;--bg2:#0f1335;--bg3:#161b46;--fg:#ffffff;--fg2:#d6d4ea;--muted:#a6a4c6;--rule:#1c2150;--rule2:#2b3170;--accent:#9fabff;--on-accent:#080b26;--ring:rgba(159,171,255,.3);--code:#0f1335;--warn:#f0b35a;--warn-bg:#2a1f0b;--ok:#5fd3a5;--no:#5c6290;--shadow:0 1px 2px rgba(0,0,0,.35);--nav:rgba(8,11,38,.78);--mesh:radial-gradient(48% 560px at 2% -8%,rgba(20,45,220,.3) 0%,rgba(20,45,220,0) 64%),radial-gradient(42% 500px at 100% -6%,rgba(56,170,240,.12) 0%,rgba(56,170,240,0) 66%);color-scheme:dark}}
 *{box-sizing:border-box;margin:0;padding:0}
@@ -120,6 +121,7 @@ export type Layout = {
   body: string;
   jsonLd?: Record<string, unknown>;
   markdownPath?: string;
+  rssPath?: string;
   noindex?: boolean;
   ogType?: string;
   image?: OgImage;
@@ -154,6 +156,7 @@ export function layout(l: Layout): string {
 <title>${esc(l.title)}</title>
 <meta name="description" content="${esc(l.description)}">
 <link rel="canonical" href="${esc(url)}">
+${l.rssPath ? `<link rel="alternate" type="application/rss+xml" title="${esc(l.title)}" href="${esc(abs(l.rssPath))}">` : ""}
 <meta name="robots" content="${l.noindex ? "noindex,follow" : "index,follow,max-snippet:-1,max-image-preview:large"}">
 ${l.markdownPath ? `<link rel="alternate" type="text/markdown" href="${esc(abs(l.markdownPath))}">\n` : ""}<meta property="og:type" content="${l.ogType ?? "website"}">
 <meta property="og:site_name" content="${SITE_NAME}">
@@ -613,6 +616,10 @@ export type NewModelRow = { slug: string; name: string; lab: string | null; date
 
 const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 
+export function modelUpdatesNav(active: "new" | "deprecated"): string {
+  return `<nav class="update-nav" aria-label="Model updates"><a href="/new-models"${active === "new" ? ' aria-current="page"' : ""}>What's new</a><a href="/deprecated-models"${active === "deprecated" ? ' aria-current="page"' : ""}>Recently deprecated</a></nav>`;
+}
+
 export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[]): string {
   const i = months.findIndex((m) => m.ym === ym);
   const newer = months[i - 1];
@@ -633,6 +640,7 @@ export function newModelsHubBody(latest: NewModelRow[], months: { ym: string; co
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>New models</span></nav>
 <h1>New AI models on LiteLLM</h1>
 <p class="answer">As of ${longDate(updated)}, the ${latest.length} models most recently added to LiteLLM's price file, with their prices on the day. Every month has its own page, and there's an <a href="/new-models.xml">RSS feed</a>.</p></div>
+${modelUpdatesNav("new")}
 <section><h2>Latest additions</h2><div class="tbl"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${latest
     .map((r) => `<tr><td>${r.date.length === 10 ? shortDate(r.date) : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`)
     .join("")}</tbody></table></div></section>

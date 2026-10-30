@@ -76,6 +76,9 @@ jobs:
           built_epoch=$(date -d "$built_at" +%s 2>/dev/null || echo 0)
           if [ "$(( $(date +%s) - built_epoch ))" -ge 86400 ]; then benchmarks_due=true; fi
           echo "benchmarks_due=$benchmarks_due" >> "$GITHUB_OUTPUT"
+          dates_due=false
+          if [ "${built_at:0:10}" != "$(date -u +%F)" ]; then dates_due=true; fi
+          echo "dates_due=$dates_due" >> "$GITHUB_OUTPUT"
           echo "live=$live" >> "$GITHUB_OUTPUT"
           if [ "$latest" = "$live" ]; then
             echo "Live site matches the price file."
@@ -86,12 +89,12 @@ jobs:
           fi
 
       - name: Trigger a production deploy
-        if: (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true') && env.DEPLOY_HOOK != ''
+        if: (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true' || steps.check.outputs.dates_due == 'true') && env.DEPLOY_HOOK != ''
         run: curl -fsS -X POST "$DEPLOY_HOOK" > /dev/null
 
       - name: Wait for the new build to go live
         id: wait
-        if: (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true') && env.DEPLOY_HOOK != ''
+        if: (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true' || steps.check.outputs.dates_due == 'true') && env.DEPLOY_HOOK != ''
         run: |
           for _ in $(seq 1 40); do
             sleep 30
