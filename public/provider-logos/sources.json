@@ -38,9 +38,9 @@
   },
   "aiand": {
     "file": "upstream/aiand.svg",
-    "source": "https://docs.aiand.com/",
+    "source": "https://raw.githubusercontent.com/islomjon-aiand/litellm/ee0b6f2405ec110c6bd0dfbb3477a3379f81c2bc/ui/litellm-dashboard/public/assets/logos/aiand.svg",
     "homepage": "https://aiand.com/",
-    "note": "Provider-submitted: the unchanged icon from ai&'s brand kit, the mark shown in the logo on docs.aiand.com.",
+    "note": "Provider-submitted: the icon from ai&'s brand kit, the same file ai& contributed to BerriAI/litellm#49158, pinned to that commit. Bundled unchanged.",
     "sha256": "e559c01d217e685fccf14eb54536c5384f68237c54a962fcc1d55706e0905803",
     "verifiedOn": "2026-10-30"
   },
