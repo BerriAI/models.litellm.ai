@@ -293,7 +293,7 @@
   },
   "clf_ai_gateway": {
     "file": "upstream/clf_ai_gateway.svg",
-    "source": "https://clfaigateway.dev/icon.svg?9cfb84071725c1e6",
+    "source": "https://clfaigateway.dev/icon.svg",
     "homepage": "https://clfaigateway.dev/",
     "sha256": "f8bca437df165a4aae3e34e4ea3f58e7a2c557d229abe093d7f493111b279768",
     "verifiedOn": "2026-10-30"
@@ -1238,7 +1238,7 @@
   },
   "refuseless": {
     "file": "upstream/refuseless.svg",
-    "source": "https://refuseless.com/icon.svg?icon.0rr_d8qdzu3nf.svg",
+    "source": "https://refuseless.com/icon.svg",
     "homepage": "https://refuseless.com/",
     "note": "The site's own icon, fetched in a browser because the site answers plain HTTP clients with a bot check. Bundled unchanged.",
     "sha256": "3990ad4e279f2d9005ec4336a8f48bf164d588fc47083184e2b9e157cba047b1",
