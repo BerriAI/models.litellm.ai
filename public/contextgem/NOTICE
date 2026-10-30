@@ -1,0 +1,91 @@
+ContextGem - Extract structured data and insights from documents using LLMs and decision models
+================================================================================================
+
+Copyright 2025 Shcherbak AI AS
+Developed by Sergii Shcherbak
+
+This software is licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+
+==============================================================================
+THIRD-PARTY COMPONENTS
+==============================================================================
+
+This software includes the following third-party components:
+
+Core Dependencies (installed with ContextGem):
+- aiolimiter: Rate limiting for asynchronous operations
+- certifi: Mozilla's root certificates, which litellm and the downloads of SaT models verify TLS connections with (required at a version that trusts no compromised certificate authority)
+- colorlog: Colored logging formatter
+- docstring-parser: Docstring parsing for auto-generating tool schemas
+- fastjsonschema: Fast JSON schema validator
+- genai-prices: LLM pricing data and utilities (by Pydantic) to automatically estimate costs
+- Jinja2: Templating engine
+- langcodes: BCP 47 language tags, used to validate the output language of LLMs and to name its language in prompts; installed with its "data" extra, language-data (the names of languages), which stores them with marisa-trie
+- litellm: LLM interface library (this software uses only MIT-licensed portions of LiteLLM and does not utilize any components from the enterprise/ directory)
+- onnxruntime: ONNX model inference runtime (constrained for Python 3.14 wheel compatibility; used transitively via wtpsplit-lite)
+- openai: OpenAI Python client (pinned for stable compatibility with litellm)
+- pillow: Image processing library for local model image handling
+- pydantic: Data validation
+- python-ulid: ULID generation
+- tenacity: Retry library for Python
+- wtpsplit-lite: Lightweight version of wtpsplit that only retains accelerated ONNX inference of SaT models with minimal dependencies
+
+Docling Extra Dependencies (installed only with the "docling" extra, contextgem[docling], for Document.from_docling()):
+- docling: Document conversion toolkit that converts PDF, DOCX, PPTX, XLSX, HTML and other files, used to create documents from the converted files
+- docling-core: Document model of Docling, which Document.from_docling() maps; also a development dependency, for the tests and the documentation of the extra
+
+Development Dependencies:
+- bandit: Python security linter
+- commitizen: Conventional commit tool and release management
+- coverage: Test coverage measurement
+- deptry: Python dependency checker for unused, missing and transitive dependencies
+- docling-slim: Docling without PyTorch and models, which converts the fixtures of the tests of the docling extra in the formats that need no models, e.g. DOCX, PPTX, XLSX, HTML and Markdown
+- fabric: SSH and command execution library used for development task automation
+- hypothesis: Property-based testing library used for invariant tests of pure utility functions
+- interrogate: Python docstring coverage checker
+- licenseal: License compatibility checker for the dependencies (used for the license audit in LICENSES.md)
+- omerta: Checks that no value of the env files, e.g. an API key of .env, is in git (run by the pre-commit hooks)
+- pre-commit: Pre-commit hooks
+- pre-commit-hooks: Checks of whitespace, the ends of files, YAML and TOML (run by the pre-commit hooks)
+- ty: Static type checker for Python
+- pytest: Testing framework
+- pytest-cov: Coverage plugin for pytest
+- pytest-recording: Recording HTTP interactions for tests
+- pytest-xdist: Running tests in parallel worker processes
+- python-dotenv: Environment variable management
+- ruff: Fast Python linter and formatter
+- sphinx: Documentation generator
+- sphinx-autobuild: Live-reloading docs builder for Sphinx
+- sphinx-autodoc-typehints: Type annotation support for Sphinx
+- sphinx-book-theme: Book-like theme for Sphinx
+- sphinx-copybutton: Adds copy button to code blocks in Sphinx docs
+- sphinx-design: Component library for Sphinx documentation
+- sphinx-llm: Generates llms.txt and a Markdown copy of each page of the Sphinx documentation
+- sphinx-sitemap: Generates XML sitemaps for Sphinx documentation
+- sphinxext-opengraph: OpenGraph metadata support for Sphinx documentation
+- tethered: Network egress control (used to enforce the egress policy of the tests)
+- zizmor: Security checks of the GitHub Actions workflows (run by the pre-commit hooks)
+- twine: PyPI package metadata validator (used by the package-check pre-commit hook)
+
+Development Tools (npm, package.json):
+- @playwright/mcp: Browser automation server that gives AI coding assistants a browser (used to look at the README preview)
+- github-markdown-css: GitHub's Markdown styles (used by the README preview)
+- markdownlint-cli2: Markdown linter (run by the pre-commit hooks)
+
+Test Data:
+- tests/other_files/docling/docling_tests/: test documents of Docling (https://github.com/docling-project/docling), copied from its tests/data at tag v2.140.0, under the MIT License (the LICENSE file in that folder). amt_handbook_sample.pdf is a page of a handbook of the US Federal Aviation Administration, a work of the US government in the public domain. keynote_2013.key, numbers_2013.numbers and pages_2013.pages are test documents of Apache Tika (https://tika.apache.org), under the Apache License 2.0, which Docling took from it. gas_disposition.ebc and its layout are cut from the samples of ebcdic-parser (https://github.com/larandvit/ebcdic-parser), under the MIT License (the LICENSE-ebcdic-parser file in that folder), as Docling holds them; the layout is renamed gas_disposition.ebc.layout.json. legacy_sample.dclx is made by ContextGem from the Docling document of legacy_sample.doc
+
+Each of these components may have their own licenses. Users should refer to the
+respective project repositories for detailed license information.
+
+==============================================================================

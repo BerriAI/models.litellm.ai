@@ -10,6 +10,8 @@ One exception: an `introPricing` entry in `overrides.json` may carry a hand-type
 
 A second exception: comparison pages show benchmark scores from Epoch AI's Benchmarking Hub (CC BY 4.0), credited on the page with a link and the date. Use Epoch's own runs, its Capabilities Index, and the external results Epoch republishes, each linked to its original source; match models exactly by id (the Capabilities Index, which has no ids, by exact display name), never by fuzzy name matching. Never turn scores into a verdict ("better", "best", "winner"), and never rank models by them.
 
+Discover also shows attributed ContextGem extraction eval snapshots (Apache 2.0) with its official wordmark. Keep the upstream summaries unmodified in `public/contextgem/`, pin their source commit, retain LICENSE and NOTICE, and show experiment dates and limitations. Separate PDF from text experiments and LLMs from decision models; do not hide failed runs or treat these small development evals as general model rankings.
+
 ### Running the dev server
 
 ```bash

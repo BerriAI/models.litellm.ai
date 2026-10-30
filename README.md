@@ -86,6 +86,8 @@ Build-time environment variables: `SITE_URL` (default `https://models.litellm.ai
 
 ### Discovery rankings from public benchmark feeds
 
+Discover includes a ContextGem document-extraction section with its official wordmark and attributed Apache 2.0 eval snapshots. `public/contextgem/` contains unmodified upstream summaries, artwork, LICENSE and NOTICE from the commit pinned in `src/contextgemBenchmarks.ts`. PDF results are from `pdf_2026-10-21_pdf` (Docling conversion of born-digital PDFs, no OCR); text results are from `baseline_2026-10-23`. The component shows per-case means, run counts, failures and evidence links, with separate LLM and decision-model views. These are small development evaluations with AI-reviewed reference answers, not independently reproduced LiteLLM results or a general model ranking. Update snapshots and their provenance together after reviewing upstream changes.
+
 The Discover page refreshes its rankings from public data without API keys. Top quality uses the [Epoch Capabilities Index](https://epoch.ai/eci), matched to catalog names and their declared aliases. Top coding uses the official [Terminal-Bench 4.0 submissions](https://github.com/harbor-framework/terminal-bench/tree/main/leaderboard/submissions). Each coding result shows its agent harness and reasoning setting; these are evaluations of the model and agent together.
 
 The homepage pairs six recent models with one compact chart panel. Keyboard-accessible tabs switch between the three top-ten lists without reloading their data. Blue bars share a scale within each list, and adjacent cards and their source footers align. Long model IDs truncate to fit the available space while retaining the full ID in the tooltip and copy action; the panels stack on narrow screens.
