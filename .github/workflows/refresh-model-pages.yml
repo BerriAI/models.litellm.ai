@@ -30,6 +30,8 @@ jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      deployed: ${{ (steps.check.outputs.changed == 'true' || steps.check.outputs.benchmarks_due == 'true') && env.DEPLOY_HOOK != '' }}
     env:
       SITE: https://models.litellm.ai
       PRICE_FILE: https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
@@ -141,3 +143,23 @@ jobs:
           done > urls.txt
           jq -R -s --arg key "$INDEXNOW_KEY" '{host: "models.litellm.ai", key: $key, keyLocation: ("https://models.litellm.ai/" + $key + ".txt"), urlList: (split("\n") | map(select(length > 0)) | .[0:10000])}' urls.txt > indexnow.json
           submit_indexnow
+
+  provider-logos:
+    needs: refresh
+    if: ${{ !cancelled() && (needs.refresh.outputs.deployed == 'true' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SITE: https://models.litellm.ai
+    steps:
+      - name: Name the providers the live build shows with initials
+        run: |
+          providers=$(curl -fsSL "$SITE/build-info.json" | jq -r '(.unauditedProviders // [])[]')
+          if [ -z "$providers" ]; then
+            echo "Every provider in the live build has an audited logo."
+            exit 0
+          fi
+          while read -r provider; do
+            echo "::error title=Provider logo needed::$provider has no entry in src/providerLogos.json, so models.litellm.ai shows its initials. Add its audited artwork as public/provider-logos/NOTICE.md describes."
+          done <<< "$providers"
+          exit 1

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import catalogProviders from "./provider-logo-catalog.json";
 import providerLogos from "../src/providerLogos.json";
 import { getProviderLogo } from "../src/providers";
-import { validateProviderLogos } from "./provider-logos";
+import { auditProviderLogos } from "./provider-logos";
 
 type ArtworkSource = {
   file: string | null;
@@ -21,16 +21,19 @@ const sources = JSON.parse(
 
 describe("audited provider artwork", () => {
   it("should cover every provider in both LiteLLM catalogs at the audit date", () => {
-    expect(() => validateProviderLogos(catalogProviders)).not.toThrow();
+    expect(auditProviderLogos(catalogProviders)).toEqual([]);
   });
 
-  it("should reject new unaudited providers and missing bundled assets", () => {
-    expect(() => validateProviderLogos(["new-provider"])).toThrow(
-      "new-provider: no audited logo entry",
-    );
-    expect(() => validateProviderLogos(["baseten"], "/nonexistent")).toThrow(
-      "baseten: missing",
-    );
+  it("should return new unaudited providers once each instead of failing the build", () => {
+    expect(
+      auditProviderLogos(["zeta-new", "Baseten", "alpha-new", "zeta-new"]),
+    ).toEqual(["alpha-new", "zeta-new"]);
+  });
+
+  it("should still fail the build when a mapped logo file is missing", () => {
+    expect(() =>
+      auditProviderLogos(["new-provider", "baseten"], "/nonexistent"),
+    ).toThrow("baseten: missing");
   });
 
   it("should show Baseten's official artwork and resolve aliases case-insensitively", () => {

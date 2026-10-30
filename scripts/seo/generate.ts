@@ -49,7 +49,7 @@ import { COOKBOOK_URL, COST_MAP_RAW_URL, GUARDRAILS_URL, PROVIDER_SUPPORT_RAW_UR
 import { PAGE_TITLES } from "../../src/pageTitles";
 import { catalogModelId } from "../../src/litellmModelId";
 import { loadDiscoveryBenchmarkData } from "./discovery-benchmarks";
-import { validateProviderLogos } from "../provider-logos";
+import { auditProviderLogos } from "../provider-logos";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
@@ -166,12 +166,15 @@ async function main(): Promise<void> {
     console.warn("seo: provider_endpoints_support.json unavailable, using built-in names", err);
   }
   const overrides = JSON.parse(readFileSync(path.join(HERE, "overrides.json"), "utf8")) as Overrides;
-  validateProviderLogos([
+  const unauditedProviders = auditProviderLogos([
     ...Object.keys(support.providers ?? {}),
     ...Object.entries(costMap).flatMap(([key, row]) =>
       key !== "sample_spec" && row.litellm_provider ? [row.litellm_provider] : [],
     ),
   ]);
+  for (const provider of unauditedProviders) {
+    console.warn(`seo: ${provider} has no audited logo in src/providerLogos.json, so the site shows its initials`);
+  }
   const seededDates = JSON.parse(readFileSync(path.join(HERE, "added-dates.json"), "utf8")) as Record<string, string>;
   const previous = await loadPreviousManifest(process.env.PREVIOUS_MANIFEST_URL ?? `${SITE_URL}/models/manifest.json`);
 
@@ -846,6 +849,7 @@ ${cheapestOnProvider(h.name, list)}
       providers: hubList.length,
       stars: repo?.stargazers_count ?? null,
       priceFileUpdatedAt: lastCommit?.[0]?.commit?.committer?.date ?? null,
+      unauditedProviders,
     }),
   );
 
