@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">eu/jev — three blue layers and one star</title>
+  <desc id="desc">Three stacked isometric slabs in the website's electric blue and progressively lighter tints mixed with white. One white five-point star lies flat on the upper face. Transparent background.</desc>
+  <g id="mark">
+    <g id="layer-3">
+      <path fill="#b4aeff" d="M128 98 232 158V180L128 240 24 180V158Z"/>
+      <path fill="#cac6ff" d="M232 158 128 218V240L232 180Z"/>
+      <path fill="#a9a3ff" d="M128 98 232 158 128 218 24 158Z"/>
+    </g>
+    <g id="layer-2">
+      <path fill="#8980ff" d="M128 58 232 118V140L128 200 24 140V118Z"/>
+      <path fill="#a9a3ff" d="M232 118 128 178V200L232 140Z"/>
+      <path fill="#746aff" d="M128 58 232 118 128 178 24 118Z"/>
+    </g>
+    <g id="layer-1">
+      <path fill="#695eff" d="M128 18 232 78V100L128 160 24 100V78Z"/>
+      <path fill="#8980ff" d="M232 78 128 138V160L232 100Z"/>
+      <path fill="#2919ff" d="M128 18 232 78 128 138 24 78Z"/>
+    </g>
+    <path id="star" fill="#ffffff" d="M128.000 52.952 L140.132 71.011 L173.651 72.087 L147.630 84.324 L156.214 103.048 L128.000 92.552 L99.786 103.048 L108.370 84.324 L82.349 72.087 L115.868 71.011 Z"/>
+  </g>
+</svg>

@@ -217,6 +217,13 @@
     "sha256": "ef581a93cf46202566a867d90b96653a34eaae0d9e156a4544a1ca8934959f08",
     "verifiedOn": "2026-10-24"
   },
+  "bigmodel": {
+    "file": "upstream/bigmodel.png",
+    "source": "https://bigmodel.cn/static/images/favicon.png",
+    "homepage": "https://bigmodel.cn/",
+    "sha256": "94ff9c00af67774e5178428942a6e0a9952c7e2f3aba4c25f3b05c782841ee4c",
+    "verifiedOn": "2026-10-30"
+  },
   "bing_grounding": {
     "file": "upstream/bing_grounding.ico",
     "source": "https://www.bing.com/favicon.ico",
@@ -283,6 +290,13 @@
     "source": "https://avatars.githubusercontent.com/u/8550654?s=200&v=4",
     "sha256": "f515e5b70d3f71e83576ab0a610dee97f022443a6ad6bf7435c3021a1156e1fd",
     "verifiedOn": "2026-10-24"
+  },
+  "clf_ai_gateway": {
+    "file": "upstream/clf_ai_gateway.svg",
+    "source": "https://clfaigateway.dev/icon.svg?9cfb84071725c1e6",
+    "homepage": "https://clfaigateway.dev/",
+    "sha256": "f8bca437df165a4aae3e34e4ea3f58e7a2c557d229abe093d7f493111b279768",
+    "verifiedOn": "2026-10-30"
   },
   "cloudflare": {
     "file": "upstream/cloudflare.png",
@@ -482,6 +496,13 @@
     "source": "https://avatars.githubusercontent.com/u/131738653?s=200&v=4",
     "sha256": "6e002b95260eb347ba82059c42c57df3fd4fda4aeae26fcb6da1c272326496cb",
     "verifiedOn": "2026-10-24"
+  },
+  "eu_jev": {
+    "file": "upstream/eu_jev.svg",
+    "source": "https://eu-jev.com/icon.svg",
+    "homepage": "https://eu-jev.com/",
+    "sha256": "c3fdf16b38dac1507aba8da7cd7e8c8fe045f373d8c890a5c893c874da32899c",
+    "verifiedOn": "2026-10-30"
   },
   "exa_ai": {
     "file": "upstream/exa_ai.png",
@@ -697,6 +718,13 @@
     "note": "Official website favicon or brand mark.",
     "sha256": "1fc7fa5210f845fa4efa32dfe1f800063009919ac6a066df3825b80196baa316",
     "verifiedOn": "2026-10-24"
+  },
+  "kyma": {
+    "file": "upstream/kyma.png",
+    "source": "https://kymaapi.com/apple-icon.png",
+    "homepage": "https://kymaapi.com/",
+    "sha256": "cf2faa12010edad888d02365118526139c6bb31b1bef8277e22a92e56ddda2db",
+    "verifiedOn": "2026-10-30"
   },
   "lambda_ai": {
     "file": "upstream/lambda_ai.svg",
@@ -1049,6 +1077,14 @@
     "sha256": "f95a05354594ebf9b3581e5184c24f53fa2e7bc0bc48185ffd2b9793087f16dc",
     "verifiedOn": "2026-10-24"
   },
+  "opensearch": {
+    "file": "upstream/aws.png",
+    "source": "https://a0.awsstatic.com/libra-css/images/site/touch-icon-ipad-144-smile.png",
+    "homepage": "https://aws.amazon.com/opensearch-service/",
+    "note": "Amazon OpenSearch Service, which LiteLLM reaches only with AWS credentials, shares the aws provider mark, as s3_vectors does.",
+    "sha256": "f80d3ec6c5b2adee55267ecfcf2fc4131aa8551a546b7a1971b5e465c05c2403",
+    "verifiedOn": "2026-10-30"
+  },
   "oracle": {
     "file": "upstream/oci.png",
     "source": "https://www.oracle.com/asset/web/favicons/favicon-32.png",
@@ -1199,6 +1235,14 @@
     "note": "Official website favicon; downloaded 2026-10-24.",
     "sha256": "254f6dfe0fb53e0be0bcbd0eccf225a72aeeec039866a8608e110ba2f349742c",
     "verifiedOn": "2026-10-24"
+  },
+  "refuseless": {
+    "file": "upstream/refuseless.svg",
+    "source": "https://refuseless.com/icon.svg?icon.0rr_d8qdzu3nf.svg",
+    "homepage": "https://refuseless.com/",
+    "note": "The site's own icon, fetched in a browser because the site answers plain HTTP clients with a bot check. Bundled unchanged.",
+    "sha256": "3990ad4e279f2d9005ec4336a8f48bf164d588fc47083184e2b9e157cba047b1",
+    "verifiedOn": "2026-10-30"
   },
   "reka": {
     "file": "upstream/reka.jpg",
@@ -1359,6 +1403,13 @@
     "note": "Official project website or repository artwork; downloaded 2026-10-24.",
     "sha256": "b463b6ab2c9e64317862681a882278360ce0ea90387a136c5f1a2d0375eaff18",
     "verifiedOn": "2026-10-24"
+  },
+  "streamlake": {
+    "file": "upstream/streamlake.ico",
+    "source": "https://p15-sl-oversea.streamlake.com/kos/s101/nlav112435/streamlake-website/public/faviconV2.ico",
+    "homepage": "https://streamlake.ai/",
+    "sha256": "f0f37e536de393552e95615042efae406516b73397ad47f701ecdaa4d12b40dd",
+    "verifiedOn": "2026-10-30"
   },
   "synthetic": {
     "file": "upstream/synthetic.svg",
@@ -1719,5 +1770,12 @@
     "note": "Official website favicon; downloaded 2026-10-24.",
     "sha256": "07a45e8e35b0b631ed2c68cd1cb041f9721b1ceeb0bd0e34f1459b0304a741c7",
     "verifiedOn": "2026-10-24"
+  },
+  "zerogpu": {
+    "file": "upstream/zerogpu.png",
+    "source": "https://zerogpu.ai/favicon-192.png",
+    "homepage": "https://zerogpu.ai/",
+    "sha256": "c1603bc16ffd955c70f921dd6c78762301862c6be5d68bbefb6383e872b3d3d7",
+    "verifiedOn": "2026-10-30"
   }
 }
