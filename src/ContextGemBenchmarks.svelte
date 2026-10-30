@@ -124,7 +124,7 @@
       </div>
       <label
         >Document
-        <select bind:value={document}
+        <select autocomplete="off" bind:value={document}
           >{#each source.cases as item}<option value={item.id}
               >{item.name}</option
             >{/each}</select
@@ -132,7 +132,7 @@
       </label>
       <label
         >Model type
-        <select bind:value={mode}>
+        <select autocomplete="off" bind:value={mode}>
           <option value="default">LLMs · full extraction</option>
           <option value="decision_default"
             >Decision models · closed questions</option
