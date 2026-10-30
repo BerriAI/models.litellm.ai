@@ -30,5 +30,5 @@ export function auditProviderLogos(
   if (failures.length) {
     throw new Error(`Provider logo audit failed:\n${failures.join("\n")}`);
   }
-  return unmapped.filter((provider) => !audited.has(provider)).sort();
+  return unmapped.sort();
 }
