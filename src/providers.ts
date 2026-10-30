@@ -126,13 +126,17 @@ export function getProviderInitial(provider: string): string {
   return provider.charAt(0).toUpperCase();
 }
 
+export function providerLogoKey(provider: string): string {
+  const lowerProvider = provider.trim().toLowerCase();
+  // Benchmark feeds use the lab's display name instead of the LiteLLM provider id.
+  return lowerProvider === "z.ai" ? "zai" : lowerProvider;
+}
+
 /** Use bundled, verified color artwork; monochrome brands keep their official mark. */
 export function getProviderLogo(provider: string): string | null {
   if (!provider) return null;
 
-  const lowerProvider = provider.trim().toLowerCase();
-  // Benchmark feeds use the lab's display name instead of the LiteLLM provider id.
-  const logoProvider = lowerProvider === "z.ai" ? "zai" : lowerProvider;
+  const logoProvider = providerLogoKey(provider);
 
   const logos: Record<string, string | null> = providerLogos;
   const logoFile = Object.hasOwn(logos, logoProvider)
