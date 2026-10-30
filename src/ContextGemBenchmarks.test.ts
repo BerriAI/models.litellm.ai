@@ -30,7 +30,8 @@ function change(label: string, value: string) {
   const querySelector = select.querySelector.bind(select);
   vi.spyOn(select, "querySelector").mockImplementation((selector: string) =>
     selector === ":checked"
-      ? select.selectedOptions[0]
+      ? Array.from(select.options).find((option) => option.value === value) ??
+        null
       : querySelector(selector),
   );
   select.dispatchEvent(new Event("change", { bubbles: true }));
@@ -43,10 +44,10 @@ describe("ContextGem published extraction evals", () => {
     expect(document.querySelector("img")?.getAttribute("src")).toBe(
       "/contextgem/wordmark.svg",
     );
-    expect(document.querySelector("caption")?.textContent).toContain(
+    expect(document.querySelector(".experiment-line")?.textContent).toContain(
       "PDF extraction",
     );
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(
+    expect(document.querySelectorAll(".model-card")).toHaveLength(
       contextGemRows("pdf", "complex_mcu", "default").length,
     );
     expect(document.body.textContent).toContain("not human-verified");
@@ -70,10 +71,10 @@ describe("ContextGem published extraction evals", () => {
     )!;
     expect(result.aspectF1).toBe(mean(source.aspect_f1));
     expect(result.runs).toBe(source.runs);
-    const failedRow = Array.from(document.querySelectorAll("tbody tr")).find(
-      (row) => row.textContent?.includes(source.model),
+    const failedRow = Array.from(document.querySelectorAll(".model-card")).find(
+      (row) => row.getAttribute("aria-label") === source.model,
     )!;
-    expect(failedRow.querySelector(".failed")?.textContent).toBe(
+    expect(failedRow.querySelector(".failed .failure-count")?.textContent).toBe(
       `${source.errors.length} / ${source.runs}`,
     );
   });
@@ -86,13 +87,13 @@ describe("ContextGem published extraction evals", () => {
     textButton.click();
     await tick();
     await change("Document", "complex_dpa");
-    expect(document.querySelector("caption")?.textContent).toContain(
+    expect(document.querySelector(".experiment-line")?.textContent).toContain(
       "Data processing agreement",
     );
-    expect(document.querySelector("caption")?.textContent).toContain(
+    expect(document.querySelector(".experiment-line")?.textContent).toContain(
       "Text extraction",
     );
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(
+    expect(document.querySelectorAll(".model-card")).toHaveLength(
       contextGemRows("text", "complex_dpa", "default").length,
     );
     expect(
@@ -108,7 +109,7 @@ describe("ContextGem published extraction evals", () => {
     )!;
     pdfButton.click();
     await tick();
-    expect(document.querySelector("caption")?.textContent).toContain(
+    expect(document.querySelector(".experiment-line")?.textContent).toContain(
       "Microcontroller",
     );
   });
@@ -116,20 +117,59 @@ describe("ContextGem published extraction evals", () => {
   it("separates decision model scopes and does not show missing references as zero", async () => {
     render();
     await change("Model type", "decision_default");
-    expect(document.querySelectorAll("tbody tr")).toHaveLength(
+    expect(document.querySelectorAll(".model-card")).toHaveLength(
       contextGemRows("pdf", "complex_mcu", "decision_default").length,
     );
-    expect(document.querySelector("thead")?.textContent).toContain(
+    expect(document.querySelector(".model-grid")?.textContent).toContain(
       "Closed concepts correct",
     );
-    expect(document.querySelector("thead")?.textContent).not.toContain(
+    expect(document.querySelector(".model-grid")?.textContent).not.toContain(
       "Reference F1",
     );
-    expect(document.querySelector("thead")?.textContent).not.toContain(
+    expect(document.querySelector(".model-grid")?.textContent).not.toContain(
       "Typed concepts correct",
     );
     expect(mean([null, null])).toBeNull();
     expect(mean([])).toBeNull();
     expect(mean([1, 0])).toBe(0.5);
+  });
+
+  it("keeps every document and model scope faithful to the published scores", async () => {
+    render();
+    for (const input of ["pdf", "text"] as const) {
+      Array.from(document.querySelectorAll("button"))
+        .find(
+          (button) => button.textContent === contextGemSources[input].label,
+        )!
+        .click();
+      await tick();
+      for (const entry of contextGemSources[input].cases) {
+        await change("Document", entry.id);
+        for (const mode of ["default", "decision_default"] as const) {
+          await change("Model type", mode);
+          const expected = contextGemRows(input, entry.id, mode);
+          const cards = Array.from(document.querySelectorAll(".model-card"));
+          expect(cards, `${input}/${entry.id}/${mode}`).toHaveLength(
+            expected.length,
+          );
+          for (const [index, result] of expected.entries()) {
+            const card = cards[index];
+            expect(card.getAttribute("aria-label")).toBe(result.model);
+            expect(
+              card.querySelector(".primary-metric strong")?.textContent,
+            ).toBe(result.aspectF1?.toFixed(3) ?? "Not provided");
+            expect(card.querySelector(".failure-count")?.textContent).toBe(
+              `${result.failures} / ${result.runs}`,
+            );
+            expect(card.querySelector(".run-metrics")?.textContent).toContain(
+              `$${result.cost?.toFixed(4)}`,
+            );
+            expect(
+              card.querySelectorAll(".supporting-metrics > div"),
+            ).toHaveLength(mode === "default" ? 2 : 1);
+          }
+        }
+      }
+    }
   });
 });
