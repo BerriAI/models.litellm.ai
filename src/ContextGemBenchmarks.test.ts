@@ -6,6 +6,7 @@ import {
   CONTEXTGEM_FILES,
   contextGemRows,
   contextGemSources,
+  contextGemLiteLLMRun,
   mean,
 } from "./contextgemBenchmarks";
 
@@ -38,7 +39,7 @@ function change(label: string, value: string) {
   return tick();
 }
 
-describe("ContextGem published extraction evals", () => {
+describe("ContextGem extraction evals", () => {
   it("renders official branding and the PDF snapshot on first visit", () => {
     render();
     expect(document.querySelector("img")?.getAttribute("src")).toBe(
@@ -51,7 +52,7 @@ describe("ContextGem published extraction evals", () => {
       contextGemRows("pdf", "complex_mcu", "default").length,
     );
     expect(document.body.textContent).toContain("not human-verified");
-    expect(document.body.textContent).toContain(
+    expect(document.body.textContent?.replace(/\s+/g, " ")).toContain(
       "not independently rerun by LiteLLM",
     );
     expect(
@@ -79,6 +80,34 @@ describe("ContextGem published extraction evals", () => {
     );
   });
 
+  it("identifies independent runs, dates and evidence without relabeling published cards", () => {
+    render();
+    const rows = contextGemRows("pdf", "complex_mcu", "default");
+    expect(rows.filter((row) => row.publisher === "LiteLLM")).toHaveLength(2);
+    for (const row of rows) {
+      const card = document.querySelector(
+        `article[aria-label="${row.model}"]`,
+      )!;
+      expect(card.querySelector(".source-badge")?.textContent?.trim()).toBe(
+        row.publisher === "LiteLLM" ? "LiteLLM-run" : "ContextGem-published",
+      );
+      expect(card.querySelector("time")?.getAttribute("datetime")).toBe(
+        row.date,
+      );
+      expect(card.querySelector(".card-evidence a")?.getAttribute("href")).toBe(
+        row.evidenceUrl,
+      );
+    }
+    expect(document.querySelector(".comparison-note")?.textContent).toContain(
+      "not a controlled head-to-head comparison",
+    );
+    expect(
+      document.querySelector(
+        `a[href="${contextGemLiteLLMRun.root}/manifest.json"]`,
+      ),
+    ).not.toBeNull();
+  });
+
   it("switches inputs and documents with matching evidence and no mixed experiment rows", async () => {
     render();
     const textButton = Array.from(document.querySelectorAll("button")).find(
@@ -96,6 +125,10 @@ describe("ContextGem published extraction evals", () => {
     expect(document.querySelectorAll(".model-card")).toHaveLength(
       contextGemRows("text", "complex_dpa", "default").length,
     );
+    expect(document.querySelector(".model-grid")?.textContent).not.toContain(
+      "LiteLLM-run",
+    );
+    expect(document.querySelector(".comparison-note")).toBeNull();
     expect(
       document.querySelector(
         `a[href="${CONTEXTGEM_FILES}/dev/evals/cases/complex_dpa.txt"]`,
@@ -129,6 +162,9 @@ describe("ContextGem published extraction evals", () => {
     expect(document.querySelector(".model-grid")?.textContent).not.toContain(
       "Typed concepts correct",
     );
+    expect(document.querySelector(".model-grid")?.textContent).not.toContain(
+      "LiteLLM-run",
+    );
     expect(mean([null, null])).toBeNull();
     expect(mean([])).toBeNull();
     expect(mean([1, 0])).toBe(0.5);
@@ -155,6 +191,13 @@ describe("ContextGem published extraction evals", () => {
           for (const [index, result] of expected.entries()) {
             const card = cards[index];
             expect(card.getAttribute("aria-label")).toBe(result.model);
+            expect(
+              card.querySelector(".source-badge")?.textContent?.trim(),
+            ).toBe(
+              result.publisher === "LiteLLM"
+                ? "LiteLLM-run"
+                : "ContextGem-published",
+            );
             expect(
               card.querySelector(".primary-metric strong")?.textContent,
             ).toBe(result.aspectF1?.toFixed(3) ?? "Not provided");

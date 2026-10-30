@@ -1,5 +1,13 @@
 import baseline from "../public/contextgem/baseline-summary.json";
 import pdf from "../public/contextgem/pdf-summary.json";
+import litellmPdf from "../public/contextgem/litellm_2026-10-30_pdf/summary.json";
+import litellmManifest from "../public/contextgem/litellm_2026-10-30_pdf/manifest.json";
+
+export const contextGemLiteLLMRun = {
+  date: litellmManifest.date,
+  input: litellmManifest.input,
+  root: `/contextgem/${litellmManifest.label}`,
+};
 
 export const CONTEXTGEM_REF = "c4810412cdb6648c38d114d152711a18a989c7ea";
 export const CONTEXTGEM_ROOT = `https://github.com/shcherbak-ai/contextgem/tree/${CONTEXTGEM_REF}`;
@@ -46,10 +54,29 @@ export function contextGemRows(
   document: string,
   mode: ContextGemMode,
 ) {
-  return contextGemSources[input].rows
+  const source = contextGemSources[input];
+  const upstream = source.rows.map((row) => ({
+    ...row,
+    publisher: "ContextGem" as const,
+    date: source.date,
+    evidenceUrl: `${CONTEXTGEM_ROOT}/dev/evals/results/${source.experiment}/runs`,
+  }));
+  const independent =
+    input === contextGemLiteLLMRun.input
+      ? litellmPdf.map((row) => ({
+          ...row,
+          publisher: "LiteLLM" as const,
+          date: contextGemLiteLLMRun.date,
+          evidenceUrl: `${contextGemLiteLLMRun.root}/${row.case}__${row.model.replace(/[^A-Za-z0-9.-]+/g, "_")}.json`,
+        }))
+      : [];
+  return [...upstream, ...independent]
     .filter((row) => row.case === document && row.mode === mode)
     .map((row) => ({
       model: row.model,
+      publisher: row.publisher,
+      date: row.date,
+      evidenceUrl: row.evidenceUrl,
       runs: row.runs,
       aspectF1: mean(row.aspect_f1),
       referenceF1: mean(row.reference_f1),

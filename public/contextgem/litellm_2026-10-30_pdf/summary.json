@@ -1,0 +1,302 @@
+[
+  {
+    "case": "complex_mcu",
+    "model": "anthropic/claude-sonnet-5-5",
+    "mode": "default",
+    "runs": 3,
+    "aspect_f1": [
+      0.8849853881391148,
+      0.9370814974483729,
+      0.9434968952863626
+    ],
+    "aspect_precision": [
+      0.9099846390168971,
+      0.9137408568443052,
+      0.9185987438453642
+    ],
+    "aspect_recall": [
+      0.8818480370204508,
+      0.9685027616062098,
+      0.9765636662188386
+    ],
+    "concepts_correct": [
+      25,
+      26,
+      26
+    ],
+    "n_concepts_scored": 26,
+    "closed_concepts_correct": [
+      10,
+      11,
+      11
+    ],
+    "n_closed_concepts": 11,
+    "reference_f1": [
+      0.7979915588547547,
+      0.7868110820736469,
+      0.7538931025274335
+    ],
+    "requests": [
+      10,
+      10,
+      10
+    ],
+    "input_tokens": [
+      174579,
+      179485,
+      178931
+    ],
+    "cache_read_tokens": [
+      0,
+      0,
+      0
+    ],
+    "output_tokens": [
+      10437,
+      10962,
+      10797
+    ],
+    "cost_total": [
+      "0.45353",
+      "0.46859",
+      "0.46583"
+    ],
+    "seconds": [
+      75.7,
+      79.8,
+      78.7
+    ],
+    "retries": [
+      0,
+      0,
+      0
+    ],
+    "errors": [],
+    "warnings": 0
+  },
+  {
+    "case": "complex_mcu",
+    "model": "openai/gpt-6.1-sol",
+    "mode": "default",
+    "runs": 3,
+    "aspect_f1": [
+      0.9377425288479466,
+      0.9559106075906275,
+      0.9551161449610585
+    ],
+    "aspect_precision": [
+      0.9036532988702065,
+      0.9324385663356252,
+      0.9317796687815664
+    ],
+    "aspect_recall": [
+      0.9826839826839827,
+      0.9826839826839827,
+      0.9826839826839827
+    ],
+    "concepts_correct": [
+      26,
+      26,
+      26
+    ],
+    "n_concepts_scored": 26,
+    "closed_concepts_correct": [
+      11,
+      11,
+      11
+    ],
+    "n_closed_concepts": 11,
+    "reference_f1": [
+      0.7651067675916854,
+      0.7642961352398344,
+      0.7720562763333088
+    ],
+    "requests": [
+      10,
+      10,
+      10
+    ],
+    "input_tokens": [
+      108559,
+      106752,
+      106611
+    ],
+    "cache_read_tokens": [
+      13670,
+      72427,
+      54905
+    ],
+    "output_tokens": [
+      6183,
+      7527,
+      6467
+    ],
+    "cost_total": [
+      "0.30040",
+      "0.16831",
+      "0.19941"
+    ],
+    "seconds": [
+      111.9,
+      141.8,
+      112.4
+    ],
+    "retries": [
+      0,
+      0,
+      0
+    ],
+    "errors": [],
+    "warnings": 0
+  },
+  {
+    "case": "complex_stability",
+    "model": "anthropic/claude-sonnet-5-5",
+    "mode": "default",
+    "runs": 3,
+    "aspect_f1": [
+      0.99,
+      0.99,
+      0.99
+    ],
+    "aspect_precision": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "aspect_recall": [
+      0.9807692307692308,
+      0.9807692307692308,
+      0.9807692307692308
+    ],
+    "concepts_correct": [
+      15,
+      16,
+      16
+    ],
+    "n_concepts_scored": 16,
+    "closed_concepts_correct": [
+      5,
+      5,
+      5
+    ],
+    "n_closed_concepts": 5,
+    "reference_f1": [
+      0.910985797827903,
+      0.8870604703938036,
+      0.8932980599647267
+    ],
+    "requests": [
+      7,
+      7,
+      7
+    ],
+    "input_tokens": [
+      99738,
+      100072,
+      99879
+    ],
+    "cache_read_tokens": [
+      0,
+      0,
+      0
+    ],
+    "output_tokens": [
+      4806,
+      5047,
+      5715
+    ],
+    "cost_total": [
+      "0.24754",
+      "0.25061",
+      "0.25691"
+    ],
+    "seconds": [
+      36.7,
+      38.6,
+      43.4
+    ],
+    "retries": [
+      0,
+      0,
+      0
+    ],
+    "errors": [],
+    "warnings": 0
+  },
+  {
+    "case": "complex_stability",
+    "model": "openai/gpt-6.1-sol",
+    "mode": "default",
+    "runs": 3,
+    "aspect_f1": [
+      0.9839024390243902,
+      0.9839024390243902,
+      0.9839024390243902
+    ],
+    "aspect_precision": [
+      0.9880952380952381,
+      0.9880952380952381,
+      0.9880952380952381
+    ],
+    "aspect_recall": [
+      0.9807692307692308,
+      0.9807692307692308,
+      0.9807692307692308
+    ],
+    "concepts_correct": [
+      15,
+      15,
+      15
+    ],
+    "n_concepts_scored": 16,
+    "closed_concepts_correct": [
+      5,
+      5,
+      5
+    ],
+    "n_closed_concepts": 5,
+    "reference_f1": [
+      0.8962241462241463,
+      0.8949383949383949,
+      0.9004329004329004
+    ],
+    "requests": [
+      7,
+      7,
+      7
+    ],
+    "input_tokens": [
+      62724,
+      62724,
+      62724
+    ],
+    "cache_read_tokens": [
+      8202,
+      62703,
+      62703
+    ],
+    "output_tokens": [
+      2912,
+      2758,
+      2648
+    ],
+    "cost_total": [
+      "0.16623",
+      "0.03389",
+      "0.03279"
+    ],
+    "seconds": [
+      55.8,
+      56.1,
+      69.9
+    ],
+    "retries": [
+      0,
+      0,
+      0
+    ],
+    "errors": [],
+    "warnings": 0
+  }
+]

@@ -4,6 +4,7 @@
     CONTEXTGEM_ROOT,
     contextGemRows,
     contextGemSources,
+    contextGemLiteLLMRun,
     type ContextGemInput,
     type ContextGemMode,
   } from "./contextgemBenchmarks";
@@ -14,6 +15,7 @@
   let mode: ContextGemMode = "default";
   $: source = contextGemSources[input];
   $: rows = contextGemRows(input, document, mode);
+  $: hasLiteLLMRuns = rows.some((row) => row.publisher === "LiteLLM");
   $: selectedDocument = source.cases.find((item) => item.id === document)?.name;
   $: resultsUrl = `${CONTEXTGEM_FILES}/dev/evals/results/${source.experiment}/summary.md`;
   const number = (value: number | null, digits = 1) =>
@@ -142,10 +144,15 @@
       <p class="document-title">{selectedDocument}</p>
       <span
         >{source.label} <span class="separator">/</span>
-        {source.date} snapshot</span
+        ContextGem {source.date}{#if hasLiteLLMRuns}
+          + LiteLLM {contextGemLiteLLMRun.date}{/if}</span
       >
     </div>
-    <div class="model-grid" aria-label="ContextGem extraction results">
+    <div
+      class="model-grid"
+      class:expanded={rows.length > 3}
+      aria-label="ContextGem extraction results"
+    >
       {#each rows as row}
         {@const provider = row.model.split("/")[0]}
         {@const logo = getProviderLogo(provider)}
@@ -170,6 +177,17 @@
             <span class="trial-count"
               >{row.runs} {row.runs === 1 ? "run" : "runs"}</span
             >
+          </div>
+          <div class="result-source">
+            <span
+              class="source-badge"
+              class:independent={row.publisher === "LiteLLM"}
+            >
+              {row.publisher === "LiteLLM"
+                ? "LiteLLM-run"
+                : "ContextGem-published"}
+            </span>
+            <time datetime={row.date}>{row.date}</time>
           </div>
           <div class="primary-metric">
             <span>Aspect F1 <span class="metric-direction">/ 1.000</span></span
@@ -215,6 +233,13 @@
             >
             failed runs <span class="mean-label">Means include failures</span>
           </div>
+          <div class="card-evidence">
+            <a href={row.evidenceUrl} target="_blank" rel="noreferrer">
+              {row.publisher === "LiteLLM"
+                ? "View raw runs"
+                : "View upstream runs"} ↗
+            </a>
+          </div>
         </article>
       {/each}
     </div>
@@ -244,9 +269,19 @@
     </div>
     <footer>
       <p>
-        <strong>ContextGem-reported results.</strong> Small synthetic evals, not
-        a model ranking. AI-reviewed reference answers, not human-verified
+        <strong
+          >{hasLiteLLMRuns
+            ? "Published snapshots + independent LiteLLM runs."
+            : "ContextGem-reported results."}</strong
+        > Small synthetic evals, not a model ranking. AI-reviewed reference answers,
+        not human-verified
       </p>
+      {#if hasLiteLLMRuns}
+        <p class="comparison-note">
+          Same PDF cases and scorer, different run dates and prompt revisions.
+          These are not a controlled head-to-head comparison
+        </p>
+      {/if}
       <details>
         <summary>Methodology and attribution</summary>
         <div class="methodology">
@@ -273,13 +308,23 @@
             not be treated as a controlled input-only comparison
           </p>
           <p>
-            Published by Shcherbak AI / Sergii Shcherbak; republished as an
-            attributed snapshot, not independently rerun by LiteLLM. ContextGem
-            branding identifies the framework, not an endorsement. The header
-            diagram illustrates the framework, not a particular extraction
-            result
+            ContextGem-published cards are from Shcherbak AI / Sergii Shcherbak;
+            republished as attributed snapshots, not independently rerun by
+            LiteLLM. LiteLLM-run cards are separate live runs on the dates
+            shown, using the pinned ContextGem harness and committed
+            PDF-to-Docling artifacts. Their raw outputs, versions, file hashes
+            and reproduction commands are linked below. No LLM judge was run for
+            the LiteLLM results; the displayed metrics use the offline scorer.
+            ContextGem branding identifies the framework, not an endorsement.
+            The header diagram illustrates the framework, not a particular
+            extraction result
           </p>
           <div class="evidence">
+            <a
+              href={`${contextGemLiteLLMRun.root}/manifest.json`}
+              target="_blank"
+              rel="noreferrer">LiteLLM run provenance ↗</a
+            >
             <a
               href={`${CONTEXTGEM_FILES}/dev/evals/AGENTS.md`}
               target="_blank"
@@ -628,6 +673,9 @@
     overflow: hidden;
     padding: 20px 20px 0;
   }
+  .model-grid.expanded {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .model-heading {
     display: flex;
     align-items: center;
@@ -672,7 +720,7 @@
     color: var(--hf-muted);
   }
   .primary-metric {
-    margin-top: 24px;
+    margin-top: 20px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -771,6 +819,44 @@
   }
   .run-status.failed {
     color: var(--hf-warning);
+  }
+  .result-source {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 16px;
+    font-size: 9px;
+    color: var(--hf-muted);
+  }
+  .source-badge {
+    padding: 4px 6px;
+    border: 1px solid var(--hf-line);
+    border-radius: 4px;
+  }
+  .source-badge.independent {
+    border-color: #3ca99b;
+    color: var(--hf-ink);
+  }
+  .card-evidence {
+    margin: 0 -20px;
+    padding: 10px 20px;
+    border-top: 1px solid var(--hf-line);
+  }
+  .card-evidence a {
+    display: inline-block;
+    padding: 6px 8px;
+    border: 1px solid var(--hf-line);
+    border-radius: 4px;
+    font-size: 10px;
+    color: var(--hf-ink);
+    text-decoration: none;
+  }
+  .card-evidence a:hover {
+    background: var(--hf-bg);
+  }
+  footer .comparison-note {
+    margin-top: 8px;
   }
   .mean-label {
     margin-left: auto;
@@ -935,7 +1021,8 @@
       font-size: 12px;
       padding: 12px;
     }
-    .model-grid {
+    .model-grid,
+    .model-grid.expanded {
       grid-template-columns: 1fr;
     }
     .model-heading h4 {

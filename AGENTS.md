@@ -12,6 +12,8 @@ A second exception: comparison pages show benchmark scores from Epoch AI's Bench
 
 Discover also shows attributed ContextGem extraction eval snapshots (Apache 2.0) with its official wordmark. Keep the upstream summaries unmodified in `public/contextgem/`, pin their source commit, retain LICENSE and NOTICE, and show experiment dates and limitations. Separate PDF from text experiments and LLMs from decision models; do not hide failed runs or treat these small development evals as general model rankings.
 
+Independent LiteLLM runs stay in their own labeled experiment directory with raw evidence and a provenance manifest. Never present them as ContextGem-published results, mix PDF runs into text results, or imply a controlled comparison across different prompt revisions and run dates
+
 ### Running the dev server
 
 ```bash
