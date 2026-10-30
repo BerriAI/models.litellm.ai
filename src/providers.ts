@@ -72,6 +72,7 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   ovhcloud: "OVHcloud",
   volcengine: "Volcano Engine",
   gmi: "GMI Cloud",
+  aiand: "ai&",
 };
 
 /** A readable label for display only; filtering and routing continue to use the provider id. */

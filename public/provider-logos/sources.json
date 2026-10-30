@@ -36,6 +36,14 @@
     "sha256": "b303d3bf9b3d7180c51b4bfe851693087be3630a91dd437464d168202998795f",
     "verifiedOn": "2026-10-24"
   },
+  "aiand": {
+    "file": "upstream/aiand.svg",
+    "source": "https://docs.aiand.com/",
+    "homepage": "https://aiand.com/",
+    "note": "Provider-submitted: the unchanged icon from ai&'s brand kit, the mark shown in the logo on docs.aiand.com.",
+    "sha256": "e559c01d217e685fccf14eb54536c5384f68237c54a962fcc1d55706e0905803",
+    "verifiedOn": "2026-10-30"
+  },
   "aihubmix": {
     "file": "upstream/aihubmix.png",
     "source": "https://aihubmix.com/apple-touch-icon.png",

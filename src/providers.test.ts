@@ -10,6 +10,7 @@ describe("provider display names", () => {
     ["vertex_ai", "Google Vertex AI"],
     ["huggingface", "Hugging Face"],
     ["xai", "xAI"],
+    ["aiand", "ai&"],
   ])("should display %s as %s", (provider, name) => {
     expect(getProviderDisplayName(provider)).toBe(name);
   });
