@@ -113,7 +113,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+    if (!compact && (e.metaKey || e.ctrlKey) && e.key === "k") {
       e.preventDefault();
       focusSiteSearch();
     }
@@ -556,10 +556,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
 <main class="container" class:compact>
   {#if compact}
-    <PageHero id="models" title="MODELS" description="Find pricing, context, and capabilities." diagramLabels={["MODELS", "CONTEXT", "PRICING"]} diagramCaption="FIND / COMPARE / BUILD" dense>
+    <PageHero id="models" title="MODELS" description="Find pricing, context, and capabilities.">
       <CatalogQuickStart />
     </PageHero>
-    <nav class="catalog-views" aria-label="Model views">
+    <nav class="catalog-views segmented-tabs" aria-label="Model views">
       <a href="/" aria-current="page">All models</a>
       <a href="/new-models">What's new</a>
       <a href="/deprecated-models">Deprecated</a>

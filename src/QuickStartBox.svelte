@@ -76,7 +76,7 @@
   </p>
   <div class="box">
     <div class="head">
-      <div class="group" role="group" aria-label="What to start">
+      <div class="group segmented-tabs" role="group" aria-label="What to start">
         <button
           type="button"
           class="tab"
@@ -92,9 +92,12 @@
           on:click={() => (product = "sdk")}>SDK</button
         >
       </div>
-      <span class="title">Quick Start</span>
       {#if product === "gateway"}
-        <div class="group right" role="group" aria-label="Operating system">
+        <div
+          class="group right segmented-tabs"
+          role="group"
+          aria-label="Operating system"
+        >
           <button
             type="button"
             class="tab"
@@ -234,9 +237,9 @@
 
   .box {
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--surface-radius);
     background: var(--card-bg);
-    box-shadow: var(--shadow-md);
+    box-shadow: none;
     overflow: hidden;
   }
 
@@ -245,68 +248,25 @@
     display: flex;
     align-items: stretch;
     flex-wrap: wrap;
-    gap: 0 1.1rem;
-    padding: 0 0.9rem;
+    gap: 8px;
+    padding: 8px;
     border-bottom: 1px solid var(--border-color);
     container-type: inline-size;
   }
 
   .group {
-    display: flex;
-    align-items: stretch;
-    gap: 1.1rem;
+    width: fit-content;
+    max-width: 100%;
   }
-
   .right {
     margin-left: auto;
   }
-
   .tab {
-    display: flex;
-    align-items: center;
-    margin-bottom: -1px;
-    padding: 0.55rem 0 0.5rem;
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    color: var(--muted-color);
-    font-family: inherit;
-    font-size: 0.8rem;
-    font-weight: 500;
-    white-space: nowrap;
     cursor: pointer;
+    white-space: nowrap;
   }
-
-  .tab:hover {
-    color: var(--text-color);
-  }
-
-  .tab.on {
-    border-bottom-color: var(--litellm-primary);
-    color: var(--text-color);
-    font-weight: 650;
-  }
-
   .short {
     display: none;
-  }
-
-  /* Centered on the box, not between the tab groups */
-  .title {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font:
-      650 0.7rem "Geist Mono",
-      ui-monospace,
-      Menlo,
-      monospace;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--text-color);
-    white-space: nowrap;
-    pointer-events: none;
   }
 
   .run {
@@ -326,7 +286,7 @@
   }
 
   .cmd code {
-    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
+    font-family: "IBM Plex Mono", ui-monospace, Menlo, monospace;
     font-size: 12.5px;
     color: var(--code-text);
     white-space: pre-wrap;
@@ -349,7 +309,7 @@
     height: 28px;
     padding: 0 0.55rem;
     border: 1px solid var(--border-color-strong);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: var(--bg-color);
     color: var(--text-color);
     font-family: inherit;
@@ -383,7 +343,7 @@
     gap: 0.35rem;
     padding: 0.25rem 0.55rem;
     border: 1px solid var(--border-color);
-    border-radius: 6px;
+    border-radius: var(--control-radius);
     background: transparent;
     color: var(--muted-color);
     font-family: inherit;
@@ -397,12 +357,8 @@
     color: var(--text-color);
   }
 
-  /* Narrow boxes: the title would collide with the tabs, so it steps out, and
-     the longer labels shorten. */
+  /* Keep platform choices readable in narrow setup panels. */
   @container (max-width: 520px) {
-    .title {
-      display: none;
-    }
     .long {
       display: none;
     }
@@ -412,8 +368,9 @@
   }
 
   @media (max-width: 480px) {
-    .right { width: 100%; margin-left: 0; border-top: 1px solid var(--border-color); }
-    .title { display: none; }
+    .right {
+      margin-left: 0;
+    }
     .copy {
       width: 28px;
       padding: 0;

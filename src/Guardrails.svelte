@@ -162,7 +162,7 @@
 </script>
 
 <div class="hf-hero-wrap">
-  <PageHero id="guardrails" title="GUARDRAILS" description="Checks you can copy, customize, and deploy." diagramLabels={["REQUEST", "CHECK", "RESPONSE"]} diagramCaption="VALIDATE / FILTER / PROTECT">
+  <PageHero id="guardrails" title="GUARDRAILS" description="Checks you can copy, customize, and deploy.">
     <div class="cta-buttons">
       <a href="https://docs.litellm.ai/docs/proxy/guardrails/custom_code_guardrail" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>

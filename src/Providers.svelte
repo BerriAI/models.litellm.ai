@@ -153,7 +153,7 @@
 
 <main>
   <div class="hf-hero-wrap">
-    <PageHero id="providers" title="PROVIDERS" description="Find the right provider for every endpoint." diagramLabels={["PROVIDERS", "MODELS", "ENDPOINTS"]} diagramCaption="CONNECT / ROUTE / SCALE">
+    <PageHero id="providers" title="PROVIDERS" description="Find the right provider for every endpoint.">
       <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="docs-link">Provider docs ↗</a>
     </PageHero>
   </div>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import PageHero from "./PageHero.svelte";
   import {
     fieldLabel,
     fieldValue,
@@ -95,26 +96,14 @@
 </script>
 
 <main class="changelog">
-  <header class="intro">
-    <div>
-      <h1>Changelog</h1>
-      <p>Model pricing, new models, and provider updates.</p>
-    </div>
-    <a class="rss" href="/changelog.xml"
-      ><svg
-        width="15"
-        height="15"
-        viewBox="0 0 20 20"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="1.7"
-        aria-hidden="true"
-        ><circle cx="4" cy="16" r="1" fill="currentColor" /><path
-          d="M3 9a8 8 0 0 1 8 8M3 3a14 14 0 0 1 14 14"
-        /></svg
-      >RSS feed</a
-    >
-  </header>
+  <PageHero
+    id="changelog"
+    title="CHANGELOG"
+    description="Model pricing, new models, and provider updates."
+    variant="changelog"
+  >
+    <a class="rss-link" href="/changelog.xml">RSS feed</a>
+  </PageHero>
   <div class="tools">
     <input
       type="search"
@@ -132,9 +121,8 @@
         >{/each}</select
     >
   </div>
-  <nav aria-label="Filter updates by type">
+  <nav class="segmented-tabs wrap" aria-label="Filter updates by type">
     {#each filters as filter}<button
-        class:active={category === filter.id}
         aria-pressed={category === filter.id}
         on:click={() => {
           category = filter.id;
@@ -238,28 +226,10 @@
 
 <style>
   .changelog {
-    max-width: 1100px;
+    max-width: var(--page-width);
     margin: 0 auto;
-    padding: 36px 30px 64px;
+    padding: 0 var(--page-gutter) 64px;
     color: var(--hf-ink);
-  }
-  .intro {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 25px;
-  }
-  h1 {
-    font-size: 30px;
-    letter-spacing: -1px;
-    font-weight: 650;
-    margin: 0 0 6px;
-  }
-  .intro p {
-    font-size: 14px;
-    color: var(--hf-muted);
-    margin: 0;
   }
   a {
     color: inherit;
@@ -269,35 +239,30 @@
     color: var(--hf-accent);
     text-decoration: underline;
   }
-  button,
   input,
   select {
     font: inherit;
     color: inherit;
   }
   button {
+    font-family: inherit;
     cursor: pointer;
   }
-  .rss {
+  .rss-link {
     font-size: 13px;
-    border: 1px solid var(--hf-line);
-    border-radius: 6px;
-    padding: 7px 12px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
+    color: var(--hf-accent);
   }
   .tools {
     display: flex;
     gap: 10px;
-    margin-bottom: 14px;
+    margin: 24px 0 14px;
   }
   input,
   select {
     border: 1px solid var(--hf-line);
-    border-radius: 6px;
-    padding: 8px 11px;
+    border-radius: var(--control-radius);
+    min-height: 44px;
+    padding: 10px 14px;
     background: var(--hf-bg);
     font-size: 13px;
     min-width: 0;
@@ -307,26 +272,6 @@
   }
   select {
     max-width: 210px;
-  }
-  nav {
-    display: flex;
-    gap: 20px;
-    border-bottom: 1px solid var(--hf-line);
-    overflow-x: auto;
-  }
-  nav button {
-    border: 0;
-    border-bottom: 2px solid transparent;
-    background: none;
-    padding: 8px 0 11px;
-    white-space: nowrap;
-    color: var(--hf-muted);
-    font-size: 13px;
-  }
-  nav button.active {
-    border-bottom-color: var(--hf-accent);
-    color: var(--hf-ink);
-    font-weight: 600;
   }
   .count {
     display: flex;
@@ -471,21 +416,7 @@
   }
   @media (max-width: 650px) {
     .changelog {
-      padding: 24px 18px 40px;
-    }
-    .intro {
-      align-items: start;
-    }
-    h1 {
-      font-size: 26px;
-    }
-    .intro p {
-      font-size: 12px;
-      max-width: 220px;
-    }
-    .rss {
-      padding: 6px 9px;
-      font-size: 12px;
+      padding: 0 var(--page-gutter) 40px;
     }
     .tools {
       gap: 8px;
@@ -496,9 +427,6 @@
     }
     select {
       max-width: 145px;
-    }
-    nav {
-      gap: 18px;
     }
     .day {
       display: block;

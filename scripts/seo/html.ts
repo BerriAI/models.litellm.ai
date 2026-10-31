@@ -29,7 +29,7 @@ code{background:var(--bg3);padding:1px 6px;border-radius:5px;overflow-wrap:anywh
 main{max-width:var(--page-width);margin:0 auto;padding:32px var(--page-gutter) 72px;display:grid;gap:40px}
 .crumbs{font-size:13px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap}
 .crumbs a{color:var(--muted)}.crumbs a:hover{color:var(--fg)}
-h1{font-size:clamp(28px,4.5vw,40px);line-height:1.15;letter-spacing:-.025em;font-weight:650;text-wrap:balance}
+h1{font-family:"Barlow Condensed",Impact,sans-serif;font-size:clamp(36px,4.5vw,56px);line-height:1;letter-spacing:-.025em;font-weight:600;text-wrap:balance}
 h2{font-size:20px;line-height:1.3;letter-spacing:-.015em;font-weight:600}
 h3{font-size:15px;font-weight:600}
 .head{display:grid;gap:12px}
@@ -623,7 +623,7 @@ export function modelUpdatesMeta(active: "new" | "deprecated", updated: string):
 }
 
 export function modelUpdatesNav(active: "new" | "deprecated"): string {
-  return `<nav class="catalog-views" aria-label="Model views"><a href="/">All models</a><a href="/new-models"${active === "new" ? ' aria-current="page"' : ""}>What's new</a><a href="/deprecated-models"${active === "deprecated" ? ' aria-current="page"' : ""}>Deprecated</a></nav>`;
+  return `<nav class="catalog-views segmented-tabs" aria-label="Model views"><a href="/">All models</a><a href="/new-models"${active === "new" ? ' aria-current="page"' : ""}>What's new</a><a href="/deprecated-models"${active === "deprecated" ? ' aria-current="page"' : ""}>Deprecated</a></nav>`;
 }
 
 export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[], updated: string): string {

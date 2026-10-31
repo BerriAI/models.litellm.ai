@@ -10,7 +10,6 @@
     id="benchmarks"
     title="BENCHMARKS"
     description="Compare quality, coding, and cost. Then find a provider for your model."
-    dense
   />
   <DiscoveryUpdates rankingsOnly />
   <details class="pilot" bind:open={pilotOpen}>

@@ -711,7 +711,8 @@ button:disabled {
   text-align: center;
   text-decoration: none;
 }
-.segmented-tabs > :is([aria-selected="true"], [aria-current="page"]) {
+.segmented-tabs
+  > :is([aria-selected="true"], [aria-current="page"], [aria-pressed="true"]) {
   background: var(--hf-dialog);
   border-color: var(--hf-line);
   color: var(--hf-accent);
@@ -729,13 +730,25 @@ button:disabled {
   }
 }
 
-@media (max-width: 640px) { .hf-nav a { min-height: 44px; } }
+@media (max-width: 640px) {
+  .hf-nav a {
+    min-height: 44px;
+  }
+}
 
-/* Shared catalog navigation in the app and generated update archives. */
-.catalog-views { display: flex; flex-wrap: wrap; gap: 24px; margin: 0 0 24px; border-bottom: 1px solid var(--hf-line); }
-.catalog-views a { padding: 12px 0; font-size: 13px; color: var(--hf-muted); text-decoration: none; border-bottom: 2px solid transparent; }
-.catalog-views a[aria-current="page"] { color: var(--hf-accent); border-color: var(--hf-accent); }
-.catalog-views a:hover { color: var(--hf-accent); }
-.catalog-views a:focus-visible { outline: 2px solid var(--hf-accent); outline-offset: 3px; }
-
-main > .catalog-views { margin-bottom: 0; }
+/* Catalog views reuse the same segmented control as benchmark views. */
+.catalog-views {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 24px;
+}
+main > .catalog-views {
+  margin-bottom: 0;
+}
+.segmented-tabs.wrap {
+  display: flex;
+  flex-wrap: wrap;
+}
+.segmented-tabs.wrap > button {
+  flex: 1 0 auto;
+}

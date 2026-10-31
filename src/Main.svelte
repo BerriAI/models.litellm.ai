@@ -115,11 +115,7 @@
   }
 
   function handleKeyboard(event: KeyboardEvent) {
-    if (
-      (event.metaKey || event.ctrlKey) &&
-      event.key.toLowerCase() === "k" &&
-      activeTab !== "models"
-    ) {
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
       event.preventDefault();
       searchInput?.focus();
     }
@@ -133,6 +129,7 @@
 
   function handleQueryChange(event: CustomEvent<{ query: string }>) {
     modelSearchQuery = sanitizeSearchQuery(event.detail.query);
+    searchQuery = modelSearchQuery;
   }
 
   function handleModelRequest(event: Event) {
@@ -195,35 +192,33 @@
         {/each}
       </nav>
 
-      {#if activeTab !== "models"}
-        <form
-          class="hf-header-search"
-          action="/search"
-          role="search"
-          on:submit|preventDefault={() => selectTab("models", searchQuery)}
+      <form
+        class="hf-header-search"
+        action="/search"
+        role="search"
+        on:submit|preventDefault={() => selectTab("models", searchQuery)}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 20 20"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          aria-hidden="true"
+          ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
         >
-          <svg
-            width="15"
-            height="15"
-            viewBox="0 0 20 20"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            aria-hidden="true"
-            ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
-          >
-          <input
-            bind:this={searchInput}
-            bind:value={searchQuery}
-            name="q"
-            type="search"
-            placeholder="Search models"
-            aria-label="Search models"
-            autocomplete="off"
-          />
-          <kbd aria-hidden="true">⌘ K</kbd>
-        </form>
-      {/if}
+        <input
+          bind:this={searchInput}
+          bind:value={searchQuery}
+          name="q"
+          type="search"
+          placeholder="Search models"
+          aria-label="Search models"
+          autocomplete="off"
+        />
+        <kbd aria-hidden="true">⌘ K</kbd>
+      </form>
 
       <div class="hf-header-actions">
         <button

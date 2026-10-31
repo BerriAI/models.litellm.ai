@@ -17,13 +17,41 @@ export default defineConfig(({ mode }) => {
         configureServer(server) {
           server.middlewares.use((request, response, next) => {
             const pathname = request.url?.split("?")[0];
-            if (pathname && /^\/(?:new|deprecated)-models(?:\/\d{4}-\d{2})?(?:\.(?:md|xml))?$/.test(pathname)) {
+            const isArchive =
+              pathname &&
+              /^\/(?:new|deprecated)-models(?:\/\d{4}-\d{2})?(?:\.(?:md|xml))?$/.test(
+                pathname,
+              );
+            const isCatalogPage =
+              pathname &&
+              /^\/(?:models|providers|compare)\/[a-z0-9][a-z0-9._-]*$/.test(
+                pathname,
+              ) &&
+              !pathname.endsWith(".json");
+            if (
+              pathname &&
+              (isArchive ||
+                isCatalogPage ||
+                pathname === "/compare" ||
+                pathname === "/models")
+            ) {
               try {
                 const extension = /\.(md|xml)$/.exec(pathname)?.[1];
-                const file = resolve("dist", `${pathname.slice(1)}${extension ? "" : ".html"}`);
-                const contentType = extension === "xml" ? "application/rss+xml" : extension === "md" ? "text/markdown" : "text/html";
+                const file = resolve(
+                  "dist",
+                  `${pathname.slice(1)}${extension ? "" : ".html"}`,
+                );
+                const contentType =
+                  extension === "xml"
+                    ? "application/rss+xml"
+                    : extension === "md"
+                      ? "text/markdown"
+                      : "text/html";
                 const data = readFileSync(file);
-                response.setHeader("Content-Type", `${contentType}; charset=utf-8`);
+                response.setHeader(
+                  "Content-Type",
+                  `${contentType}; charset=utf-8`,
+                );
                 response.end(data);
               } catch {
                 next();
@@ -32,6 +60,7 @@ export default defineConfig(({ mode }) => {
             }
             if (
               pathname !== "/models/manifest.json" &&
+              pathname !== "/models/slugs.json" &&
               pathname !== "/compare/models.json" &&
               pathname !== "/discovery/benchmarks.json"
             )
@@ -55,7 +84,7 @@ export default defineConfig(({ mode }) => {
       // proxy to litellm-model-catalog-api so the browser avoids CORS.
       proxy: {
         // Static catalog pages are generated during the production build.
-        // Use the live catalog in development so discovery cards and dates work locally.
+        // Prefer local build output above; use the published catalog before the first build.
         "/models/": {
           target: "https://models.litellm.ai",
           changeOrigin: true,
