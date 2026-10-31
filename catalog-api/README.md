@@ -19,7 +19,9 @@ The API guide at `/` contains working curl examples. Exact lookups use `/v1/mode
 
 ## Create the isolated deployment
 
-Import the existing `BerriAI/models.litellm.ai` repository into a **new** project in the existing Vercel team. Choose root directory `catalog-api`, preset **Other**, Node 22, and build command `npm run build`. Exclude files outside the root, enable skipping deployments when that root and its dependencies are unchanged, and select **Only build production** for the ignored build step. The basic build machine is sufficient. Do not change the website project's Git or build settings.
+Import the existing `BerriAI/models.litellm.ai` repository into a **new** project in the existing Vercel team. Choose root directory `catalog-api`, preset **Other**, Node 22, and build command `npm run build`. Exclude files outside the root and select **Only build production** for the ignored build step. The basic build machine is sufficient. Do not change the website project's Git or build settings.
+
+This repository does not define package-manager workspaces, so Vercel's automatic skipping of unaffected workspace projects does not apply. Leave that optimization disabled; ordinary main-branch commits can also rebuild this small API. No website workspace conversion is needed.
 
 Use `main` as the API production branch for ongoing deployment and refresh hooks. The initial deployment can use `codex/static-model-api` while this change awaits review. Switching the production branch to `main` preserves the current deployment until a new production build succeeds; merge this folder before expecting main-branch builds to work.
 
