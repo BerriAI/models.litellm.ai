@@ -199,7 +199,11 @@
   <div class="discovery-grid">
     <section class="new-models panel" aria-labelledby="new-models-title">
       <h2 id="new-models-title" class="sr-only">Model updates</h2>
-      <div class="update-tabs" role="tablist" aria-label="Model updates">
+      <div
+        class="update-tabs segmented-tabs"
+        role="tablist"
+        aria-label="Model updates"
+      >
         {#each updateTabs as tab, index}
           <button
             type="button"
@@ -341,15 +345,17 @@
         {/if}
       </div>
       <footer class="list-footer">
-        <a href={`${updatesPath}.xml`}
-          >RSS feed <span aria-hidden="true">↗</span></a
-        >
+        <a class="rss-link" href={`${updatesPath}.xml`}>RSS feed</a>
         {#if catalog}<span>Updated {addedDate(catalog.updatedAt)}</span>{/if}
       </footer>
     </section>
 
     <div class="rankings panel">
-      <div class="ranking-tabs" role="tablist" aria-label="Model rankings">
+      <div
+        class="ranking-tabs segmented-tabs"
+        role="tablist"
+        aria-label="Model rankings"
+      >
         {#each lists as list, index}
           <button
             id={`ranking-tab-${list.id}`}
@@ -589,11 +595,12 @@
   }
   .discovery-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
     align-items: stretch;
   }
   .panel {
+    --panel-inset: 20px;
     border: 1px solid var(--hf-line);
     background: var(--hf-dialog);
     border-radius: 10px;
@@ -605,7 +612,8 @@
     flex-direction: column;
   }
   .panel-heading {
-    padding: 18px 20px 14px;
+    padding: 14px var(--panel-inset) 10px;
+    min-height: 80px;
   }
   .heading-line {
     display: flex;
@@ -639,15 +647,10 @@
     flex: 1;
     min-width: 0;
   }
-  .update-tabs {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .update-heading {
-    padding: 14px 20px 10px;
-  }
   .update-heading .update-summary {
     display: flex;
-    align-items: baseline;
+    align-items: center;
+    min-height: 26px;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 6px 12px;
@@ -671,7 +674,7 @@
   .model-list,
   .ranking-list {
     list-style: none;
-    padding: 0 20px;
+    padding: 0 var(--panel-inset);
     margin: 0;
   }
   .model-list li,
@@ -759,7 +762,7 @@
   }
   .list-footer {
     margin-top: auto;
-    padding: 15px 22px;
+    padding: 15px var(--panel-inset);
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
@@ -783,41 +786,9 @@
     outline: 2px solid var(--hf-accent);
     outline-offset: -3px;
   }
-  .ranking-tabs {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
-  }
   .ranking-tabs,
   .update-tabs {
-    display: grid;
-    gap: 4px;
-    margin: 12px 12px 0;
-    padding: 4px;
-    border-radius: 7px;
-    background: var(--hf-faint);
-  }
-  .ranking-tabs button,
-  .update-tabs button {
-    min-width: 0;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    padding: 8px 4px;
-    background: transparent;
-    color: var(--discovery-muted);
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.3;
-  }
-  .ranking-tabs button[aria-selected="true"],
-  .update-tabs button[aria-selected="true"] {
-    background: var(--hf-dialog);
-    border-color: var(--hf-line);
-    color: var(--hf-accent);
-    box-shadow: 0 1px 3px #00000008;
-  }
-  .ranking-tabs button:hover:not([aria-selected="true"]),
-  .update-tabs button:hover:not([aria-selected="true"]) {
-    color: var(--hf-ink);
-    background: var(--hf-dialog);
+    margin: 16px var(--panel-inset) 0;
   }
   .visually-hidden {
     position: absolute;
@@ -843,6 +814,7 @@
     margin-top: 7px;
   }
   .ranking-title {
+    min-height: 26px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -855,9 +827,6 @@
     padding: 3px 6px;
     border: 1px solid var(--hf-line);
     border-radius: 4px;
-  }
-  .ranking-panel .panel-heading {
-    padding: 14px 20px 10px;
   }
   .ranking-list {
     padding-bottom: 4px;
@@ -982,7 +951,6 @@
     margin-top: 8px;
   }
   button {
-    font: inherit;
     cursor: pointer;
   }
   .empty-state button {
@@ -1073,17 +1041,8 @@
       padding: 9px 12px;
       font-size: 12px;
     }
-    .panel-heading {
-      padding: 18px 16px 14px;
-    }
-    .model-list,
-    .ranking-list {
-      padding-left: 16px;
-      padding-right: 16px;
-    }
-    .list-footer {
-      padding-left: 16px;
-      padding-right: 16px;
+    .panel {
+      --panel-inset: 16px;
     }
     .model-row {
       gap: 10px;

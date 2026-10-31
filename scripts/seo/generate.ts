@@ -634,9 +634,10 @@ ${cheapestOnProvider(h.name, list)}
         title,
         description: description.length <= 160 ? description : `${list.length} AI models added to LiteLLM in ${name}, with prices and context windows.`,
         path,
-        body: newModelsMonthBody(ym, rows, months),
+        body: newModelsMonthBody(ym, rows, months, BUILD_DATE),
         jsonLd: listGraph(path, title, description, lastmod.length === 10 ? lastmod : `${lastmod}-01`, [{ name: "New models", path: "/new-models" }, { name, path }], list.map((v) => ({ name: v.name, path: modelPath(v.slug) }))),
         markdownPath: `${path}.md`,
+        rssPath: "/new-models.xml",
         image: writeCard(OUT, "pages", `new-models-${ym}`, { kicker: "New models", title: `New AI models in ${name}`, subtitle: "Added to LiteLLM's price file", stats: [{ value: int(list.length), label: list.length === 1 ? "model" : "models" }] }),
       }),
     );

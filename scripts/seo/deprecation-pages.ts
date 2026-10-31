@@ -1,6 +1,6 @@
 import type { Deprecation } from "../../src/deprecations";
 import { escapeHtml as esc, longDate, shortDate } from "./format";
-import { modelUpdatesNav } from "./html";
+import { modelUpdatesMeta, modelUpdatesNav } from "./html";
 import { modelPath } from "./site";
 
 export const deprecationPath = (entry: Deprecation) =>
@@ -10,7 +10,7 @@ const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 export function deprecationTable(entries: Deprecation[]): string {
   if (!entries.length)
     return '<p class="note">No deprecations recorded for this period.</p>';
-  return `<div class="tbl"><table><thead><tr><th>Effective date</th><th>Model</th><th>Provider</th><th>Affected listings</th></tr></thead><tbody>${entries
+  return `<div class="tbl"><table><thead><tr><th>Effective date</th><th>Model</th><th>API provider</th><th>Affected listings</th></tr></thead><tbody>${entries
     .map((entry) => {
       const routes = [...new Set(entry.listings.map((row) => row.modelId))];
       const listing = (route: string) => `<code>${esc(route)}</code>`;
@@ -40,7 +40,7 @@ export function deprecationBody(
     .join("");
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span>${month ? `<a href="/deprecated-models">Deprecated models</a><span>›</span><span>${esc(monthName(month))}</span>` : "<span>Deprecated models</span>"}</nav>
 <h1>${esc(heading)}</h1><p class="answer">Model deprecations by provider, with effective dates and the exact listings affected. Other versions or providers may still be available.</p>
-<div class="meta"><span>Updated <time datetime="${today}">${longDate(today)}</time></span><a href="/deprecated-models.xml">RSS feed ↗</a></div></div>
+${modelUpdatesMeta("deprecated", today)}</div>
 ${modelUpdatesNav("deprecated")}
 <section><h2>${month ? "Deprecated this month" : "Recently deprecated"}</h2>${deprecationTable(month ? recent : recent.slice(0, 30))}</section>
 ${upcoming.length ? `<section><h2>Scheduled for deprecation</h2><p class="note">These dates are still ahead. Entries join the RSS feed when their effective date arrives.</p>${deprecationTable(month ? upcoming : upcoming.slice(0, 15))}</section>` : ""}

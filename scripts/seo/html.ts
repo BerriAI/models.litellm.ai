@@ -17,7 +17,7 @@ import { DOCS_URL, GITHUB_URL, PRICE_FILE_URL, SITE_NAME, abs, modelPath, provid
 const POSTHOG_KEY = "phc_upsFA5iBuDFKnznEdV9pA5HYW8fwsLMJ8pF2p4xZzzpD";
 
 const CSS = `
-.update-nav{display:flex;gap:4px;padding:4px;background:var(--bg2);border:1px solid var(--rule);border-radius:8px;width:fit-content;max-width:100%}.update-nav a{padding:9px 14px;border-radius:5px;color:var(--muted);font-size:14px;white-space:nowrap}.update-nav a[aria-current]{background:var(--bg);color:var(--fg);box-shadow:0 1px 3px #0001}.update-nav a:hover{text-decoration:none;color:var(--fg)}.affected-routes{max-width:380px;white-space:normal}.affected-routes code{overflow-wrap:anywhere;font-size:12px}.affected-routes summary{cursor:pointer;color:var(--muted)}.affected-routes ul{padding-left:16px}.affected-routes li{margin:8px 0}
+.update-nav{width:fit-content;max-width:100%}.affected-routes{max-width:380px;white-space:normal}.affected-routes code{overflow-wrap:anywhere;font-size:12px}.affected-routes summary{cursor:pointer;color:var(--muted)}.affected-routes ul{padding-left:16px}.affected-routes li{margin:8px 0}
 :root{--bg:var(--hf-bg);--bg2:var(--bg-secondary);--bg3:var(--bg-tertiary);--fg:var(--hf-ink);--fg2:var(--text-secondary);--muted:var(--hf-muted);--rule:var(--hf-line);--rule2:var(--border-color-strong);--accent:var(--hf-accent);--on-accent:var(--hf-button-ink);--ring:var(--focus-ring);--code:var(--code-bg);--warn:var(--hf-warning);--warn-bg:var(--bg-secondary);--ok:var(--success-color);--no:var(--hf-muted);--shadow:none}
 *{box-sizing:border-box;margin:0;padding:0}
 html{font-family:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -612,32 +612,40 @@ export type NewModelRow = { slug: string; name: string; lab: string | null; date
 
 const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 
-export function modelUpdatesNav(active: "new" | "deprecated"): string {
-  return `<nav class="update-nav" aria-label="Model updates"><a href="/new-models"${active === "new" ? ' aria-current="page"' : ""}>What's new</a><a href="/deprecated-models"${active === "deprecated" ? ' aria-current="page"' : ""}>Recently deprecated</a></nav>`;
+export function modelUpdatesMeta(active: "new" | "deprecated", updated: string): string {
+  const feed = active === "new" ? "/new-models.xml" : "/deprecated-models.xml";
+  return `<div class="meta"><span>Updated <time datetime="${esc(updated)}">${longDate(updated)}</time></span><a class="rss-link" href="${feed}">RSS feed</a></div>`;
 }
 
-export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[]): string {
+export function modelUpdatesNav(active: "new" | "deprecated"): string {
+  return `<nav class="update-nav segmented-tabs" aria-label="Model updates"><a href="/new-models"${active === "new" ? ' aria-current="page"' : ""}>What's new</a><a href="/deprecated-models"${active === "deprecated" ? ' aria-current="page"' : ""}>Recently deprecated</a></nav>`;
+}
+
+export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[], updated: string): string {
   const i = months.findIndex((m) => m.ym === ym);
   const newer = months[i - 1];
   const older = months[i + 1];
-  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/new-models">New models</a><a href="/deprecated-models">Recently deprecated</a><span>›</span><span>${esc(monthName(ym))}</span></nav>
+  return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/new-models">New models</a><span>›</span><span>${esc(monthName(ym))}</span></nav>
 <h1>New AI models in ${esc(monthName(ym))}</h1>
-<p class="answer">${rows.length} ${rows.length === 1 ? "model was" : "models were"} added to LiteLLM's price file in ${esc(monthName(ym))}, newest first, with each one's headline price and context window.</p></div>
-<section><div class="tbl" data-track="new-models-table" data-page-kind="new-models" data-page-id="${ym}"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th><th class="n">Providers</th></tr></thead><tbody>${rows
+<p class="answer">${rows.length} ${rows.length === 1 ? "model was" : "models were"} added to LiteLLM's price file in ${esc(monthName(ym))}, newest first, with each one's headline price and context window.</p>
+${modelUpdatesMeta("new", updated)}</div>
+${modelUpdatesNav("new")}
+<section><div class="tbl" data-track="new-models-table" data-page-kind="new-models" data-page-id="${ym}"><table><thead><tr><th>Added</th><th>Model</th><th>Model developer</th><th>Price</th><th class="n">Context</th><th class="n">Providers</th></tr></thead><tbody>${rows
     .map(
       (r) =>
         `<tr><td>${r.date.length === 10 ? `<time datetime="${r.date}">${shortDate(r.date)}</time>` : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a>${r.status === "active" ? "" : ` <span class="pill">${esc(r.status)}</span>`}</td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td></tr>`,
     )
     .join("")}</tbody></table></div></section>
-<nav class="jump" aria-label="Other months">${newer ? `<a href="/new-models/${newer.ym}">← ${esc(monthName(newer.ym))}</a>` : ""}<a href="/new-models">All months</a>${older ? `<a href="/new-models/${older.ym}">${esc(monthName(older.ym))} →</a>` : ""}<a href="/new-models.xml">RSS feed</a></nav>`;
+<nav class="jump" aria-label="Other months">${newer ? `<a href="/new-models/${newer.ym}">← ${esc(monthName(newer.ym))}</a>` : ""}<a href="/new-models">All months</a>${older ? `<a href="/new-models/${older.ym}">${esc(monthName(older.ym))} →</a>` : ""}</nav>`;
 }
 
 export function newModelsHubBody(latest: NewModelRow[], months: { ym: string; count: number }[], updated: string): string {
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>New models</span></nav>
 <h1>New AI models on LiteLLM</h1>
-<p class="answer">As of ${longDate(updated)}, the ${latest.length} models most recently added to LiteLLM's price file, with their prices on the day. Every month has its own page, and there's an <a href="/new-models.xml">RSS feed</a>.</p></div>
+<p class="answer">The ${latest.length} models most recently added to LiteLLM's price file, with their prices on the day. Every month has its own page.</p>
+${modelUpdatesMeta("new", updated)}</div>
 ${modelUpdatesNav("new")}
-<section><h2>Latest additions</h2><div class="tbl"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${latest
+<section><h2>Latest additions</h2><div class="tbl"><table><thead><tr><th>Added</th><th>Model</th><th>Model developer</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${latest
     .map((r) => `<tr><td>${r.date.length === 10 ? shortDate(r.date) : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`)
     .join("")}</tbody></table></div></section>
 <section><h2>By month</h2><ul class="links">${months.map((m) => `<li><a href="/new-models/${m.ym}">${esc(monthName(m.ym))}<span>${m.count} ${m.count === 1 ? "model" : "models"}</span></a></li>`).join("")}</ul></section>`;
