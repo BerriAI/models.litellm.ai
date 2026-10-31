@@ -288,18 +288,22 @@ describe("coding benchmark results", () => {
     expect(chartRows("Quality")).toHaveLength(4);
   });
 
-  it("should embed real charts without the retired evaluation demo and retain the standalone link", async () => {
+  it("should show the mock changelog and retain the standalone benchmark link", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(fixture))),
     );
     component = new Home({ target: document.body });
-    await vi.waitFor(() => expect(chartRows("Quality")).toHaveLength(4));
+    expect(panels()).toHaveLength(0);
+    expect(document.body.textContent).toContain("THE MODEL CHANGELOG");
+    expect(document.body.textContent).toContain("DESIGN PREVIEW");
+    expect(document.body.textContent?.replace(/\s+/g, " ")).toContain(
+      "Dates, prices, and changes below are illustrative.",
+    );
     expect(document.body.textContent).not.toContain("Evaluation workspace");
-    expect(document.body.textContent).not.toContain("illustrative data");
     expect(document.querySelectorAll("dialog")).toHaveLength(0);
     const link = Array.from(document.getElementsByTagName("a")).find((a) =>
-      a.textContent?.includes("Open benchmarks"),
+      a.textContent?.includes("Coding benchmarks"),
     );
     expect(link?.getAttribute("href")).toBe("/benchmarks");
   });
