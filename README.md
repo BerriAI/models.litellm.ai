@@ -13,14 +13,14 @@ npm test
 
 ## Feedback
 
-**Help us improve** opens a feedback modal in the app and on generated catalog pages. It sends the message and page path to `/api/feedback`. Query parameters, account details, and browser credentials are not forwarded.
+**Give feedback** opens a feedback modal in the app and on generated catalog pages. It asks **How can we make it better?**, with optional **What brings you here?** and **Contact info** fields. It sends the message, optional purpose/contact, and page path to `/api/feedback`. Query parameters, account details, and browser credentials are not forwarded.
 
 Before deploying this feature:
 
 1. Create a Zap with [Webhooks by Zapier → Catch Hook](https://help.zapier.com/hc/en-us/articles/8496288690317-Trigger-Zap-workflows-from-webhooks).
 2. In the Vercel project's **Settings → Environment Variables**, add `FEEDBACK_WEBHOOK_URL` with that hook's URL for the intended deployment environment, then redeploy. Keep this server-only variable out of source control; do not give it a `VITE_` prefix.
-3. Configure the Zap's **Slack → Send Channel Message** action for `#feedback-models`, mapping `message`, `contact`, `page`, and `timestamp`. `contact` is optional free text (email, social profile, or another way to reach the visitor) and is empty when omitted. Add a Google Sheets row action if you want a separate archive, then publish the Zap.
-4. Submit a clearly labeled test from the deployed site's **Help us improve** modal. Confirm it arrives in Slack and, if configured, the Sheet. The site's acknowledgement confirms Zapier accepted the request; check Zap history for downstream action failures.
+3. Configure the Zap's **Slack → Send Channel Message** action for `#feedback-models`, mapping `message`, `purpose`, `contact`, `page`, and `timestamp`. `purpose` is the visitor’s optional goal for using the site. `contact` is optional free text (email, social profile, or another way to reach the visitor) and is empty when omitted. Add a Google Sheets row action if you want a separate archive, then publish the Zap.
+4. Submit a clearly labeled test from the deployed site's **Give feedback** modal. Confirm it arrives in Slack and, if configured, the Sheet. The site's acknowledgement confirms Zapier accepted the request; check Zap history for downstream action failures.
 
 Without the environment variable, `/api/feedback` returns 503 and the modal keeps the visitor's draft. `npm run dev` serves the interface only; verify delivery on a Vercel preview with the variable configured.
 

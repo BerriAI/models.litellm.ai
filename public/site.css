@@ -287,12 +287,6 @@ button:disabled {
   line-height: 1.2;
   letter-spacing: -0.8px;
 }
-.feedback-dialog #feedback-intro {
-  margin: 0 0 28px;
-  color: var(--hf-muted);
-  font-size: 15px;
-  line-height: 1.65;
-}
 .feedback-close {
   position: absolute;
   top: 16px;

@@ -248,7 +248,7 @@
           type="button"
           data-feedback-open
           aria-haspopup="dialog"
-        >Help us improve</button>
+        >Give feedback</button>
         <a
           class="hf-docs"
           href="https://docs.litellm.ai"

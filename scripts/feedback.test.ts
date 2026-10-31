@@ -34,6 +34,8 @@ describe("feedback delivery", () => {
       { message: "  ", page: "/" },
       { message: "x".repeat(5001), page: "/" },
       { message: "hello", page: "/?private=value" },
+      { message: "hello", page: "/", purpose: 123 },
+      { message: "hello", page: "/", purpose: "x".repeat(1001) },
       { message: "hello", page: "/", contact: 123 },
       { message: "hello", page: "/", contact: "x".repeat(501) },
     ]) {
@@ -62,6 +64,7 @@ describe("feedback delivery", () => {
           message: " Add provider filters ",
           page: "/models",
           email: "ignored@example.com",
+          purpose: contact ? " Compare model prices " : undefined,
           contact,
         }),
       );
@@ -69,6 +72,7 @@ describe("feedback delivery", () => {
       expect(JSON.parse(send.mock.calls[0][1].body)).toEqual({
         type: "models_feedback",
         message: "Add provider filters",
+        purpose: contact ? "Compare model prices" : "",
         contact: contact?.trim() ?? "",
         page: "/models",
         timestamp: expect.any(String),
@@ -103,7 +107,7 @@ describe("feedback modal", () => {
       url: "https://example.com/models/test?private=excluded",
     });
     const doc = window.document;
-    doc.body.innerHTML = "<button data-feedback-open>Help us improve</button>";
+    doc.body.innerHTML = "<button data-feedback-open>Give feedback</button>";
     installFeedback(doc, send);
     const opener = doc.querySelector("button")!;
     opener.click();
@@ -114,6 +118,7 @@ describe("feedback modal", () => {
       dialog: doc.querySelector("dialog")!,
       form: doc.querySelector("form")!,
       message: doc.querySelector("textarea")!,
+      purpose: doc.querySelector<HTMLInputElement>('[name="purpose"]')!,
       contact: doc.querySelector<HTMLInputElement>('[name="contact"]')!,
     };
   }
@@ -121,8 +126,9 @@ describe("feedback modal", () => {
     const send = vi
       .fn()
       .mockResolvedValue(new Response("unavailable", { status: 503 }));
-    const { window, doc, form, message, contact } = setup(send);
+    const { window, doc, form, message, contact, purpose } = setup(send);
     message.value = "Please add provider filters";
+    purpose.value = " Compare providers ";
     contact.value = " X: @example ";
     form.dispatchEvent(new window.Event("submit", { cancelable: true }));
     await vi.waitFor(() =>
@@ -132,10 +138,13 @@ describe("feedback modal", () => {
     );
     expect(message.value).toBe("Please add provider filters");
     expect(contact.value).toBe(" X: @example ");
+    expect(purpose.value).toBe(" Compare providers ");
+    expect(purpose.readOnly).toBe(false);
     expect(contact.readOnly).toBe(false);
     expect(form.hidden).toBe(false);
     expect(JSON.parse(send.mock.calls[0][1].body)).toEqual({
       message: message.value,
+      purpose: "Compare providers",
       contact: "X: @example",
       page: "/models/test",
     });
@@ -148,13 +157,16 @@ describe("feedback modal", () => {
         resolve = r;
       }),
     );
-    const { window, doc, form, message, contact } = setup(send);
+    const { window, doc, form, message, contact, purpose } = setup(send);
     message.value = "Add providers";
     contact.value = "person@example.com";
+    purpose.value = "Find an image model";
     form.dispatchEvent(new window.Event("submit", { cancelable: true }));
     form.dispatchEvent(new window.Event("submit", { cancelable: true }));
     expect(send).toHaveBeenCalledTimes(1);
     expect(contact.required).toBe(false);
+    expect(purpose.required).toBe(false);
+    expect(purpose.readOnly).toBe(true);
     expect(contact.readOnly).toBe(true);
     expect(
       doc.querySelector<HTMLButtonElement>('[type="submit"]')?.disabled,
@@ -163,6 +175,7 @@ describe("feedback modal", () => {
     await vi.waitFor(() => expect(form.hidden).toBe(true));
     expect(message.value).toBe("");
     expect(contact.value).toBe("");
+    expect(purpose.value).toBe("");
     expect(doc.querySelector<HTMLElement>(".feedback-success")?.hidden).toBe(
       false,
     );
