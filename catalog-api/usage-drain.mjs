@@ -61,10 +61,6 @@ export function createHandler({ env = process.env, send = fetch } = {}) {
       console.info(JSON.stringify({
         type: 'catalog_usage_delivery', received: logs.length, accepted: events.length,
         cache_hits: events.filter(event => event.properties.cache_status === 'HIT').length,
-        matching_project: logs.filter(log => log?.projectId === projectId).length,
-        production: logs.filter(log => log?.environment === 'production').length,
-        static: logs.filter(log => log?.source === 'static').length,
-        catalog_paths: logs.filter(log => String(log?.proxy?.path ?? log?.path ?? '').startsWith('/v1/')).length,
       }));
       return reply(200, 'accepted');
     } catch { return reply(502, 'delivery_failed'); }

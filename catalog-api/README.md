@@ -37,6 +37,8 @@ Vercel provides automatic DDoS mitigation. In **this API project's Firewall**, a
 
 Confirm any displayed metered-feature charges before activation. Do not enable an account-wide automatic pause that could stop the website. To stop the experiment, pause only the API project or block its `/v1/` routes.
 
+Higher-limit requests use the website's existing **Give feedback** form and its delivery to **feedback-models**. The API guide asks for the expected request rate, use case, and reply address. No separate form, webhook, or automatic limit approval is added.
+
 ## Track CDN requests in Mixpanel
 
 The catalog response never waits for analytics. Configure a Vercel **Logs** drain for **only this API project**, production environment, source **static**, JSON format, and sampling **100%** (no sampling rules). The receiver keeps only API paths starting with `/v1/`. Destination: `https://api.models.litellm.ai/api/usage-drain`. Do not select function/build logs: the intake must not feed its own requests back into the drain. Do not attach the website project.
@@ -60,7 +62,7 @@ Drains, request delivery, and Mixpanel ingestion are metered services. Analytics
 
 1. Request a known model twice. Verify JSON, source values, snapshot metadata, CORS, and the CDN cache headers. Record cold and warm timing separately; a warm cache result alone does not prove first-request latency.
 2. Follow a multi-page provider result. Verify missing models return JSON 404, writes return 405, and the old bulk map route is unavailable.
-3. From a test client, send a bounded burst slightly above 120 requests within one minute. Confirm 429 and recovery after the window ends. Verify the production rule remains 120/minute/IP. Do not send this test to the website.
+3. From a test client, pace a bounded test slightly above 120 requests within one minute and stop on the first rejected response. Confirm 429 and recovery when possible. Automatic DDoS protection can issue a 403 challenge first; record that separately from custom-rate-limit proof and let its challenge window expire. Do not disable protection to force a 429 result. Verify the production rule remains 120/minute/IP. Never send this test to the website.
 4. Confirm real static requests reach Mixpanel with cache-hit events and no personal fields. Test a malformed drain signature returns 403.
 5. Verify the website's project settings, production deployment, and source/build files are unchanged.
 
