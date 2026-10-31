@@ -1,9 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import App from "./App.svelte";
-  import Discover from "./Discover.svelte";
+  import Benchmarks from "./Benchmarks.svelte";
   import Changelog from "./Changelog.svelte";
-  import CodingBenchmarks from "./CodingBenchmarks.svelte";
   import Providers from "./Providers.svelte";
   import Cookbook from "./Cookbook.svelte";
   import Guardrails from "./Guardrails.svelte";
@@ -14,13 +13,18 @@
 
   type Tab =
     | "benchmarks"
-    | "discover"
     | "changelog"
     | "models"
     | "providers"
     | "cookbook"
     | "guardrails";
   type Theme = "light" | "dark";
+  const navigation: { id: Tab; label: string }[] = [
+    { id: "models", label: "Models" },
+    { id: "providers", label: "Providers" },
+    { id: "benchmarks", label: "Benchmarks" },
+    { id: "changelog", label: "Changelog" },
+  ];
   let activeTab: Tab = getTabFromLocation();
   let searchQuery = sanitizeSearchQuery(
     new URLSearchParams(window.location.search).get("q"),
@@ -34,10 +38,9 @@
   let requestForm: RequestForm;
 
   const tabPaths: Record<Tab, string> = {
-    discover: "/",
     changelog: "/changelog",
     benchmarks: "/benchmarks",
-    models: "/search",
+    models: "/",
     providers: "/providers",
     cookbook: "/cookbook",
     guardrails: "/guardrails",
@@ -52,11 +55,11 @@
     if (path === "/cookbook") return "cookbook";
     if (path === "/guardrails") return "guardrails";
     if (
-      (path === "/" || path === "/discover") &&
-      new URLSearchParams(window.location.search).has("q")
+      path === "/discover" &&
+      !new URLSearchParams(window.location.search).has("q")
     )
-      return "models";
-    return "discover";
+      return "benchmarks";
+    return "models";
   }
 
   function updatePage(tab: Tab) {
@@ -67,8 +70,7 @@
       new URLSearchParams(window.location.search).get("q"),
     );
     modelSearchQuery = searchQuery;
-    document.title =
-      tab === "discover" ? "Discover AI Models | LiteLLM" : PAGE_TITLES[tab];
+    document.title = PAGE_TITLES[tab];
     moreMenuOpen = false;
   }
 
@@ -169,8 +171,8 @@
       <a
         class="hf-brand"
         href="/"
-        on:click={(event) => navigate(event, "discover")}
-        aria-label="LiteLLM Discover home"
+        on:click={(event) => navigate(event, "models")}
+        aria-label="LiteLLM Models home"
       >
         <img
           src={theme === "light"
@@ -184,32 +186,13 @@
       </a>
 
       <nav class="hf-nav" aria-label="Main navigation">
-        <a
-          href="/"
-          aria-current={activeTab === "discover" ? "page" : undefined}
-          on:click={(event) => navigate(event, "discover")}>Discover</a
-        >
-        <a
-          href="/search"
-          aria-current={activeTab === "models" ? "page" : undefined}
-          on:click={(event) => navigate(event, "models")}>Models</a
-        >
-        <a
-          href="/providers"
-          aria-current={activeTab === "providers" ? "page" : undefined}
-          on:click={(event) => navigate(event, "providers")}>Providers</a
-        >
-        <a
-          href="/changelog"
-          aria-current={activeTab === "changelog" ? "page" : undefined}
-          on:click={(event) => navigate(event, "changelog")}>Changelog</a
-        >
-        <a
-          href="/benchmarks"
-          aria-current={activeTab === "benchmarks" ? "page" : undefined}
-          on:click={(event) => navigate(event, "benchmarks")}
-          >Coding benchmarks</a
-        >
+        {#each navigation as item}
+          <a
+            href={tabPaths[item.id]}
+            aria-current={activeTab === item.id ? "page" : undefined}
+            on:click={(event) => navigate(event, item.id)}>{item.label}</a
+          >
+        {/each}
       </nav>
 
       {#if activeTab !== "models"}
@@ -247,8 +230,8 @@
           class="hf-feedback"
           type="button"
           data-feedback-open
-          aria-haspopup="dialog"
-        >Give feedback</button>
+          aria-haspopup="dialog">Give feedback</button
+        >
         <a
           class="hf-docs"
           href="https://docs.litellm.ai"
@@ -338,12 +321,10 @@
 
   {#key pageKey}
     <div class="hf-route" class:hf-catalog-route={activeTab === "models"}>
-      {#if activeTab === "discover"}
-        <Discover />
-      {:else if activeTab === "changelog"}
+      {#if activeTab === "changelog"}
         <Changelog />
       {:else if activeTab === "benchmarks"}
-        <CodingBenchmarks />
+        <Benchmarks />
       {:else if activeTab === "models"}
         <App compact on:querychange={handleQueryChange} />
       {:else if activeTab === "providers"}

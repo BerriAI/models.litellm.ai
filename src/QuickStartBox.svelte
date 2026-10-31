@@ -15,13 +15,18 @@
   let promptCopied = false;
   let pre: HTMLPreElement;
   let clipped = false;
+  let copyError = "";
+  let manualCopy = "";
 
   $: command = product === "sdk" ? QUICKSTART.sdk : QUICKSTART.gateway[os];
 
   onMount(() => {
     // Windows visitors see the PowerShell command first.
-    const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-    if (/win/i.test(nav.userAgentData?.platform || navigator.platform || "")) os = "windows";
+    const nav = navigator as Navigator & {
+      userAgentData?: { platform?: string };
+    };
+    if (/win/i.test(nav.userAgentData?.platform || navigator.platform || ""))
+      os = "windows";
     // Fade the right edge only when the command is wider than the box.
     const ro = new ResizeObserver(measure);
     ro.observe(pre);
@@ -39,69 +44,191 @@
     setTimeout(() => set(false), 1500);
   }
 
-  function copyCommand() {
-    navigator.clipboard
-      ?.writeText(command)
-      .then(() => flash((v) => (copied = v)))
-      .catch(() => {});
-    trackQuickStartCopy(product, "command", product === "sdk" ? undefined : os);
+  async function copy(what: "command" | "prompt") {
+    copyError = "";
+    manualCopy = "";
+    const text = what === "command" ? command : AGENT_PROMPTS[product];
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(text);
+      flash((value) =>
+        what === "command" ? (copied = value) : (promptCopied = value),
+      );
+      trackQuickStartCopy(
+        product,
+        what,
+        what === "command" && product === "gateway" ? os : undefined,
+      );
+    } catch {
+      copyError = "Couldn't copy. Select and copy the text below.";
+      manualCopy = text;
+    }
   }
-
-  function copyPrompt() {
-    navigator.clipboard
-      ?.writeText(AGENT_PROMPTS[product])
-      .then(() => flash((v) => (promptCopied = v)))
-      .catch(() => {});
-    trackQuickStartCopy(product, "prompt");
-  }
+  const copyCommand = () => copy("command");
+  const copyPrompt = () => copy("prompt");
 </script>
 
 <div class="qs">
+  <p class="setup-description">
+    {product === "gateway"
+      ? "Run a local API gateway for any language. Requires Docker."
+      : "Add LiteLLM to a Python project."}
+  </p>
   <div class="box">
     <div class="head">
       <div class="group" role="group" aria-label="What to start">
-        <button type="button" class="tab" class:on={product === "gateway"} aria-pressed={product === "gateway"} on:click={() => (product = "gateway")}>Gateway</button>
-        <button type="button" class="tab" class:on={product === "sdk"} aria-pressed={product === "sdk"} on:click={() => (product = "sdk")}>SDK</button>
+        <button
+          type="button"
+          class="tab"
+          class:on={product === "gateway"}
+          aria-pressed={product === "gateway"}
+          on:click={() => (product = "gateway")}>Gateway</button
+        >
+        <button
+          type="button"
+          class="tab"
+          class:on={product === "sdk"}
+          aria-pressed={product === "sdk"}
+          on:click={() => (product = "sdk")}>SDK</button
+        >
       </div>
       <span class="title">Quick Start</span>
       {#if product === "gateway"}
         <div class="group right" role="group" aria-label="Operating system">
-          <button type="button" class="tab" class:on={os === "mac"} aria-pressed={os === "mac"} on:click={() => (os = "mac")}>
-            <span class="long">macOS &amp; Linux</span><span class="short">macOS/Linux</span>
+          <button
+            type="button"
+            class="tab"
+            class:on={os === "mac"}
+            aria-pressed={os === "mac"}
+            on:click={() => (os = "mac")}
+          >
+            <span class="long">macOS &amp; Linux</span><span class="short"
+              >macOS/Linux</span
+            >
           </button>
-          <button type="button" class="tab" class:on={os === "windows"} aria-pressed={os === "windows"} on:click={() => (os = "windows")}>Windows</button>
+          <button
+            type="button"
+            class="tab"
+            class:on={os === "windows"}
+            aria-pressed={os === "windows"}
+            on:click={() => (os = "windows")}>Windows</button
+          >
         </div>
       {/if}
     </div>
     <div class="run">
-      <pre bind:this={pre} class="cmd" class:clipped><code>{command}</code></pre>
-      <button type="button" class="copy" class:done={copied} aria-label={copied ? "Command copied" : "Copy command"} on:click={copyCommand}>
+      <pre bind:this={pre} class="cmd" class:clipped><code>{command}</code
+        ></pre>
+      <button
+        type="button"
+        class="copy"
+        class:done={copied}
+        aria-label={copied ? "Command copied" : "Copy command"}
+        on:click={copyCommand}
+      >
         {#if copied}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+            stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg
+          >
         {:else}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2" /><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1" /></svg>
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            ><rect x="9" y="9" width="12" height="12" rx="2" /><path
+              d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"
+            /></svg
+          >
         {/if}
         <span class="copy-label">{copied ? "Copied" : "Copy"}</span>
       </button>
     </div>
   </div>
   <div class="below">
+    <span>Or let your coding agent set it up:</span>
     <button type="button" class="prompt" on:click={copyPrompt}>
       {#if promptCopied}
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.2"
+          stroke-linecap="round"
+          stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg
+        >
       {:else}
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="16" rx="2" /><path d="M6 10l3 2.5L6 15M11 15h3" /></svg>
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          ><rect x="2.5" y="4" width="19" height="16" rx="2" /><path
+            d="M6 10l3 2.5L6 15M11 15h3"
+          /></svg
+        >
       {/if}
       {promptCopied ? "Copied" : "Copy agent prompt"}
     </button>
   </div>
+  {#if copyError}<p role="status">{copyError}</p>
+    <textarea
+      aria-label="Text to copy manually"
+      readonly
+      value={manualCopy}
+      rows="6"
+    ></textarea>{/if}
 </div>
 
 <style>
+  button:focus-visible,
+  textarea:focus-visible {
+    outline: 2px solid var(--hf-accent);
+    outline-offset: 3px;
+  }
+  .setup-description {
+    font-size: 13px;
+    color: var(--hf-muted);
+    line-height: 1.5;
+    margin: 0 0 12px;
+  }
+  .below > span {
+    font-size: 12px;
+    color: var(--hf-muted);
+  }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    font:
+      12px/1.5 "IBM Plex Mono",
+      monospace;
+    background: var(--hf-dialog);
+    color: var(--hf-ink);
+    border: 1px solid var(--hf-line);
+    padding: 12px;
+  }
+
   .qs {
     width: 100%;
     max-width: 640px;
-    margin: 1.75rem auto 0;
+    margin: 12px 0 0;
     text-align: left;
   }
 
@@ -117,7 +244,8 @@
     position: relative;
     display: flex;
     align-items: stretch;
-    gap: 1.1rem;
+    flex-wrap: wrap;
+    gap: 0 1.1rem;
     padding: 0 0.9rem;
     border-bottom: 1px solid var(--border-color);
     container-type: inline-size;
@@ -169,7 +297,11 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font: 650 0.7rem 'Geist Mono', ui-monospace, Menlo, monospace;
+    font:
+      650 0.7rem "Geist Mono",
+      ui-monospace,
+      Menlo,
+      monospace;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--text-color);
@@ -190,23 +322,23 @@
     margin: 0;
     padding: 0.8rem 0.9rem;
     overflow-x: auto;
-    scrollbar-width: none;
     background: transparent;
   }
 
-  .cmd::-webkit-scrollbar {
-    display: none;
-  }
-
   .cmd code {
-    font-family: 'Geist Mono', ui-monospace, Menlo, monospace;
+    font-family: "Geist Mono", ui-monospace, Menlo, monospace;
     font-size: 12.5px;
     color: var(--code-text);
-    white-space: pre;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .clipped {
-    mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+    mask-image: linear-gradient(
+      to right,
+      #000 calc(100% - 2.5rem),
+      transparent
+    );
   }
 
   .copy {
@@ -238,8 +370,11 @@
 
   .below {
     display: flex;
-    justify-content: flex-end;
-    margin-top: 0.5rem;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
   }
 
   .prompt {
@@ -277,6 +412,8 @@
   }
 
   @media (max-width: 480px) {
+    .right { width: 100%; margin-left: 0; border-top: 1px solid var(--border-color); }
+    .title { display: none; }
     .copy {
       width: 28px;
       padding: 0;

@@ -1,5 +1,6 @@
 <script lang="ts">
   export let id: string;
+  export let dense = false;
   export let title: string;
   export let description: string;
   export let diagramLabels: [string, string, string] = [
@@ -28,7 +29,7 @@
             : "discover");
 </script>
 
-<section class="page-hero" aria-labelledby={`${id}-title`}>
+<section class="page-hero" class:dense aria-labelledby={`${id}-title`}>
   <div class="hero-copy">
     <h1 id={`${id}-title`}>{title}</h1>
     <p>{description}</p>
@@ -210,6 +211,16 @@
     align-items: start;
     padding: 40px 0 32px;
     color: var(--hf-ink);
+  }
+  .page-hero.dense {
+    min-height: 0;
+    padding: 28px 0 24px;
+  }
+  .dense .blueprint {
+    height: 164px;
+  }
+  .dense h1 {
+    font-size: clamp(52px, 6vw, 76px);
   }
   .hero-copy {
     min-width: 0;

@@ -26,7 +26,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("Changelog page", () => {
-  it("opens directly and puts Changelog immediately after Providers", async () => {
+  it("opens directly and puts Changelog immediately after Benchmarks", async () => {
     component = new Main({ target: document.body });
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
@@ -35,11 +35,10 @@ describe("Changelog page", () => {
       document.querySelectorAll('nav[aria-label="Main navigation"] a'),
     );
     expect(nav.map((a) => a.textContent?.trim())).toEqual([
-      "Discover",
       "Models",
       "Providers",
+      "Benchmarks",
       "Changelog",
-      "Coding benchmarks",
     ]);
     expect(nav[3].getAttribute("aria-current")).toBe("page");
     expect(document.title).toBe("Model Changelog | LiteLLM");

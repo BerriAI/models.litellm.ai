@@ -311,13 +311,15 @@ describe("coding benchmark results", () => {
     );
     component = new Main({ target: document.body });
     const link = Array.from(document.getElementsByTagName("a")).find(
-      (a) => a.textContent?.trim() === "Coding benchmarks",
+      (a) => a.textContent?.trim() === "Benchmarks",
     )!;
     link.click();
     await vi.waitFor(() =>
       expect(window.location.pathname).toBe("/benchmarks"),
     );
     expect(document.title).toBe(PAGE_TITLES.benchmarks);
+    document.querySelector<HTMLDetailsElement>(".pilot")!.open = true;
+    document.querySelector(".pilot")!.dispatchEvent(new Event("toggle"));
     await vi.waitFor(() => expect(chartRows("Quality")).toHaveLength(4));
     expect(link.getAttribute("aria-current")).toBe("page");
   });

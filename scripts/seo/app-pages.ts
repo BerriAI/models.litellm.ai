@@ -4,6 +4,7 @@
  * crawlers that don't run JavaScript read the same content the app shows.
  * Every count comes from the data the app reads; nothing here is typed by hand.
  */
+import { rankQuality, rankValue, EPOCH_URL, TERMINAL_BENCH_URL, type DiscoveryBenchmarkCatalog } from "../../src/discoveryBenchmarks";
 import { defaultBenchmarkCohort, parseBenchmarkResults, runMetrics, harnessName } from "../../src/codingBenchmarks";
 import { escapeHtml as esc, int, longDate } from "./format";
 import { hubProvider, type ProviderSupport } from "./providers";
@@ -61,9 +62,11 @@ export function homePage(
   return {
     breadcrumbs: crumbs(),
     lastmod,
-    body: `<h1>Discover AI models</h1>
+    body: `<h1>AI model catalog</h1>
 <p>Explore ${int(models)} AI models across ${int(hubs.length)} providers, with prices and context windows from LiteLLM's open-source price file, as of ${longDate(lastmod)}.</p>
-<p><a href="/search">Search models</a>, <a href="/compare">compare models and published benchmarks</a>, browse <a href="/new-models">new models</a>, view the <a href="/benchmarks">coding agent pilot</a>, or estimate your costs with the <a href="/calculator">pricing calculator</a>.</p>
+<p><a href="/search">Search models</a>, <a href="/compare">compare models and published benchmarks</a>, browse <a href="/new-models">new models</a>, compare <a href="/benchmarks">benchmarks</a>, or estimate your costs with the <a href="/calculator">pricing calculator</a>.</p>
+<form action="/search" method="get"><label for="home-model-search">Model or provider</label> <input id="home-model-search" name="q" type="search" /> <button type="submit">Search</button></form>
+<nav aria-label="Model views"><a href="/" aria-current="page">All models</a> · <a href="/new-models">What's new</a> · <a href="/deprecated-models">Deprecated</a></nav>
 ${modelLists(hubs, recent)}`,
   };
 }
@@ -215,5 +218,23 @@ ${data.message ? `<p>${esc(data.message)}</p>` : ""}
       .join(
         "",
       )}</tbody></table><p>API estimates include failed attempts and retries; compute is excluded. Different cohorts are never combined. Missing or incomparable timing is not ranked.</p>`,
+  };
+}
+
+/** Published comparisons and the separately scoped pilot share the /benchmarks route. */
+export function benchmarksPage(published: DiscoveryBenchmarkCatalog, pilot: unknown): AppPage {
+  const pilotPage = codingBenchmarksPage(pilot);
+  const lists = [
+    { title: "General quality", source: EPOCH_URL, unit: "ECI points", rows: rankQuality(published.models, "overall").slice(0, 10).map(row => ({model: row.model, value: row.score.toFixed(1)})) },
+    { title: "Coding", source: TERMINAL_BENCH_URL, unit: "Tasks solved", rows: rankQuality(published.models, "coding").slice(0, 10).map(row => ({model: row.model, value: `${(row.score * 100).toFixed(1)}%`})) },
+    { title: "Value for money", source: TERMINAL_BENCH_URL, unit: "Solved / $100", rows: rankValue(published.models).slice(0, 10).map(row => ({model: row.model, value: (row.solvedPerDollar * 100).toFixed(2)})) },
+  ];
+  return {
+    breadcrumbs: crumbs({name: "Benchmarks", path: "/benchmarks"}),
+    ...(published.asOf ? {lastmod: published.asOf} : {}),
+    body: `<h1>AI model benchmarks</h1><p>Compare quality, coding, and cost. Then find a provider for your model.</p>
+${lists.map(list => `<section><h2>${list.title}</h2><p><a href="${list.source}">Benchmark source</a> · ${list.unit}</p><ol>${list.rows.map(row => `<li><a href="/search?q=${encodeURIComponent(row.model.name)}">${esc(row.model.name)} providers and pricing</a>: ${row.value} ${list.unit}${row.model.harness ? ` · ${esc(row.model.harness)}` : ""}</li>`).join("")}</ol></section>`).join("")}
+<p>General quality uses the Epoch Capabilities Index, not a percentage. Coding and value use Terminal-Bench ${esc(published.terminalBenchVersion ?? "4.0")} model-and-agent runs. Costs and success counts come from the same run; missing total costs are excluded. <a href="/discovery/benchmarks.json">Download published results</a>.</p>
+<section><h2>LiteLLM coding pilot</h2>${pilotPage.body.replace("<h1>Coding agent benchmarks</h1>", "")}</section>`,
   };
 }

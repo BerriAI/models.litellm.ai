@@ -9,7 +9,7 @@ export type Tab =
 
 /** The <title> each app route is built with; the app sets it again when a tab switch changes the route. */
 export const PAGE_TITLES: Record<Tab, string> = {
-  benchmarks: "Coding Agent Benchmarks | LiteLLM",
+  benchmarks: "AI Model Benchmarks | LiteLLM",
   discover: "Discover AI Models | LiteLLM",
   changelog: "Model Changelog | LiteLLM",
   models: "LiteLLM Model Catalog: AI Model Pricing & Context Windows",

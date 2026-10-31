@@ -648,8 +648,12 @@ button:disabled {
 }
 @media (max-width: 640px) {
   .hf-nav {
-    gap: 24px;
-    overflow-x: auto;
+    gap: 0 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 44px;
+    overflow: visible;
   }
 }
 
@@ -724,3 +728,14 @@ button:disabled {
     font-size: 12px;
   }
 }
+
+@media (max-width: 640px) { .hf-nav a { min-height: 44px; } }
+
+/* Shared catalog navigation in the app and generated update archives. */
+.catalog-views { display: flex; flex-wrap: wrap; gap: 24px; margin: 0 0 24px; border-bottom: 1px solid var(--hf-line); }
+.catalog-views a { padding: 12px 0; font-size: 13px; color: var(--hf-muted); text-decoration: none; border-bottom: 2px solid transparent; }
+.catalog-views a[aria-current="page"] { color: var(--hf-accent); border-color: var(--hf-accent); }
+.catalog-views a:hover { color: var(--hf-accent); }
+.catalog-views a:focus-visible { outline: 2px solid var(--hf-accent); outline-offset: 3px; }
+
+main > .catalog-views { margin-bottom: 0; }

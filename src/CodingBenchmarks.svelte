@@ -11,6 +11,7 @@
   } from "./codingBenchmarks";
 
   export let embedded = false;
+  export let showStandaloneLink = true;
   let data: BenchmarkResults = emptyResults;
   let loading = true;
   let error = "";
@@ -112,12 +113,15 @@
         {/if}API cost only · Preliminary results
       </p>
     </div>
-    {#if embedded}<a class="standalone-link" href="/benchmarks"
-        >Open benchmarks ↗</a
+    {#if embedded && showStandaloneLink}<a
+        class="standalone-link"
+        href="/benchmarks">Open benchmarks ↗</a
       >{/if}
   </header>
 
-  {#if error}<p class="notice" role="status">{error}</p>{/if}
+  {#if error}<p class="notice" role="status">
+      {error} <button on:click={refresh}>Retry results</button>
+    </p>{/if}
   <div class="charts">
     {#each charts as chart}
       <section class="chart-panel" aria-label={chart.title + " comparison"}>
@@ -215,6 +219,9 @@
           aria-label="Close selected result">Close ×</button
         >
       </div>
+      <a href={`/search?q=${encodeURIComponent(picked.modelName)}`}
+        >Find providers &amp; pricing →</a
+      >
       <dl>
         <div>
           <dt>Model</dt>

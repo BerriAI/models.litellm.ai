@@ -8,6 +8,7 @@
   import { buildInfo, formatStars } from "./buildInfo";
   import CatalogStats from "./CatalogStats.svelte";
   import QuickStartBox from "./QuickStartBox.svelte";
+  import CatalogQuickStart from "./CatalogQuickStart.svelte";
   import PageHero from "./PageHero.svelte";
   import { searchIntent } from "./searchIntent";
   import { sanitizeSearchQuery } from "./searchQuery";
@@ -555,7 +556,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
 <main class="container" class:compact>
   {#if compact}
-    <PageHero id="models" title="MODELS" description="Find pricing, context, and capabilities." diagramLabels={["MODELS", "CONTEXT", "PRICING"]} diagramCaption="FIND / COMPARE / BUILD" />
+    <PageHero id="models" title="MODELS" description="Find pricing, context, and capabilities." diagramLabels={["MODELS", "CONTEXT", "PRICING"]} diagramCaption="FIND / COMPARE / BUILD" dense>
+      <CatalogQuickStart />
+    </PageHero>
+    <nav class="catalog-views" aria-label="Model views">
+      <a href="/" aria-current="page">All models</a>
+      <a href="/new-models">What's new</a>
+      <a href="/deprecated-models">Deprecated</a>
+    </nav>
   {:else}
   <!-- Hero Section -->
   <div class="hero">

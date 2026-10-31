@@ -37,7 +37,7 @@ import { benchmarksFor, latestBenchmarkDate, loadBenchmarks, type BenchmarkData 
 import { breadcrumb, compareGraph, listGraph, modelGraph, siteNodes, webPage } from "./jsonld";
 import { loadCookbook } from "./cookbook";
 import { fetchBytes, fetchText } from "./fetch";
-import { codingBenchmarksPage, cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
+import { benchmarksPage, cookbookPage, guardrailsPage, homePage, providersPage, searchPage, type AppPage, type CookbookGuide, type Guardrail } from "./app-pages";
 import { loadPreviousManifest, type Manifest } from "./manifest";
 import { compareMarkdown, modelMarkdown, newModelsMarkdown, rankingMarkdown } from "./markdown";
 import { compareCard, copyCardFonts, modelCard, providerCard, writeCard } from "./og";
@@ -762,12 +762,12 @@ ${cheapestOnProvider(h.name, list)}
     const routes: { path: string; title: string; description: string; card: CardInput; page: AppPage }[] = [
       {
         path: "/",
-        title: PAGE_TITLES.discover,
+        title: PAGE_TITLES.models,
         description: homeDescription,
         card: {
           kicker: "LiteLLM Model Catalog",
-          title: "Discover AI models",
-          subtitle: "Model pricing, providers and published benchmark comparisons",
+          title: "AI model catalog",
+          subtitle: "Find pricing, context windows and providers",
           stats: [
             { value: int(rows.length), label: "models" },
             { value: int(hubList.length), label: "providers" },
@@ -778,7 +778,7 @@ ${cheapestOnProvider(h.name, list)}
       },
       {
         path: "/search",
-        title: PAGE_TITLES.models,
+        title: "Search AI Models | LiteLLM",
         description: `Search pricing, context windows and features for ${int(rows.length)} AI models across ${hubList.length} providers, from LiteLLM's open-source price file.`,
         card: { kicker: "LiteLLM Model Catalog", title: "Search AI models", subtitle: "Pricing, context windows and provider support", stats: [{ value: int(rows.length), label: "models" }, { value: int(hubList.length), label: "providers" }] },
         page: searchPage(rows.length, hubs, recent, latestChange),
@@ -815,9 +815,9 @@ ${cheapestOnProvider(h.name, list)}
     routes.push({
       path: "/benchmarks",
       title: PAGE_TITLES.benchmarks,
-      description: "Completed coding-agent pilot results: quality and successful tasks per estimated API dollar, with explicit scope and methodology.",
-      card: { kicker: "LiteLLM coding benchmarks", title: "Coding agent pilot", subtitle: "Quality and successful tasks per dollar", stats: [] },
-      page: codingBenchmarksPage(JSON.parse(readFileSync(path.resolve("public/benchmarks/results.json"), "utf8"))),
+      description: "Compare published model quality, coding success and cost efficiency. Find providers and pricing, or explore the separate LiteLLM coding pilot.",
+      card: { kicker: "LiteLLM benchmarks", title: "AI model benchmarks", subtitle: "Quality, coding and cost efficiency", stats: [] },
+      page: benchmarksPage(discoveryBenchmarks, JSON.parse(readFileSync(path.resolve("public/benchmarks/results.json"), "utf8"))),
     });
     for (const r of routes) {
       const id = r.path === "/" ? "home" : r.path.slice(1);
@@ -832,8 +832,8 @@ ${cheapestOnProvider(h.name, list)}
       );
       if (r.path !== "/") appEntries.push({ path: r.path, lastmod: r.page.lastmod });
     }
-    // /discover is an alias of the root, with the same canonical and structured data.
-    write("discover.html", readFileSync(indexFile, "utf8"));
+    // Keep the legacy discovery URL aligned with its benchmark destination.
+    write("discover.html", readFileSync(path.join(OUT, "benchmarks.html"), "utf8"));
   } else {
     console.warn("seo: dist/index.html not found; run vite build first to write the app route pages");
   }
