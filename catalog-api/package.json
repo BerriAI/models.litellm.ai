@@ -1,0 +1,7 @@
+{
+  "name": "litellm-public-catalog-api",
+  "private": true,
+  "type": "module",
+  "scripts": { "build": "node build.mjs", "test": "node --test checks/*.check.mjs" },
+  "engines": { "node": "22.x" }
+}

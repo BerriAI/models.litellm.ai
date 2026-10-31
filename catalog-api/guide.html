@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>LiteLLM Model Catalog API</title>
+<style>body{max-width:760px;margin:48px auto;padding:0 20px;font:16px/1.65 system-ui;color:#172033;background:#fafbfe}h1,h2{line-height:1.2}pre{padding:20px;overflow:auto;background:#edf1f7;border-radius:8px}code{font-size:14px}a{color:#165bca}table{border-collapse:collapse;width:100%}td,th{text-align:left;padding:10px;border-bottom:1px solid #dce2eb}.note{color:#4a5568}</style></head>
+<body><main><h1>LiteLLM Model Catalog API</h1><p>Look up model prices, context limits, and capabilities. Public access, no API key.</p>
+<pre>curl --fail-with-body 'https://api.models.litellm.ai/v1/models/gpt-4o'</pre>
+<h2>Choose a lookup</h2><table><tr><th>Lookup</th><th>Request</th></tr>
+<tr><td>Exact LiteLLM model string</td><td><code>GET /v1/models/{model_id}</code></td></tr>
+<tr><td>Models from a provider</td><td><code>GET /v1/providers/{provider}/models</code></td></tr>
+<tr><td>Exact provider-relative model name</td><td><code>GET /v1/names/{name}/models</code></td></tr>
+<tr><td>Available providers</td><td><a href="/v1/providers"><code>GET /v1/providers</code></a></td></tr>
+<tr><td>Snapshot and generation time</td><td><a href="/v1/snapshot"><code>GET /v1/snapshot</code></a></td></tr></table>
+<p>Names and IDs are case-sensitive. Keep slashes in model strings; URL-encode other reserved characters. A name removes only the matching provider prefix, not version suffixes. Query parameters do not filter these static responses.</p>
+<pre>curl --fail-with-body 'https://api.models.litellm.ai/v1/providers/anthropic/models'
+curl --fail-with-body 'https://api.models.litellm.ai/v1/names/gpt-4o/models'</pre>
+<h2>Responses and pagination</h2><p>Responses have <code>data</code> and <code>meta</code>. A model lookup returns one object. Provider/name lookups return up to 50 objects; follow <code>links.next</code> until it is null. Next links identify the same snapshot. If an older snapshot returns 404 after a deployment, restart from the original lookup.</p>
+<p>Each model exposes <code>id</code>, <code>name</code>, <code>provider</code>, <code>mode</code>, <code>context</code>, <code>pricing</code>, and <code>capabilities</code>. The token-price summary uses USD per million tokens. Null means unknown; zero means free. <code>pricing.source_rates</code> preserves the source's cost fields, including non-token, cache, batch, and tiered rates. The summary is not a complete billing formula.</p>
+<h2>Freshness</h2><p>Data comes from LiteLLM's public cost map and is rebuilt on deployment. <code>meta.generated_at</code> is the build time, not the date the provider changed its prices. Compare <code>meta.snapshot</code> to identify changes. There is no bulk price-map download endpoint.</p>
+<h2>Limits and errors</h2><p>The intended production limit is 120 requests per minute per IP, enforced by the API project's firewall. It is a regional fixed-window abuse limit, not an account quota; users behind shared networks share the allowance. If you receive HTTP 429, wait at least a minute before retrying. Unknown resources or expired snapshots return 404. Supported methods are GET, HEAD, and OPTIONS. Browser clients can use CORS.</p>
+<p class="note">Request totals are sent to Mixpanel asynchronously through Vercel's log drain once configured. The forwarding code excludes IP addresses, email, user agents, raw query strings, and raw model paths. Public usage counts do not identify unique people.</p>
+<p><a href="https://models.litellm.ai">Explore the model catalog website</a> · <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">Data source</a></p>
+</main></body></html>
