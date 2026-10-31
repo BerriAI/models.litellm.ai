@@ -16,8 +16,13 @@ export async function POST(request: Request): Promise<Response> {
     return reply(400);
   }
   if (!body || typeof body !== "object") return reply(400);
-  const { message, page, contact } = body as Record<string, unknown>;
+  const { message, page, contact, purpose } = body as Record<string, unknown>;
   if (typeof message !== "string" || !message.trim() || message.length > 5000)
+    return reply(400);
+  if (
+    purpose !== undefined &&
+    (typeof purpose !== "string" || purpose.length > 1000)
+  )
     return reply(400);
   if (
     contact !== undefined &&
@@ -49,6 +54,7 @@ export async function POST(request: Request): Promise<Response> {
       body: JSON.stringify({
         type: "models_feedback",
         message: message.trim(),
+        purpose: typeof purpose === "string" ? purpose.trim() : "",
         contact: typeof contact === "string" ? contact.trim() : "",
         page,
         timestamp: new Date().toISOString(),

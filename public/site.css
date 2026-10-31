@@ -287,12 +287,6 @@ button:disabled {
   line-height: 1.2;
   letter-spacing: -0.8px;
 }
-.feedback-dialog #feedback-intro {
-  margin: 0 0 28px;
-  color: var(--hf-muted);
-  font-size: 15px;
-  line-height: 1.65;
-}
 .feedback-close {
   position: absolute;
   top: 16px;
@@ -654,8 +648,12 @@ button:disabled {
 }
 @media (max-width: 640px) {
   .hf-nav {
-    gap: 24px;
-    overflow-x: auto;
+    gap: 0 12px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 44px;
+    overflow: visible;
   }
 }
 
@@ -713,7 +711,8 @@ button:disabled {
   text-align: center;
   text-decoration: none;
 }
-.segmented-tabs > :is([aria-selected="true"], [aria-current="page"]) {
+.segmented-tabs
+  > :is([aria-selected="true"], [aria-current="page"], [aria-pressed="true"]) {
   background: var(--hf-dialog);
   border-color: var(--hf-line);
   color: var(--hf-accent);
@@ -729,4 +728,27 @@ button:disabled {
     padding: 6px;
     font-size: 12px;
   }
+}
+
+@media (max-width: 640px) {
+  .hf-nav a {
+    min-height: 44px;
+  }
+}
+
+/* Catalog views reuse the same segmented control as benchmark views. */
+.catalog-views {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 0 24px;
+}
+main > .catalog-views {
+  margin-bottom: 0;
+}
+.segmented-tabs.wrap {
+  display: flex;
+  flex-wrap: wrap;
+}
+.segmented-tabs.wrap > button {
+  flex: 1 0 auto;
 }

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
-import { codingBenchmarksPage, homePage, searchPage } from "./app-pages";
+import { benchmarksPage, codingBenchmarksPage, homePage, searchPage } from "./app-pages";
 import { siteNodes } from "./jsonld";
 import { SITE_URL } from "./site";
 
@@ -12,7 +12,7 @@ const recent = [
 describe("Discover and search pages", () => {
   test("should give Discover a crawlable root with links to existing catalog tools", () => {
     const page = homePage(2, hubs, recent, "2026-10-23");
-    expect(page.body).toContain("<h1>Discover AI models</h1>");
+    expect(page.body).toContain("<h1>AI model catalog</h1>");
     expect(page.body).toContain('href="/search"');
     expect(page.body).toContain('href="/compare"');
     expect(page.body).toContain('href="/models/gpt-4o"');
@@ -75,4 +75,14 @@ describe("coding benchmark static page", () => {
     expect(page.body).toContain("timing is not ranked");
     expect(page.breadcrumbs.at(-1)?.path).toBe("/benchmarks");
   });
+});
+
+
+test("published benchmark page keeps source metrics separate from the pilot and links to the catalog", () => {
+  const page = benchmarksPage({source: "public-feeds", asOf: "2026-10-31", fetchedAt: null, epochAsOf: null, terminalBenchAsOf: null, terminalBenchVersion: "4.0", models: [{slug: "test", name: "Example model", modelId: null, lab: null, href: "https://epoch.ai/eci", intelligence: 100, coding: 0.5, costPerTask: 1, harness: "Example agent", setting: null, trials: 10, passed: 5, totalCost: 10}]}, JSON.parse(readFileSync("public/benchmarks/results.json", "utf8")));
+  expect(page.body).toContain("100.0 ECI points");
+  expect(page.body).toContain("50.0% Tasks solved");
+  expect(page.body).toContain('/search?q=Example%20model');
+  expect(page.body).toContain("LiteLLM coding pilot");
+  expect(page.body.match(/<h1>/g)).toHaveLength(1);
 });

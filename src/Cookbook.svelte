@@ -159,7 +159,7 @@
 </script>
 
 <div class="hf-hero-wrap">
-  <PageHero id="cookbook" title="COOKBOOK" description="Practical guides for your next integration." diagramLabels={["TOOLS", "GUIDES", "BUILD"]} diagramCaption="LEARN / CONNECT / SHIP" />
+  <PageHero id="cookbook" title="COOKBOOK" description="Practical guides for your next integration." />
 </div>
 <div class="cookbook-container">
   {#if loading}

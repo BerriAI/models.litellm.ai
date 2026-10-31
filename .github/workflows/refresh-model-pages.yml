@@ -64,9 +64,12 @@ jobs:
           # which can hide a change that just landed. Read the file at its latest
           # commit instead, falling back to main if the API call fails.
           commit=$(gh api 'repos/BerriAI/litellm/commits?path=model_prices_and_context_window.json&per_page=1' --jq '.[0].sha' || true)
+          if [[ ! "$commit" =~ ^[0-9a-f]{40}$ ]]; then commit=""; fi
           url="$PRICE_FILE"
           if [[ "$commit" =~ ^[0-9a-f]{40}$ ]]; then url="https://raw.githubusercontent.com/BerriAI/litellm/$commit/model_prices_and_context_window.json"; fi
           echo "Reading the price file at ${commit:-main}."
+          echo "catalog_commit=$commit" >> "$GITHUB_OUTPUT"
+          changelog_commit=$(curl -fsSL "$SITE/changelog.json" | jq -r '.commits[0] // empty' 2>/dev/null || true)
           latest=$(curl -fsSL "$url" | sha256sum | cut -d' ' -f1)
           build_info=$(curl -fsSL "$SITE/build-info.json" || echo '{}')
           live=$(echo "$build_info" | jq -r '.costMapHash // empty')
@@ -80,7 +83,8 @@ jobs:
           if [ "${built_at:0:10}" != "$(date -u +%F)" ]; then dates_due=true; fi
           echo "dates_due=$dates_due" >> "$GITHUB_OUTPUT"
           echo "live=$live" >> "$GITHUB_OUTPUT"
-          if [ "$latest" = "$live" ]; then
+          # A change followed by a revert can have the same hash but new history.
+          if [ "$latest" = "$live" ] && { [ -z "$commit" ] || [ "$commit" = "$changelog_commit" ]; }; then
             echo "Live site matches the price file."
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
@@ -99,7 +103,12 @@ jobs:
           for _ in $(seq 1 40); do
             sleep 30
             built_at=$(curl -fsSL "$SITE/build-info.json" | jq -r '.builtAt // empty' || true)
-            if [ -n "$built_at" ] && [ "$built_at" != "${{ steps.check.outputs.built_at }}" ]; then exit 0; fi
+            if [ -n "$built_at" ] && [ "$built_at" != "${{ steps.check.outputs.built_at }}" ]; then
+              if curl -fsSL "$SITE/changelog.json" | jq -e --arg sha "${{ steps.check.outputs.catalog_commit }}" '(.version == 1) and (($sha == "") or (.commits | index($sha) != null))' > /dev/null; then
+                curl -fsSL "$SITE/changelog.xml" -o "$RUNNER_TEMP/changelog.xml"
+                grep -q '<rss version="2.0"' "$RUNNER_TEMP/changelog.xml" && exit 0
+              fi
+            fi
           done
           echo "The new build did not go live within 20 minutes."
           exit 1

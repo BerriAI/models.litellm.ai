@@ -2,18 +2,20 @@ export function installFeedback(doc, send = fetch) {
   const dialog = doc.createElement("dialog");
   dialog.className = "feedback-dialog";
   dialog.setAttribute("aria-labelledby", "feedback-title");
-  dialog.setAttribute("aria-describedby", "feedback-intro");
   dialog.innerHTML = `
     <button class="feedback-close" type="button" aria-label="Close feedback">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg>
     </button>
-    <h2 id="feedback-title">Help us improve</h2>
-    <p id="feedback-intro">Missing a provider? Want a new feature? What brought you here, and what do you wish this site could do?</p>
+    <h2 id="feedback-title">Give feedback</h2>
     <form class="feedback-form">
-      <label for="feedback-message">Give us feedback</label>
-      <textarea id="feedback-message" name="message" rows="5" maxlength="5000" required placeholder="Tell us what’s on your mind." data-ph-no-capture class="ph-no-capture"></textarea>
+      <label for="feedback-message">How can we make it better?</label>
+      <textarea id="feedback-message" name="message" rows="5" maxlength="5000" required placeholder="Tell us what we could improve." data-ph-no-capture class="ph-no-capture"></textarea>
       <div class="feedback-contact">
-        <label for="feedback-contact">How can we reach you? <span>Optional</span></label>
+        <label for="feedback-purpose">What brings you here? <span>Optional</span></label>
+        <input id="feedback-purpose" name="purpose" type="text" maxlength="1000" placeholder="What are you hoping to get out of this site?" data-ph-no-capture class="ph-no-capture">
+      </div>
+      <div class="feedback-contact">
+        <label for="feedback-contact">Contact info <span>Optional</span></label>
         <p id="feedback-contact-hint">Only if you’re open to chatting.</p>
         <input id="feedback-contact" name="contact" type="text" maxlength="500" aria-describedby="feedback-contact-hint" placeholder="Email, LinkedIn, X, or whatever works" data-ph-no-capture class="ph-no-capture">
       </div>
@@ -27,6 +29,7 @@ export function installFeedback(doc, send = fetch) {
   doc.body.append(dialog);
   const form = dialog.querySelector("form");
   const message = dialog.querySelector("textarea");
+  const purpose = dialog.querySelector('[name="purpose"]');
   const contact = dialog.querySelector('[name="contact"]');
   const submit = dialog.querySelector('[type="submit"]');
   const status = dialog.querySelector(".feedback-status");
@@ -76,6 +79,7 @@ export function installFeedback(doc, send = fetch) {
     pending = true;
     submit.disabled = true;
     message.readOnly = true;
+    purpose.readOnly = true;
     contact.readOnly = true;
     submit.textContent = "Sending…";
     status.textContent = "";
@@ -85,6 +89,7 @@ export function installFeedback(doc, send = fetch) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: text,
+          purpose: purpose.value.trim(),
           contact: contact.value.trim(),
           page: doc.location.pathname,
         }),
@@ -93,6 +98,7 @@ export function installFeedback(doc, send = fetch) {
       const result = await response.json();
       if (!response.ok || result.ok !== true) throw new Error("Not accepted");
       message.value = "";
+      purpose.value = "";
       contact.value = "";
       form.hidden = true;
       success.hidden = false;
@@ -104,6 +110,7 @@ export function installFeedback(doc, send = fetch) {
       pending = false;
       submit.disabled = false;
       message.readOnly = false;
+      purpose.readOnly = false;
       contact.readOnly = false;
       submit.innerHTML = 'Send feedback <span aria-hidden="true">↗</span>';
     }

@@ -598,12 +598,12 @@ describe("Discover updates", () => {
         section("new-models-title").getElementsByTagName("button"),
       ).filter((button) => button.getAttribute("role") !== "tab"),
     ).toHaveLength(2);
-    expect(rankingTab("overall").textContent).toBe("Top quality");
-    expect(rankingTab("value").textContent).toBe("Best Task per Dollar");
+    expect(rankingTab("overall").textContent).toBe("General quality");
+    expect(rankingTab("value").textContent).toBe("Value for money");
     expect(document.body.textContent).not.toContain("Provider updates");
     expect(document.body.textContent).not.toContain("Most viewed");
     expect(section("new-models-title").textContent).not.toContain(
-      "Top quality",
+      "General quality",
     );
   });
 
@@ -882,4 +882,15 @@ describe("Discover updates", () => {
       ),
     ).toBe(true);
   });
+});
+
+
+it("loads only benchmarks in the dedicated view and links comparisons back to model pricing", async () => {
+  component = new DiscoveryUpdates({target: document.body, props: {rankingsOnly: true}});
+  await vi.waitFor(() => expect(document.querySelectorAll('.ranking-list li').length).toBeGreaterThan(0));
+  expect(loadDiscoveryCatalog).not.toHaveBeenCalled();
+  expect(document.querySelector('[aria-label="Model updates"]')).toBeNull();
+  const link = document.querySelector<HTMLAnchorElement>('.find-model')!;
+  expect(link.getAttribute('href')).toBe('/search?q=GPT%20Example');
+  expect(link.getAttribute('aria-label')).toContain('providers and pricing');
 });

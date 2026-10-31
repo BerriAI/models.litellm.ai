@@ -13,14 +13,14 @@ npm test
 
 ## Feedback
 
-**Help us improve** opens a feedback modal in the app and on generated catalog pages. It sends the message and page path to `/api/feedback`. Query parameters, account details, and browser credentials are not forwarded.
+**Give feedback** opens a feedback modal in the app and on generated catalog pages. It asks **How can we make it better?**, with optional **What brings you here?** and **Contact info** fields. It sends the message, optional purpose/contact, and page path to `/api/feedback`. Query parameters, account details, and browser credentials are not forwarded.
 
 Before deploying this feature:
 
 1. Create a Zap with [Webhooks by Zapier → Catch Hook](https://help.zapier.com/hc/en-us/articles/8496288690317-Trigger-Zap-workflows-from-webhooks).
 2. In the Vercel project's **Settings → Environment Variables**, add `FEEDBACK_WEBHOOK_URL` with that hook's URL for the intended deployment environment, then redeploy. Keep this server-only variable out of source control; do not give it a `VITE_` prefix.
-3. Configure the Zap's **Slack → Send Channel Message** action for `#feedback-models`, mapping `message`, `contact`, `page`, and `timestamp`. `contact` is optional free text (email, social profile, or another way to reach the visitor) and is empty when omitted. Add a Google Sheets row action if you want a separate archive, then publish the Zap.
-4. Submit a clearly labeled test from the deployed site's **Help us improve** modal. Confirm it arrives in Slack and, if configured, the Sheet. The site's acknowledgement confirms Zapier accepted the request; check Zap history for downstream action failures.
+3. Configure the Zap's **Slack → Send Channel Message** action for `#feedback-models`, mapping `message`, `purpose`, `contact`, `page`, and `timestamp`. `purpose` is the visitor’s optional goal for using the site. `contact` is optional free text (email, social profile, or another way to reach the visitor) and is empty when omitted. Add a Google Sheets row action if you want a separate archive, then publish the Zap.
+4. Submit a clearly labeled test from the deployed site's **Give feedback** modal. Confirm it arrives in Slack and, if configured, the Sheet. The site's acknowledgement confirms Zapier accepted the request; check Zap history for downstream action failures.
 
 Without the environment variable, `/api/feedback` returns 503 and the modal keeps the visitor's draft. `npm run dev` serves the interface only; verify delivery on a Vercel preview with the variable configured.
 
@@ -108,15 +108,29 @@ The page's headline price is the model's own lab when it sells the model (Anthro
 
 Build-time environment variables: `SITE_URL` (default `https://models.litellm.ai`), `COST_MAP_FILE` and `PROVIDER_SUPPORT_FILE` to build from local files, `PREVIOUS_MANIFEST_URL` (or `none`), `BUILD_DATE`, `SEO_OUT_DIR`, `GITHUB_TOKEN`.
 
-### Discovery rankings from public benchmark feeds
+### Changelog and RSS
 
-The Discover page refreshes its rankings from public data without API keys. Top quality uses the [Epoch Capabilities Index](https://epoch.ai/eci), matched to catalog names and their declared aliases. Top coding uses the official [Terminal-Bench 4.0 submissions](https://github.com/harbor-framework/terminal-bench/tree/main/leaderboard/submissions). Each coding result shows its agent harness and reasoning setting; these are evaluations of the model and agent together.
+The **Changelog** tab after **Benchmarks** (`/changelog`) shows the last 30 days of model pricing, additions, providers, and capabilities. Price rows show the old rate, new rate, and percentage; expand a row for exact listing IDs and fields. Search and provider/type filters combine. Miscellaneous metadata is available under **Other changes**. Dates are Pacific-time catalog commits; additions include new provider listings and aliases.
 
-The homepage pairs six recent models with one compact chart panel. Keyboard-accessible tabs switch between the three top-ten lists without reloading their data. Blue bars share a scale within each list, and adjacent cards and their source footers align. Long model IDs truncate to fit the available space while retaining the full ID in the tooltip and copy action; the panels stack on narrow screens.
+Subscribe to `/changelog.xml` for the same highlights, with stable item IDs and source links. The feed excludes miscellaneous metadata, matching the default **Highlights** view.
+
+Every `npm run build` first runs `npm run changelog`. It fetches public LiteLLM commit history, compares each price-file commit with its first parent, and generates `public/changelog.json` and `public/changelog.xml` before Vite copies them to `dist/`. Previously published immutable diffs are reused; missing history is reconstructed. A required upstream fetch failure fails the build so it cannot publish an incomplete feed. No new credentials are needed.
+
+The existing **Refresh model pages** workflow uses `VERCEL_DEPLOY_HOOK_URL` to rebuild when either the prices or the latest catalog commit changes, and verifies the new JSON and RSS after deployment. This catches changes followed by reverts even if prices return to their previous values. GitHub scheduling and Vercel build time determine the refresh delay.
+
+For a local preview, run `npm run changelog` once, then `npm run dev`. Open `/changelog` and `/changelog.xml`; a successful generation prints the commit and entry counts, and both should show matching recent changes. Rerun `npm run changelog` to refresh locally. If upstream is temporarily unavailable, retry generation; the error does not replace the previously generated files. To read from local history, run `CHANGELOG_REPO=/path/to/litellm npm run changelog`, replacing the path with a refreshed LiteLLM clone. The generator uses its `origin/main` and git blobs.
+
+### Benchmarks and catalog navigation
+
+The Benchmarks page refreshes its comparisons from public data without API keys. General quality uses the [Epoch Capabilities Index](https://epoch.ai/eci), matched to catalog names and their declared aliases. Coding uses the official [Terminal-Bench 4.0 submissions](https://github.com/harbor-framework/terminal-bench/tree/main/leaderboard/submissions). Each coding result shows its agent harness and reasoning setting; these are evaluations of the model and agent together.
+
+Models is the landing page at `/`; `/search` and existing query links still work. The primary navigation is Models, Providers, Benchmarks, Changelog. Model views link to the new-model and deprecated-model archives and their RSS feeds. **Quick start with LiteLLM** opens the existing Gateway/SDK commands and copyable agent prompts beside the catalog; failed clipboard access exposes selectable text.
+
+`/benchmarks` offers General quality, Coding, and Value for money tabs. Each row links back to provider/pricing search. Keyboard-accessible tabs switch between the existing top-ten lists without reloading data. Blue bars share a scale within each list; source dates, units and methodology remain visible or available below. `/discover` opens this page for old links, while `/discover?q=...` still opens model search.
 
 Each chart links directly to its named benchmark and explains the measure. Every row shows its unit: ECI points, percent of attempts solved, or successful attempts per $100 of reported spend. The $100 display scales the per-dollar value by 100 without changing the ranking or relative bar lengths. ECI is a combined benchmark index, not a percentage; Terminal-Bench rates include repeated attempts at the same tasks.
 
-Best Task per Dollar ranks successful Terminal-Bench trials per reported dollar, using success count and reported total cost from the same submission. The source treats missing trial costs as zero and does not publish cost-coverage counts; these are reported-cost comparisons, not guarantees of complete billing coverage. All runs with positive successes and reported costs qualify, with success rates shown alongside efficiency. Missing or zero costs do not receive a value ranking. Each chart shows up to ten models, using one source-defined model id at its strongest or most efficient measured configuration without guessing which differently named models are equivalent.
+Value for money ranks successful Terminal-Bench trials per reported dollar, using success count and reported total cost from the same submission. The source treats missing trial costs as zero and does not publish cost-coverage counts; these are reported-cost comparisons, not guarantees of complete billing coverage. All runs with positive successes and reported costs qualify, with success rates shown alongside efficiency. Missing or zero costs do not receive a value ranking. Each chart shows up to ten models, using one source-defined model id at its strongest or most efficient measured configuration without guessing which differently named models are equivalent.
 
 `scripts/seo/discovery-benchmarks.ts` reads the public GitHub submission directory and files and reuses the existing Epoch ZIP loader. It pins the Terminal-Bench 4.0 dataset hash, preventing results from different task sets from being silently mixed. The existing refresh workflow rebuilds at least daily and when LiteLLM's catalog changes. No winners or scores are hardcoded in the interface.
 
@@ -126,4 +140,4 @@ Epoch data is credited under [CC BY 4.0](https://epoch.ai/data). Terminal-Bench'
 
 ### LiteLLM coding-agent pilot
 
-`/benchmarks` compares completed harness/model stacks from `public/benchmarks/results.json`. Discover embeds the same real pilot charts alongside its existing model catalog and external benchmark feeds. Each chart labels the harness, model, and provider separately, and sorts independently from best to worst for its metric. The results view has no filters or recommendation controls; methodology and per-run evidence are collapsed. Pilot results cover one declared cohort at a time; incomplete runs do not enter charts. The current six-task, one-trial subset is directional. API estimates include failed attempts and retries, compute is excluded, and incomparable timing is withheld. Source configuration, credentials, raw runs and live activity are private; only reviewed sanitized summaries belong in this public manifest.
+The **LiteLLM coding pilot** disclosure on `/benchmarks` compares completed harness/model stacks from `public/benchmarks/results.json`, separately from published benchmarks. Data loads when the disclosure opens. Each chart labels the harness, model, and provider separately, and sorts independently from best to worst for its metric. The results view has no filters or recommendation controls; methodology and per-run evidence are collapsed. Pilot results cover one declared cohort at a time; incomplete runs do not enter charts. The current six-task, one-trial subset is directional. API estimates include failed attempts and retries, compute is excluded, and incomparable timing is withheld. Source configuration, credentials, raw runs and live activity are private; only reviewed sanitized summaries belong in this public manifest.

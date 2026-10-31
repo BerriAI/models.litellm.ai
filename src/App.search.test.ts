@@ -14,6 +14,9 @@ vi.mock("./searchWorker?worker", () => ({
 }));
 vi.mock("./analytics", () => ({
   trackSearch: vi.fn(),
+  initAnalytics: vi.fn(),
+  trackPageView: vi.fn(),
+  trackTabChange: vi.fn(),
   trackQuickStartCopy: vi.fn(),
 }));
 vi.mock("./catalogData", () => ({
@@ -43,9 +46,10 @@ vi.mock("./catalogData", () => ({
 }));
 
 import App from "./App.svelte";
+import Main from "./Main.svelte";
 import { loadCatalogData } from "./catalogData";
 
-let app: App;
+let app: App | Main;
 beforeEach(() => {
   document.body.innerHTML = "";
   window.history.replaceState({}, "", "/search");
@@ -62,6 +66,39 @@ afterEach(() => {
 });
 
 describe("Models page search", () => {
+  it("keeps header search available on Models, focuses it with the shortcut, and submits a new query", async () => {
+    window.history.replaceState({}, "", "/");
+    app = new Main({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("2 models"),
+    );
+    const search = document.querySelector<HTMLInputElement>(
+      ".hf-header-search input",
+    )!;
+    expect(search).not.toBeNull();
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "k",
+        ctrlKey: true,
+        cancelable: true,
+      }),
+    );
+    expect(document.activeElement).toBe(search);
+    search.value = "kimi";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    search.form!.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await vi.waitFor(() => {
+      expect(window.location.search).toBe("?q=kimi");
+      expect(document.querySelectorAll(".model-row")).toHaveLength(1);
+      expect(document.querySelector(".model-row")?.textContent).toContain(
+        "Kimi K2",
+      );
+    });
+    expect(document.querySelector(".hf-header-search input")).not.toBeNull();
+  });
+
   it("should replace the initial skeleton with catalog rows when synchronous results settle", async () => {
     app = new App({ target: document.body, props: { compact: true } });
     await vi.waitFor(() => {
@@ -159,5 +196,65 @@ describe("Models page search", () => {
         `model="${mantleModel}"`,
       );
     });
+  });
+});
+
+describe("Models landing and route compatibility", () => {
+  it.each(["/", "/?q=claude", "/search?q=claude", "/discover?q=claude"])(
+    "loads the catalog at %s",
+    async (path) => {
+      window.history.replaceState({}, "", path);
+      app = new Main({ target: document.body });
+      await vi.waitFor(() =>
+        expect(document.body.textContent).toContain("Claude Sonnet 4"),
+      );
+      expect(
+        document.querySelector(
+          'nav[aria-label="Main navigation"] a[aria-current="page"]',
+        )?.textContent,
+      ).toBe("Models");
+      expect(
+        document.querySelector('nav[aria-label="Model views"]')?.textContent,
+      ).toContain("What's new");
+      expect(document.querySelector("summary")?.textContent).toContain(
+        "Quick start with LiteLLM",
+      );
+      expect(
+        document.querySelector('input[aria-label="Search models"]'),
+      ).not.toBeNull();
+      if (path.includes("q="))
+        expect(
+          document.querySelector<HTMLInputElement>(
+            'input[aria-label="Search models"]',
+          )?.value,
+        ).toBe("claude");
+    },
+  );
+  it("preserves a model query on browser history navigation", async () => {
+    window.history.replaceState({}, "", "/?q=claude");
+    app = new Main({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("Claude Sonnet 4"),
+    );
+    Array.from(document.querySelectorAll('nav[aria-label="Main navigation"] a'))
+      .find((a) => a.textContent === "Benchmarks")
+      ?.dispatchEvent(new MouseEvent("click", { button: 0 }));
+    await vi.waitFor(() =>
+      expect(document.querySelector("h1")?.textContent).toBe("BENCHMARKS"),
+    );
+    window.history.replaceState({}, "", "/?q=claude");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+    await vi.waitFor(() =>
+      expect(
+        document.querySelector<HTMLInputElement>(
+          'input[aria-label="Search models"]',
+        )?.value,
+      ).toBe("claude"),
+    );
+    expect(
+      document.querySelector(
+        'nav[aria-label="Main navigation"] a[aria-current="page"]',
+      )?.textContent,
+    ).toBe("Models");
   });
 });
