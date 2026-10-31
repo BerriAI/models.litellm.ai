@@ -221,7 +221,7 @@ button:disabled {
   gap: 16px;
   margin-left: auto;
 }
-@media (min-width: 641px) {
+@media (min-width: 1001px) {
   .hf-header-search + .hf-header-actions {
     margin-left: 0;
   }
@@ -234,6 +234,186 @@ button:disabled {
 }
 .hf-docs:hover {
   color: var(--hf-ink);
+}
+/* Feedback uses the same controls on the app and generated catalog pages. */
+.hf-feedback {
+  min-height: 34px;
+  flex-shrink: 0;
+  padding: 0 12px;
+  border: 1px solid #09090b;
+  border-radius: var(--control-radius);
+  background: #18181b;
+  color: #fff;
+  font:
+    650 12px/1.2 "DM Sans",
+    sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.hf-feedback:hover {
+  background: #303034;
+}
+[data-theme="dark"] .hf-feedback {
+  border-color: #56565e;
+  background: #08080a;
+}
+.hf-feedback:focus-visible,
+.feedback-dialog :focus-visible {
+  outline: 2px solid var(--hf-accent);
+  outline-offset: 3px;
+}
+.feedback-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 38px;
+  border: 1px solid var(--hf-line);
+  border-radius: 16px;
+  background: var(--hf-dialog);
+  color: var(--hf-ink);
+  box-shadow: 0 24px 80px #0003;
+  font:
+    14px/1.6 "DM Sans",
+    sans-serif;
+}
+.feedback-dialog::backdrop {
+  background: #0b0b1080;
+  backdrop-filter: blur(5px);
+}
+.feedback-dialog h2 {
+  margin: 0 32px 14px 0;
+  font-size: 27px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.8px;
+}
+.feedback-dialog #feedback-intro {
+  margin: 0 0 28px;
+  color: var(--hf-muted);
+  font-size: 15px;
+  line-height: 1.65;
+}
+.feedback-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  padding: 0;
+  color: var(--hf-muted);
+  background: transparent;
+  cursor: pointer;
+}
+.feedback-close:hover {
+  background: var(--bg-secondary);
+  color: var(--hf-ink);
+}
+.feedback-form label {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+  font-size: 13px;
+}
+.feedback-form textarea,
+.feedback-form input {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--border-color-strong);
+  border-radius: 8px;
+  background: var(--hf-bg);
+  color: var(--hf-ink);
+  padding: 14px;
+  font: inherit;
+  line-height: 1.6;
+}
+.feedback-form textarea {
+  min-height: 148px;
+  resize: vertical;
+}
+.feedback-contact {
+  margin-top: 22px;
+}
+.feedback-contact label {
+  margin-bottom: 4px;
+}
+.feedback-contact label span {
+  margin-left: 6px;
+  color: var(--hf-muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+.feedback-contact p {
+  margin: 0 0 10px;
+  color: var(--hf-muted);
+  font-size: 13px;
+}
+.feedback-form textarea::placeholder,
+.feedback-form input::placeholder {
+  color: var(--hf-muted);
+  opacity: 0.75;
+}
+.feedback-status {
+  color: var(--hf-ink);
+  font-size: 13px;
+  margin: 12px 0 0;
+}
+.feedback-status:empty {
+  display: none;
+}
+.feedback-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+.feedback-send {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #09090b;
+  border-radius: 7px;
+  background: #18181b;
+  color: white;
+  font:
+    600 13px/1.2 "DM Sans",
+    sans-serif;
+  cursor: pointer;
+}
+.feedback-send:hover {
+  background: #303034;
+}
+.feedback-send:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+[data-theme="dark"] .feedback-send {
+  border-color: #56565e;
+  background: #08080a;
+}
+.feedback-success p {
+  margin: 0 0 24px;
+}
+.feedback-dialog [hidden] {
+  display: none;
+}
+@media (max-width: 640px) {
+  .hf-feedback {
+    font-size: 11px;
+    padding: 0 9px;
+  }
+  .feedback-dialog {
+    padding: 30px 24px 24px;
+  }
+  .feedback-form textarea,
+  .feedback-form input {
+    font-size: 16px;
+  }
 }
 .hf-theme-toggle,
 .hf-more-toggle {
@@ -366,7 +546,7 @@ button:disabled {
     gap: 6px;
   }
 }
-@media (max-width: 640px) {
+@media (max-width: 1000px) {
   .hf-header-inner {
     padding: 18px var(--page-gutter) 0;
     min-height: auto;

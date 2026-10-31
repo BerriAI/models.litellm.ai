@@ -234,6 +234,12 @@
       {/if}
 
       <div class="hf-header-actions">
+        <button
+          class="hf-feedback"
+          type="button"
+          data-feedback-open
+          aria-haspopup="dialog"
+        >Help us improve</button>
         <a
           class="hf-docs"
           href="https://docs.litellm.ai"
