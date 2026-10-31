@@ -235,6 +235,53 @@ button:disabled {
 .hf-docs:hover {
   color: var(--hf-ink);
 }
+.hf-feedback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 34px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--hf-line);
+  border-radius: 999px;
+  color: var(--hf-accent);
+  background: var(--bg-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.hf-feedback:hover,
+.hf-feedback:focus-visible {
+  border-color: var(--hf-accent);
+  text-decoration: none;
+}
+.hf-feedback-icon {
+  display: inline-block;
+  font-size: 16px;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+.hf-feedback:hover .hf-feedback-icon {
+  transform: rotate(-12deg);
+}
+@media (max-width: 1380px) {
+  .hf-feedback-label {
+    display: none;
+  }
+  .hf-feedback {
+    padding: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hf-feedback-icon {
+    transition: none;
+  }
+  .hf-feedback:hover .hf-feedback-icon {
+    transform: none;
+  }
+}
 .hf-theme-toggle,
 .hf-more-toggle {
   display: grid;

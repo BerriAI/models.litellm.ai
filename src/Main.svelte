@@ -10,6 +10,7 @@
   import { initAnalytics, trackPageView, trackTabChange } from "./analytics";
   import { PAGE_TITLES } from "./pageTitles";
   import { sanitizeSearchQuery } from "./searchQuery";
+  import { FEEDBACK_HINT, FEEDBACK_URL } from "./feedback";
 
   type Tab =
     | "benchmarks"
@@ -234,6 +235,14 @@
       {/if}
 
       <div class="hf-header-actions">
+        <a
+          class="hf-feedback"
+          href={FEEDBACK_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Give human feedback (opens in a new tab)"
+          title={FEEDBACK_HINT}
+        ><span class="hf-feedback-icon" aria-hidden="true">🧑‍🔬</span><span class="hf-feedback-label">Human feedback</span></a>
         <a
           class="hf-docs"
           href="https://docs.litellm.ai"
