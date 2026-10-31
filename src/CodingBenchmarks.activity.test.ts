@@ -154,7 +154,7 @@ describe("coding benchmark results", () => {
     );
     expect(document.getElementsByTagName("select")).toHaveLength(0);
     expect(document.getElementsByTagName("input")).toHaveLength(0);
-    expect(document.body.textContent).toContain("PILOT");
+    expect(document.body.textContent).toContain("Preliminary results");
     expect(document.body.textContent).toContain("6 tasks · 1 trial each");
     expect(document.body.textContent).not.toContain("Most tasks/$");
     expect(document.body.textContent).not.toContain("Preview");
@@ -288,21 +288,16 @@ describe("coding benchmark results", () => {
     expect(chartRows("Quality")).toHaveLength(4);
   });
 
-  it("should embed real charts above the collapsed Discover demo and retain the standalone link", async () => {
+  it("should embed real charts without the retired evaluation demo and retain the standalone link", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(fixture))),
     );
     component = new Home({ target: document.body });
     await vi.waitFor(() => expect(chartRows("Quality")).toHaveLength(4));
-    const demo = Array.from(document.getElementsByTagName("details")).find(
-      (element) => element.textContent?.includes("Evaluation workspace"),
-    )!;
-    expect(demo.open).toBe(false);
-    expect(
-      panel("Quality").compareDocumentPosition(demo) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
+    expect(document.body.textContent).not.toContain("Evaluation workspace");
+    expect(document.body.textContent).not.toContain("illustrative data");
+    expect(document.querySelectorAll("dialog")).toHaveLength(0);
     const link = Array.from(document.getElementsByTagName("a")).find((a) =>
       a.textContent?.includes("Open benchmarks"),
     );
