@@ -12,6 +12,11 @@ export function installFeedback(doc, send = fetch) {
     <form class="feedback-form">
       <label for="feedback-message">Give us feedback</label>
       <textarea id="feedback-message" name="message" rows="5" maxlength="5000" required placeholder="Tell us what’s on your mind." data-ph-no-capture class="ph-no-capture"></textarea>
+      <div class="feedback-contact">
+        <label for="feedback-contact">How can we reach you? <span>Optional</span></label>
+        <p id="feedback-contact-hint">Only if you’re open to chatting.</p>
+        <input id="feedback-contact" name="contact" type="text" maxlength="500" aria-describedby="feedback-contact-hint" placeholder="Email, LinkedIn, X, or whatever works" data-ph-no-capture class="ph-no-capture">
+      </div>
       <p class="feedback-status" role="status" aria-live="polite"></p>
       <div class="feedback-footer"><button class="feedback-send" type="submit">Send feedback <span aria-hidden="true">↗</span></button></div>
     </form>
@@ -22,6 +27,7 @@ export function installFeedback(doc, send = fetch) {
   doc.body.append(dialog);
   const form = dialog.querySelector("form");
   const message = dialog.querySelector("textarea");
+  const contact = dialog.querySelector('[name="contact"]');
   const submit = dialog.querySelector('[type="submit"]');
   const status = dialog.querySelector(".feedback-status");
   const success = dialog.querySelector(".feedback-success");
@@ -70,18 +76,24 @@ export function installFeedback(doc, send = fetch) {
     pending = true;
     submit.disabled = true;
     message.readOnly = true;
+    contact.readOnly = true;
     submit.textContent = "Sending…";
     status.textContent = "";
     try {
       const response = await send("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: text, page: doc.location.pathname }),
+        body: JSON.stringify({
+          message: text,
+          contact: contact.value.trim(),
+          page: doc.location.pathname,
+        }),
         signal: AbortSignal.timeout(15000),
       });
       const result = await response.json();
       if (!response.ok || result.ok !== true) throw new Error("Not accepted");
       message.value = "";
+      contact.value = "";
       form.hidden = true;
       success.hidden = false;
       if (dialog.open) dialog.querySelector(".feedback-done").focus();
@@ -92,6 +104,7 @@ export function installFeedback(doc, send = fetch) {
       pending = false;
       submit.disabled = false;
       message.readOnly = false;
+      contact.readOnly = false;
       submit.innerHTML = 'Send feedback <span aria-hidden="true">↗</span>';
     }
   });

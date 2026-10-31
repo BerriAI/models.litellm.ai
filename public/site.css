@@ -318,11 +318,10 @@ button:disabled {
   font-weight: 600;
   font-size: 13px;
 }
-.feedback-form textarea {
+.feedback-form textarea,
+.feedback-form input {
   display: block;
   width: 100%;
-  min-height: 148px;
-  resize: vertical;
   border: 1px solid var(--border-color-strong);
   border-radius: 8px;
   background: var(--hf-bg);
@@ -331,7 +330,29 @@ button:disabled {
   font: inherit;
   line-height: 1.6;
 }
-.feedback-form textarea::placeholder {
+.feedback-form textarea {
+  min-height: 148px;
+  resize: vertical;
+}
+.feedback-contact {
+  margin-top: 22px;
+}
+.feedback-contact label {
+  margin-bottom: 4px;
+}
+.feedback-contact label span {
+  margin-left: 6px;
+  color: var(--hf-muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+.feedback-contact p {
+  margin: 0 0 10px;
+  color: var(--hf-muted);
+  font-size: 13px;
+}
+.feedback-form textarea::placeholder,
+.feedback-form input::placeholder {
   color: var(--hf-muted);
   opacity: 0.75;
 }
@@ -389,7 +410,8 @@ button:disabled {
   .feedback-dialog {
     padding: 30px 24px 24px;
   }
-  .feedback-form textarea {
+  .feedback-form textarea,
+  .feedback-form input {
     font-size: 16px;
   }
 }

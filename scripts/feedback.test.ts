@@ -34,6 +34,8 @@ describe("feedback delivery", () => {
       { message: "  ", page: "/" },
       { message: "x".repeat(5001), page: "/" },
       { message: "hello", page: "/?private=value" },
+      { message: "hello", page: "/", contact: 123 },
+      { message: "hello", page: "/", contact: "x".repeat(501) },
     ]) {
       expect((await POST(request(body))).status).toBe(400);
     }
@@ -46,29 +48,34 @@ describe("feedback delivery", () => {
     ).toBe(403);
     expect(send).not.toHaveBeenCalled();
   });
-  it("forwards only the feedback, page path, and server metadata", async () => {
-    vi.stubEnv(
-      "FEEDBACK_WEBHOOK_URL",
-      "https://hooks.zapier.com/example-not-a-real-webhook",
-    );
-    const send = vi.fn().mockResolvedValue(new Response("accepted"));
-    vi.stubGlobal("fetch", send);
-    const res = await POST(
-      request({
-        message: " Add provider filters ",
+  it.each([undefined, "", " person@example.com ", "X: @example"])(
+    "forwards feedback with optional contact %s",
+    async (contact) => {
+      vi.stubEnv(
+        "FEEDBACK_WEBHOOK_URL",
+        "https://hooks.zapier.com/example-not-a-real-webhook",
+      );
+      const send = vi.fn().mockResolvedValue(new Response("accepted"));
+      vi.stubGlobal("fetch", send);
+      const res = await POST(
+        request({
+          message: " Add provider filters ",
+          page: "/models",
+          email: "ignored@example.com",
+          contact,
+        }),
+      );
+      expect(await res.json()).toEqual({ ok: true });
+      expect(JSON.parse(send.mock.calls[0][1].body)).toEqual({
+        type: "models_feedback",
+        message: "Add provider filters",
+        contact: contact?.trim() ?? "",
         page: "/models",
-        email: "ignored@example.com",
-      }),
-    );
-    expect(await res.json()).toEqual({ ok: true });
-    expect(JSON.parse(send.mock.calls[0][1].body)).toEqual({
-      type: "models_feedback",
-      message: "Add provider filters",
-      page: "/models",
-      timestamp: expect.any(String),
-    });
-    expect(send.mock.calls[0][1].redirect).toBe("error");
-  });
+        timestamp: expect.any(String),
+      });
+      expect(send.mock.calls[0][1].redirect).toBe("error");
+    },
+  );
   it("does not confirm delivery after an upstream rejection or timeout", async () => {
     vi.stubEnv(
       "FEEDBACK_WEBHOOK_URL",
@@ -107,14 +114,16 @@ describe("feedback modal", () => {
       dialog: doc.querySelector("dialog")!,
       form: doc.querySelector("form")!,
       message: doc.querySelector("textarea")!,
+      contact: doc.querySelector<HTMLInputElement>('[name="contact"]')!,
     };
   }
   it("keeps the draft on failure and sends no query parameters", async () => {
     const send = vi
       .fn()
       .mockResolvedValue(new Response("unavailable", { status: 503 }));
-    const { window, doc, form, message } = setup(send);
+    const { window, doc, form, message, contact } = setup(send);
     message.value = "Please add provider filters";
+    contact.value = " X: @example ";
     form.dispatchEvent(new window.Event("submit", { cancelable: true }));
     await vi.waitFor(() =>
       expect(doc.querySelector('[role="status"]')?.textContent).toContain(
@@ -122,9 +131,12 @@ describe("feedback modal", () => {
       ),
     );
     expect(message.value).toBe("Please add provider filters");
+    expect(contact.value).toBe(" X: @example ");
+    expect(contact.readOnly).toBe(false);
     expect(form.hidden).toBe(false);
     expect(JSON.parse(send.mock.calls[0][1].body)).toEqual({
       message: message.value,
+      contact: "X: @example",
       page: "/models/test",
     });
     await window.happyDOM.close();
@@ -136,30 +148,36 @@ describe("feedback modal", () => {
         resolve = r;
       }),
     );
-    const { window, doc, form, message } = setup(send);
+    const { window, doc, form, message, contact } = setup(send);
     message.value = "Add providers";
+    contact.value = "person@example.com";
     form.dispatchEvent(new window.Event("submit", { cancelable: true }));
     form.dispatchEvent(new window.Event("submit", { cancelable: true }));
     expect(send).toHaveBeenCalledTimes(1);
+    expect(contact.required).toBe(false);
+    expect(contact.readOnly).toBe(true);
     expect(
       doc.querySelector<HTMLButtonElement>('[type="submit"]')?.disabled,
     ).toBe(true);
     resolve(Response.json({ ok: true }));
     await vi.waitFor(() => expect(form.hidden).toBe(true));
     expect(message.value).toBe("");
+    expect(contact.value).toBe("");
     expect(doc.querySelector<HTMLElement>(".feedback-success")?.hidden).toBe(
       false,
     );
     await window.happyDOM.close();
   });
   it("retains text across dismissal and reopening", async () => {
-    const { window, doc, message, opener, dialog } = setup(vi.fn());
+    const { window, doc, message, contact, opener, dialog } = setup(vi.fn());
     message.value = "A draft";
+    contact.value = "X: @example";
     doc.querySelector<HTMLButtonElement>(".feedback-close")!.click();
     expect(dialog.open).toBe(false);
     opener.click();
     expect(dialog.open).toBe(true);
     expect(message.value).toBe("A draft");
+    expect(contact.value).toBe("X: @example");
     await window.happyDOM.close();
   });
 });

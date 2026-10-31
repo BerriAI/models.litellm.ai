@@ -16,8 +16,13 @@ export async function POST(request: Request): Promise<Response> {
     return reply(400);
   }
   if (!body || typeof body !== "object") return reply(400);
-  const { message, page } = body as Record<string, unknown>;
+  const { message, page, contact } = body as Record<string, unknown>;
   if (typeof message !== "string" || !message.trim() || message.length > 5000)
+    return reply(400);
+  if (
+    contact !== undefined &&
+    (typeof contact !== "string" || contact.length > 500)
+  )
     return reply(400);
   if (
     typeof page !== "string" ||
@@ -44,6 +49,7 @@ export async function POST(request: Request): Promise<Response> {
       body: JSON.stringify({
         type: "models_feedback",
         message: message.trim(),
+        contact: typeof contact === "string" ? contact.trim() : "",
         page,
         timestamp: new Date().toISOString(),
       }),
@@ -52,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
     });
     return result.ok ? reply(200, true) : reply(502);
   } catch {
-    // Do not log the webhook URL or visitor's message.
+    // Do not log the webhook URL or visitor's feedback/contact details.
     return reply(502);
   }
 }
