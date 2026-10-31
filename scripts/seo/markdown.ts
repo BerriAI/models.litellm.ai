@@ -129,7 +129,7 @@ export function rankingMarkdown(r: { h1: string; answer: string; method: string;
 
 /** Markdown copy of a month of new models. */
 export function newModelsMarkdown(title: string, path: string, rows: NewModelRow[]): string {
-  const lines = [`# ${title}`, "", `- Page: ${abs(path)}`, "", "| Added | Model | Lab | Price | Context | Providers |", "|---|---|---|---|---|---|"];
-  for (const r of rows) lines.push(`| ${r.date} | [${pipe(r.name)}](${abs(modelPath(r.slug))}) | ${pipe(r.lab ?? "–")} | ${pipe(r.price ?? "–")} | ${r.context ? tokensShort(r.context) : "–"} | ${r.providers} |`);
+  const lines = [`# ${title}`, "", `- Page: ${abs(path)}`, "", "| Added | Model | Model developer | API providers | Price | Context |", "|---|---|---|---|---|---|"];
+  for (const r of rows) lines.push(`| ${r.date} | [${pipe(r.name)}](${abs(modelPath(r.slug))}) | ${pipe(r.lab ?? "–")} | ${pipe(r.providers.map((provider) => provider.name).join(", ") || "–")} | ${pipe(r.price ?? "–")} | ${r.context ? tokensShort(r.context) : "–"} |`);
   return `${lines.join("\n")}\n`;
 }

@@ -616,7 +616,7 @@ ${cheapestOnProvider(h.name, list)}
   const dated = views
     .filter((v) => v.addedDate && (v.headline || v.context))
     .sort((a, b) => b.addedDate!.localeCompare(a.addedDate!) || a.name.localeCompare(b.name));
-  const newRow = (v: ModelView): NewModelRow => ({ slug: v.slug, name: v.name, lab: v.lab, date: v.addedDate!, price: shortPrice(v.headline), context: v.context, providers: v.providers.length, status: v.status });
+  const newRow = (v: ModelView): NewModelRow => ({ slug: v.slug, name: v.name, lab: v.lab, date: v.addedDate!, price: shortPrice(v.headline), context: v.context, providers: v.providers, status: v.status });
   const byMonth = new Map<string, ModelView[]>();
   for (const v of dated) byMonth.set(v.addedDate!.slice(0, 7), [...(byMonth.get(v.addedDate!.slice(0, 7)) ?? []), v]);
   const months = [...byMonth.entries()].map(([ym, list]) => ({ ym, count: list.length }));
@@ -665,7 +665,7 @@ ${cheapestOnProvider(h.name, list)}
       "New AI models on LiteLLM",
       abs("/new-models"),
       "AI models added to LiteLLM's model price file, with their prices.",
-      dated.slice(0, 50).map((v) => ({ title: `${v.name} added to LiteLLM`, link: abs(modelPath(v.slug)), description: [shortPrice(v.headline), v.context ? `${tokensShort(v.context)} context` : null, v.lab ? `by ${v.lab}` : null].filter(Boolean).join(", "), date: v.addedDate! })),
+      dated.slice(0, 50).map((v) => ({ title: `${v.name} added to LiteLLM`, link: abs(modelPath(v.slug)), description: [shortPrice(v.headline), v.context ? `${tokensShort(v.context)} context` : null, v.lab ? `Model developer: ${v.lab}` : null, v.providers.length ? `API providers: ${v.providers.map((provider) => provider.name).join(", ")}` : null].filter(Boolean).join("; "), date: v.addedDate! })),
     ),
   );
 
