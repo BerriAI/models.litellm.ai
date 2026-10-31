@@ -10,7 +10,6 @@
   import { initAnalytics, trackPageView, trackTabChange } from "./analytics";
   import { PAGE_TITLES } from "./pageTitles";
   import { sanitizeSearchQuery } from "./searchQuery";
-  import "./handoff.css";
 
   type Tab =
     | "benchmarks"
@@ -97,10 +96,6 @@
       return;
     event.preventDefault();
     selectTab(tab);
-  }
-
-  function browseModels(event: CustomEvent<{ query?: string } | undefined>) {
-    selectTab("models", event.detail?.query ?? "");
   }
 
   function setTheme(nextTheme: Theme) {
@@ -203,37 +198,40 @@
         <a
           href="/benchmarks"
           aria-current={activeTab === "benchmarks" ? "page" : undefined}
-          on:click={(event) => navigate(event, "benchmarks")}>Coding benchmarks</a
+          on:click={(event) => navigate(event, "benchmarks")}
+          >Coding benchmarks</a
         >
       </nav>
 
-      <form
-        class="hf-header-search"
-        action="/search"
-        role="search"
-        on:submit|preventDefault={() => selectTab("models", searchQuery)}
-      >
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          aria-hidden="true"
-          ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
+      {#if activeTab !== "models"}
+        <form
+          class="hf-header-search"
+          action="/search"
+          role="search"
+          on:submit|preventDefault={() => selectTab("models", searchQuery)}
         >
-        <input
-          bind:this={searchInput}
-          bind:value={searchQuery}
-          name="q"
-          type="search"
-          placeholder="Search models"
-          aria-label="Search models"
-          autocomplete="off"
-        />
-        <kbd aria-hidden="true">⌘ K</kbd>
-      </form>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+            ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
+          >
+          <input
+            bind:this={searchInput}
+            bind:value={searchQuery}
+            name="q"
+            type="search"
+            placeholder="Search models"
+            aria-label="Search models"
+            autocomplete="off"
+          />
+          <kbd aria-hidden="true">⌘ K</kbd>
+        </form>
+      {/if}
 
       <div class="hf-header-actions">
         <a
@@ -303,7 +301,11 @@
                 on:click={(event) => navigate(event, "guardrails")}
                 >Guardrails</a
               >
-              <a href="/models">All models index ↗</a>
+              <a href="/models">All models index</a>
+              <a href="/compare/custom">Compare models</a>
+              <a href="/calculator">Pricing calculator</a>
+              <a href="/new-models">New models</a>
+              <a href="/deprecated-models">Recently deprecated</a>
               <a
                 href="https://github.com/BerriAI/litellm"
                 target="_blank"
@@ -322,7 +324,7 @@
   {#key pageKey}
     <div class="hf-route" class:hf-catalog-route={activeTab === "models"}>
       {#if activeTab === "discover"}
-        <Discover on:browse={browseModels} />
+        <Discover />
       {:else if activeTab === "benchmarks"}
         <CodingBenchmarks />
       {:else if activeTab === "models"}

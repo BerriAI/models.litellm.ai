@@ -153,26 +153,9 @@
 
 <main>
   <div class="hf-hero-wrap">
-    <PageHero id="providers" title="PROVIDERS" eyebrow="ONE API. EVERY PROVIDER." description="Find the right provider for every endpoint." diagramLabels={["PROVIDERS", "MODELS", "ENDPOINTS"]} diagramCaption="CONNECT / ROUTE / SCALE">
+    <PageHero id="providers" title="PROVIDERS" description="Find the right provider for every endpoint." diagramLabels={["PROVIDERS", "MODELS", "ENDPOINTS"]} diagramCaption="CONNECT / ROUTE / SCALE">
       <a href={DOCS_URL} target="_blank" rel="noopener noreferrer" class="docs-link">Provider docs ↗</a>
     </PageHero>
-  </div>
-
-  <div class="search-section">
-    <div class="search-input-wrapper">
-      <svg class="search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
-        <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.5"/>
-        <path d="M12.5 12.5L16.5 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-      </svg>
-      <input
-        bind:value={searchQuery}
-        type="text"
-        autocomplete="off"
-        aria-label="Search providers"
-        placeholder="Search providers..."
-        class="search-input"
-      />
-    </div>
   </div>
 
   {#if loading}
@@ -206,6 +189,24 @@
       </aside>
 
       <section class="content">
+  <div class="search-section">
+    <div class="search-input-wrapper">
+      <svg class="search-icon" width="18" height="18" viewBox="0 0 20 20" fill="none">
+        <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M12.5 12.5L16.5 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <input
+        bind:value={searchQuery}
+        type="text"
+        autocomplete="off"
+        aria-label="Search providers"
+        placeholder="Search providers..."
+        class="search-input"
+      />
+    </div>
+  </div>
+
+
         <div class="content-header">
           <h2 class="endpoint-title">
             {selectedEndpoint ? formatEndpointTitle(selectedEndpoint) : "All providers"}
@@ -283,7 +284,7 @@
   }
   .filter-notice button { background: none; border: 0; color: var(--hf-accent); font-size: 12px; font-weight: 600; padding: 0; }
 
-  .search-section { max-width: 700px; margin: 1.5rem auto; padding: 0 2rem; }
+  .search-section { margin-bottom: 24px; }
 
   .search-input-wrapper { position: relative; width: 100%; }
 
@@ -293,8 +294,8 @@
   }
 
   .search-input {
-    width: 100%; padding: 0.75rem 1rem 0.75rem 2.75rem; font-size: 0.9375rem;
-    border: 1px solid var(--border-color); border-radius: 10px;
+    width: 100%; padding: 0.75rem 1rem 0.75rem 2.75rem; font-size: 14px;
+    border: 1px solid var(--border-color); border-radius: var(--control-radius);
     background-color: var(--bg-color); color: var(--text-color);
     transition: all 0.15s ease; height: 44px; box-sizing: border-box;
   }
@@ -304,7 +305,7 @@
   .search-input::placeholder { color: var(--muted-color); }
 
   .loading {
-    max-width: 1400px; margin: 4rem auto; padding: 0 2rem;
+    max-width: var(--page-width); margin: 4rem auto; padding: 0 2rem;
     text-align: center; color: var(--muted-color);
     display: flex; flex-direction: column; align-items: center; gap: 1rem;
   }
@@ -318,13 +319,13 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   .container {
-    display: flex; max-width: 1400px; margin: 1.5rem auto;
-    padding: 0 2rem; gap: 2rem; align-items: flex-start;
+    display: flex; max-width: var(--page-width); margin: 24px auto;
+    padding: 0 var(--page-gutter) 48px; gap: 34px; align-items: flex-start;
   }
 
   .sidebar {
-    width: 300px; flex-shrink: 0; background: var(--card-bg);
-    border: 1px solid var(--border-color); border-radius: 12px;
+    width: 218px; flex-shrink: 0; background: var(--card-bg);
+    border: 1px solid var(--border-color); border-radius: var(--surface-radius);
     overflow: hidden; position: sticky; top: 5rem;
     max-height: calc(100vh - 6rem); display: flex; flex-direction: column;
   }
@@ -335,7 +336,7 @@
 
   .sidebar-header h2 {
     margin: 0; font-size: 0.6875rem; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted-color);
+    letter-spacing: 0; color: var(--muted-color);
   }
 
   .endpoints-list { overflow-y: auto; flex: 1; }
@@ -357,13 +358,13 @@
   }
 
   .endpoint-label {
-    font-family: 'Geist Mono', monospace; font-size: 0.8125rem;
+    font-family: 'IBM Plex Mono', monospace; font-size: 0.8125rem;
     flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
 
   .provider-count {
     font-size: 0.6875rem; background: var(--bg-tertiary); color: var(--muted-color);
-    padding: 0.125rem 0.5rem; border-radius: 10px; font-weight: 600;
+    padding: 0.125rem 0.5rem; border-radius: var(--surface-radius); font-weight: 600;
     margin-left: 0.5rem; min-width: 28px; text-align: center; flex-shrink: 0;
   }
 
@@ -387,7 +388,7 @@
 
   .endpoint-docs-link:hover { opacity: 1; color: var(--litellm-primary); }
 
-  .endpoint-subtitle { font-size: 0.9375rem; color: var(--muted-color); margin: 0; }
+  .endpoint-subtitle { font-size: 14px; color: var(--muted-color); margin: 0; }
 
   .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted-color); }
 
@@ -397,21 +398,20 @@
 
   .provider-card {
     background: var(--card-bg); border: 1px solid var(--border-color);
-    border-radius: 10px; padding: 1.25rem; text-decoration: none;
+    border-radius: var(--surface-radius); padding: 1.25rem; text-decoration: none;
     color: var(--text-color); transition: all 0.15s ease;
     display: flex; flex-direction: column; gap: 0.75rem;
   }
 
   .provider-card:hover {
     border-color: var(--litellm-primary);
-    box-shadow: 0 4px 12px var(--focus-ring);
-    transform: translateY(-1px);
+    background: var(--bg-secondary);
   }
 
   .provider-card-header { display: flex; align-items: center; gap: 0.75rem; }
 
   .provider-avatar {
-    width: 40px; height: 40px; border-radius: 10px;
+    width: 40px; height: 40px; border-radius: var(--surface-radius);
     background-color: #ffffff; display: flex; align-items: center;
     justify-content: center; flex-shrink: 0; overflow: hidden;
     position: relative; padding: 6px; border: 1px solid var(--border-color);
@@ -443,7 +443,7 @@
 
   .provider-key {
     font-size: 0.75rem; color: var(--muted-color);
-    font-family: 'Geist Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
   }
 
   .provider-meta svg { color: var(--muted-color); opacity: 0.4; }
@@ -456,7 +456,7 @@
   }
 
   @media (max-width: 768px) {
-    .container { padding: 0 1rem; }
+    .container { padding-inline: var(--page-gutter); }
     .providers-grid { grid-template-columns: 1fr; }
     .endpoint-title { font-size: 1.375rem; }
   }

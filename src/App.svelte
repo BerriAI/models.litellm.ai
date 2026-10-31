@@ -555,7 +555,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
 <main class="container" class:compact>
   {#if compact}
-    <PageHero id="models" title="MODELS" eyebrow="THE OPEN MODEL CATALOG" description="Find pricing, context, and capabilities." diagramLabels={["MODELS", "CONTEXT", "PRICING"]} diagramCaption="FIND / COMPARE / BUILD" />
+    <PageHero id="models" title="MODELS" description="Find pricing, context, and capabilities." diagramLabels={["MODELS", "CONTEXT", "PRICING"]} diagramCaption="FIND / COMPARE / BUILD" />
   {:else}
   <!-- Hero Section -->
   <div class="hero">
@@ -1064,15 +1064,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   .compact {
-    max-width: 1600px;
+    max-width: var(--page-width);
     margin: 0 auto;
-    padding: 0 48px 48px;
+    padding: 0 var(--page-gutter) 48px;
   }
 
   .compact .search-section, .compact .table-container { max-width: none; padding: 0; }
   .compact .search-bar-container { margin-bottom: 16px; }
   .compact .search-input, .compact .filter-input, .compact table,
-  .compact .search-shortcut { border-radius: 0; }
+  .compact .search-shortcut { border-radius: var(--control-radius); }
   .compact .filter-group label, .compact th, .compact .results-count {
     font-family: "DM Sans", sans-serif;
     text-transform: none;
@@ -1081,7 +1081,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .compact .filter-group label { font-size: 11px; font-weight: 500; }
   .compact .filters-row { max-width: 640px; }
   .compact .filter-input { padding: 8px 12px; font-size: 12px; }
-  .compact .search-input { padding-top: 12px; padding-bottom: 12px; font-size: 13px; }
+  .compact .search-input { padding-top: 12px; padding-bottom: 12px; font-size: 14px; }
   .compact .table-container { margin-top: 16px; }
   .compact th { padding: 14px 16px; font-weight: 500; font-size: 11px; background: transparent; }
   .compact thead { background: transparent; }
@@ -1108,13 +1108,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .compact .provider-logo-img { filter: none; }
 
   @media (min-width: 1600px) {
-    .compact { padding-inline: 64px; }
+    .compact { padding-inline: var(--page-gutter); }
   }
   @media (max-width: 1180px) {
-    .compact { padding-inline: 28px; }
+    .compact { padding-inline: var(--page-gutter); }
   }
   @media (max-width: 760px) {
-    .compact { padding: 0 20px 28px; }
+    .compact { padding: 0 var(--page-gutter) 28px; }
     .compact .search-input-wrapper { width: 100%; }
     .compact .search-bar-container { align-items: stretch; }
     .compact .filters-row { grid-template-columns: 1fr 1fr; }
@@ -1123,7 +1123,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
 
-  .catalog-layout { display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 34px; align-items: start; padding-top: 30px; }
+  .catalog-layout { display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 34px; align-items: start; padding-top: 24px; }
   .catalog-results { min-width: 0; }
   .catalog-sidebar { padding-right: 26px; border-right: 1px solid var(--border-color); }
   .filter-panel summary { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; list-style: none; padding-bottom: 20px; }
@@ -1219,7 +1219,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     padding: 0.75rem 1.5rem;
     font-size: 0.9375rem;
     font-weight: 600;
-    border-radius: 10px;
+    border-radius: var(--surface-radius);
     text-decoration: none;
     transition: all 0.15s ease;
     border: 1px solid transparent;
@@ -1297,7 +1297,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   /* Search Section */
   .search-section {
-    max-width: 1400px;
+    max-width: var(--page-width);
     margin: 0 auto;
     padding: 0 2rem;
   }
@@ -1328,7 +1328,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     padding: 0.75rem 2.5rem 0.75rem 2.75rem;
     font-size: 0.9375rem;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--surface-radius);
     background-color: var(--bg-color);
     color: var(--text-color);
     transition: all 0.15s ease;
@@ -1408,7 +1408,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     padding: 0.625rem 0.875rem;
     font-size: 0.9375rem;
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--surface-radius);
     background-color: var(--bg-color);
     color: var(--text-color);
     transition: all 0.15s ease;
@@ -1454,14 +1454,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   /* Add Model Section */
   .add-model-section {
-    max-width: 1400px;
+    max-width: var(--page-width);
     margin: 0.75rem auto;
     padding: 0.75rem 1.25rem;
     margin-left: 2rem;
     margin-right: 2rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 10px;
+    border-radius: var(--surface-radius);
     display: flex;
     align-items: center;
     gap: 0.5rem;
@@ -1473,7 +1473,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   /* Table */
   .table-container {
     margin: 1rem auto 4rem;
-    max-width: 1400px;
+    max-width: var(--page-width);
     padding: 0 2rem;
     overflow-x: auto;
   }
@@ -1482,7 +1482,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     width: 100%;
     border-collapse: collapse;
     background: var(--card-bg);
-    border-radius: 12px;
+    border-radius: var(--surface-radius);
     border: 1px solid var(--border-color);
     overflow: hidden;
   }
@@ -1826,7 +1826,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     font-size: 0.8125rem;
     font-weight: 600;
     color: var(--text-color);
-    font-family: 'Geist Mono', monospace;
+    font-family: 'IBM Plex Mono', monospace;
     overflow-wrap: anywhere;
     word-break: break-word;
   }
@@ -1924,7 +1924,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .code-snippet {
     margin: 0;
     padding: 1rem;
-    font-family: 'Geist Mono', 'Menlo', monospace;
+    font-family: 'IBM Plex Mono', 'Menlo', monospace;
     font-size: 0.8125rem;
     line-height: 1.6;
     overflow-x: auto;
@@ -1970,7 +1970,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     padding: 1rem 1.25rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--surface-radius);
     color: var(--text-color);
     font-size: 0.875rem;
   }
@@ -1987,7 +1987,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     gap: 1px;
     background: var(--border-color);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
+    border-radius: var(--surface-radius);
     overflow: hidden;
   }
 

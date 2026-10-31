@@ -51,6 +51,7 @@
         guides = [data];
       }
 
+      guides = guides.map((guide) => ({ ...guide, description: typeof guide.description === "string" && guide.description !== "undefined" ? guide.description : "", tags: Array.isArray(guide.tags) ? guide.tags : [] }));
       guides = guides.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
 
       loading = false;
@@ -61,9 +62,6 @@
     }
   }
 
-  function openGuide(guide: Guide) {
-    window.open(guide.url, '_blank', 'noopener,noreferrer');
-  }
 
   function formatDate(dateString: string): string {
     const date = new Date(dateString);
@@ -135,9 +133,7 @@
         timestamp: new Date().toISOString()
       };
 
-      console.log("Submitting guide to webhook:", guide);
-
-      const response = await fetch(WEBHOOK_URL, {
+      await fetch(WEBHOOK_URL, {
         method: "POST",
         mode: "no-cors",
         headers: {
@@ -146,14 +142,10 @@
         body: JSON.stringify(guide),
       });
 
-      console.log("Webhook response:", response);
-
       submitSuccess = true;
       submitLoading = false;
 
-      setTimeout(() => {
-        closeSubmitModal();
-      }, 2000);
+
     } catch (err) {
       console.error("Error submitting guide:", err);
       submitError = err instanceof Error ? err.message : "Failed to submit guide";
@@ -167,7 +159,7 @@
 </script>
 
 <div class="hf-hero-wrap">
-  <PageHero id="cookbook" title="COOKBOOK" eyebrow="BUILD WITH LITELLM" description="Practical guides for your next integration." diagramLabels={["TOOLS", "GUIDES", "BUILD"]} diagramCaption="LEARN / CONNECT / SHIP" />
+  <PageHero id="cookbook" title="COOKBOOK" description="Practical guides for your next integration." diagramLabels={["TOOLS", "GUIDES", "BUILD"]} diagramCaption="LEARN / CONNECT / SHIP" />
 </div>
 <div class="cookbook-container">
   {#if loading}
@@ -197,10 +189,10 @@
     {:else}
       <div class="guides-grid">
         {#each guides as guide, i}
-          <div class="guide-card" on:click={() => openGuide(guide)} on:keydown={(e) => e.key === 'Enter' && openGuide(guide)} role="button" tabindex="0">
+          <a class="guide-card" href={guide.url} target="_blank" rel="noopener noreferrer">
             <div class="guide-card-content">
               <h2 class="guide-title">{guide.title}</h2>
-              <p class="guide-description">{guide.description}</p>
+              {#if guide.description}<p class="guide-description">{guide.description}</p>{/if}
             </div>
             <div class="guide-footer">
               {#if guide.date}<span class="guide-date" title={formatDate(guide.date)}>{getRelativeDate(guide.date)}</span>{/if}
@@ -213,7 +205,7 @@
                 {/if}
               </div>
             </div>
-          </div>
+          </a>
         {/each}
       </div>
     {/if}
@@ -229,16 +221,16 @@
             <h2>Submit Your Guide</h2>
             <p class="subtitle">Share your LiteLLM integration guide with the community</p>
           </div>
-          <button class="close-button" on:click={closeSubmitModal} type="button">
+          <button class="close-button" aria-label="Close guide form" on:click={closeSubmitModal} type="button">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </div>
 
         {#if submitSuccess}
           <div class="success-message">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-            <h3>Guide Submitted!</h3>
-            <p>Thank you for your contribution. We'll review it shortly.</p>
+            <h3>Submission sent</h3>
+            <p>Your submission was sent, but delivery could not be confirmed.</p>
+            <button class="btn btn-secondary" on:click={closeSubmitModal}>Done</button>
           </div>
         {:else}
           <form on:submit|preventDefault={submitGuide}>
@@ -288,7 +280,7 @@
 
 <style>
   .cookbook-container {
-    max-width: 1400px; margin: 0 auto; padding: 0 44px 40px;
+    max-width: var(--page-width); margin: 0 auto; padding: 0 var(--page-gutter) 40px;
     min-height: calc(100vh - 200px);
   }
 
@@ -326,13 +318,12 @@
   .submit-guide-button {
     display: inline-flex; align-items: center; gap: 0.375rem;
     padding: 0.625rem 1.25rem; background: var(--litellm-primary);
-    color: var(--litellm-on-primary); border: none; border-radius: 0; font-weight: 600;
+    color: var(--litellm-on-primary); border: none; border-radius: var(--control-radius); font-weight: 600;
     font-size: 0.875rem; cursor: pointer; transition: all 0.15s;
   }
 
   .submit-guide-button:hover {
-    background: var(--litellm-dark); transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    background: var(--litellm-dark);
   }
 
   .guides-grid {
@@ -340,14 +331,14 @@
   }
 
   .guide-card {
+    text-decoration: none; color: inherit;
     background: var(--card-bg); border: 1px solid var(--border-color);
-    border-radius: 10px; padding: 1.25rem; cursor: pointer;
+    border-radius: var(--surface-radius); padding: 1.25rem; cursor: pointer;
     transition: all 0.15s ease; display: flex; flex-direction: column;
   }
 
   .guide-card:hover {
-    border-color: var(--litellm-primary); transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+    border-color: var(--litellm-primary); background: var(--bg-secondary);
   }
 
   .guide-card:focus { outline: 2px solid var(--litellm-primary); outline-offset: 2px; }
@@ -391,7 +382,7 @@
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
   .modal-content {
-    background: var(--bg-color); border-radius: 14px; max-width: 600px;
+    background: var(--bg-color); border-radius: var(--surface-radius); max-width: 600px;
     width: 100%; max-height: 90vh; overflow-y: auto;
     box-shadow: 0 20px 40px rgba(0,0,0,0.15); animation: slideUp 0.3s ease;
   }
@@ -448,13 +439,12 @@
   .form-group input::placeholder, .form-group textarea::placeholder { color: var(--muted-color); }
 
   .error-message {
-    padding: 0.75rem 1rem; background: #fef2f2; border: 1px solid #fecaca;
-    border-radius: 8px; color: #dc2626; font-size: 0.875rem; margin-bottom: 1rem;
+    padding: 0.75rem 1rem; background: var(--error-bg); border: 1px solid var(--error-border);
+    border-radius: 8px; color: var(--error-color); font-size: 0.875rem; margin-bottom: 1rem;
   }
 
   .success-message { padding: 3rem 2rem; text-align: center; }
-  .success-message svg { margin: 0 auto 1rem; display: block; }
-  .success-message h3 { margin: 0 0 0.5rem 0; font-size: 1.25rem; font-weight: 700; color: #10b981; }
+  .success-message h3 { margin: 0 0 0.5rem 0; font-size: 1.25rem; font-weight: 600; color: var(--text-color); }
   .success-message p { margin: 0; color: var(--muted-color); }
 
   .form-actions {
@@ -480,14 +470,14 @@
 
   .empty-state { text-align: center; padding: 4rem 2rem; color: var(--muted-color); }
 
-  @media (max-width: 1100px) { .cookbook-container { padding-inline: 30px; } }
+  @media (max-width: 1100px) { .cookbook-container { padding-inline: var(--page-gutter); } }
 
   @media (max-width: 768px) {
-    .cookbook-container { padding: 0 30px 32px; }
+    .cookbook-container { padding: 0 var(--page-gutter) 32px; }
     .guides-grid { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
     .form-actions { flex-direction: column-reverse; }
     .btn { width: 100%; text-align: center; }
   }
-  @media (max-width: 560px) { .cookbook-container { padding-inline: 20px; } }
+  @media (max-width: 560px) { .cookbook-container { padding-inline: var(--page-gutter); } }
 </style>

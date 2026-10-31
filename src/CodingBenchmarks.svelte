@@ -101,14 +101,12 @@
 >
   <header>
     <div>
-      <span class="eyebrow">LITELLM / CODING AGENTS</span>
       <svelte:element
         this={embedded ? "h2" : "h1"}
         id="coding-results-title"
         class="results-title">Coding benchmarks</svelte:element
       >
       <p class="scope">
-        <span class="pilot">PILOT</span>
         {#if cohort}{cohort.taskIds.length} tasks · {cohort.repetitions}
           {cohort.repetitions === 1 ? "trial" : "trials"} each ·
         {/if}API cost only · Preliminary results
@@ -125,7 +123,7 @@
       <section class="chart-panel" aria-label={chart.title + " comparison"}>
         <div class="chart-heading">
           <h3>{chart.title}</h3>
-          <span>Higher is better ↗</span>
+          <span>Higher is better</span>
         </div>
         <p class="chart-subtitle">{chart.subtitle}</p>
         {#if chart.rows.length}
@@ -281,9 +279,9 @@
 
 <style>
   .coding-results {
-    max-width: 1400px;
+    max-width: var(--page-width);
     margin: auto;
-    padding: 32px 44px 48px;
+    padding: 32px var(--page-gutter) 48px;
     color: var(--hf-ink);
   }
   .coding-results.embedded {
@@ -296,18 +294,11 @@
     gap: 16px;
     margin-bottom: 24px;
   }
-  .eyebrow {
-    font:
-      10px "IBM Plex Mono",
-      monospace;
-    color: var(--hf-muted);
-    letter-spacing: 1.2px;
-  }
   .results-title {
     font-size: 28px;
     font-weight: 500;
     letter-spacing: -0.8px;
-    margin: 8px 0 10px;
+    margin: 0 0 10px;
   }
   .scope {
     display: flex;
@@ -317,15 +308,6 @@
     font-size: 12px;
     margin: 0;
     color: var(--hf-muted);
-  }
-  .pilot {
-    font:
-      9px "IBM Plex Mono",
-      monospace;
-    border: 1px solid var(--hf-line);
-    border-radius: 3px;
-    padding: 3px 5px;
-    color: var(--hf-ink);
   }
   a {
     color: var(--hf-muted);
@@ -544,7 +526,7 @@
   }
   @media (max-width: 900px) {
     .coding-results {
-      padding: 24px;
+      padding: 32px var(--page-gutter) 48px;
     }
     .charts {
       gap: 16px;
@@ -558,7 +540,7 @@
   }
   @media (max-width: 650px) {
     .coding-results {
-      padding: 20px 16px;
+      padding: 32px var(--page-gutter);
     }
     .coding-results.embedded {
       padding: 24px 0;
