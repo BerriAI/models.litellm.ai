@@ -22,6 +22,7 @@ export type DiscoveryModel = {
   slug: string;
   name: string;
   modelId: string | null;
+  modelProviderId?: string | null;
   lab: string | null;
   logo: string | null;
   href: string;
@@ -111,7 +112,15 @@ function parseModels(value: unknown, updatedAt: string): CatalogModel[] {
       pageKey: entry.pageKey,
       name: entry.name,
       modelId: parseLiteLLMModelId(entry.modelId),
-      lab: typeof entry.lab === "string" ? entry.lab : null,
+      modelProviderId:
+        typeof entry.modelProviderId === "string" &&
+        SAFE_ID.test(entry.modelProviderId)
+          ? entry.modelProviderId
+          : null,
+      lab:
+        typeof entry.lab === "string" && entry.lab.trim()
+          ? entry.lab.trim()
+          : null,
       href: `/models/${slug}`,
       // Future or malformed dates must not turn into new model announcements.
       firstSeen: firstSeen && firstSeen <= updatedAt ? firstSeen : null,
@@ -278,6 +287,7 @@ function buildCatalog(
       slug: entry.slug,
       name: entry.name,
       modelId: entry.modelId,
+      modelProviderId: entry.modelProviderId,
       lab: entry.lab,
       logo,
       href: entry.href,

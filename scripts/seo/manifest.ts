@@ -5,6 +5,8 @@ export type ManifestModel = {
   name: string;
   /** Copyable LiteLLM route; absent in older manifests. */
   modelId?: string | null;
+  /** Provider hub of the copyable route, independent of the model developer. */
+  modelProviderId?: string | null;
   lab: string | null;
   price: string | null;
   context?: number;

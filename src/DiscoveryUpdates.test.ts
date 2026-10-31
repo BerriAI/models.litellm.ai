@@ -607,6 +607,44 @@ describe("Discover updates", () => {
     );
   });
 
+  it.each([
+    ["Z.ai", "Z.ai · via Refuseless"],
+    [null, "Refuseless"],
+    ["Refuseless", "Refuseless"],
+  ])(
+    "should attribute the copied route to its provider when developer is %s",
+    async (lab, expected) => {
+      const host = {
+        id: "refuseless",
+        name: "Refuseless",
+        logo: null,
+        href: "/providers/refuseless",
+      };
+      vi.mocked(loadDiscoveryCatalog).mockResolvedValue({
+        ...catalog,
+        models: [
+          {
+            ...catalog.models[0],
+            lab,
+            modelId: "refuseless/example",
+            modelProviderId: host.id,
+            providers: [anthropic, host],
+          },
+        ],
+      });
+      component = new DiscoveryUpdates({ target: document.body });
+      await vi.waitFor(() => expect(recentLinks()).toHaveLength(1));
+      const meta = section("new-models-title")
+        .querySelector(".model-meta")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim();
+      expect(meta?.replace(/\s*·\s*/g, " · ")).toBe(`${expected} · Added Oct 23`);
+      expect(
+        copyButton(section("new-models-title"), "refuseless/example"),
+      ).toBeDefined();
+    },
+  );
+
   it("should switch update tabs with the keyboard, show provider scope and change both archive and RSS links", async () => {
     vi.mocked(loadDiscoveryCatalog).mockResolvedValue({
       ...catalog,

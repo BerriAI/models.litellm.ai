@@ -298,13 +298,17 @@
           <ol class="model-list" aria-label="New models">
             {#each models as model (model.slug)}
               {@const modality = discoveryModality(model)}
+              {@const provider =
+                model.providers.find(
+                  (entry) => entry.id === model.modelProviderId,
+                ) ?? (model.providers.length === 1 ? model.providers[0] : null)}
               <li>
                 <div class="model-row">
                   {#if model.logo}
                     <img
                       class="brand-logo"
                       src={model.logo}
-                      alt={model.lab ?? ""}
+                      alt={model.lab ?? provider?.name ?? ""}
                     />
                   {:else}
                     <span class="brand-fallback" aria-hidden="true"
@@ -321,8 +325,12 @@
                         />{/if}
                     </span>
                     <span class="model-meta"
-                      >{model.lab ?? "LiteLLM catalog"}<span aria-hidden="true"
-                        >·</span
+                      >{model.lab ??
+                        provider?.name ??
+                        "LiteLLM catalog"}{#if model.lab && provider && provider.name !== model.lab}<span
+                          aria-hidden="true">·</span
+                        ><span>via {provider.name}</span>{/if}<span
+                        aria-hidden="true">·</span
                       >Added {addedDate(model.firstSeen)}</span
                     >
                     <span class="modality-line"

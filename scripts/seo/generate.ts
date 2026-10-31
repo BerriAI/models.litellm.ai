@@ -297,10 +297,12 @@ async function main(): Promise<void> {
       changed.push(abs(modelPath(v.slug)));
       changedImages.push(image.url);
     }
+    const modelId = catalogModelId(v, BUILD_DATE);
     manifest.models[v.slug] = {
       pageKey: v.pageKey,
       name: v.name,
-      modelId: catalogModelId(v, BUILD_DATE),
+      modelId,
+      modelProviderId: v.rows.find((row) => row.modelString === modelId)?.hub ?? null,
       lab: v.lab,
       price,
       context: v.context,
