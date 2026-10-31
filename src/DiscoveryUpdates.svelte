@@ -613,7 +613,6 @@
   }
   .panel-heading {
     padding: 14px var(--panel-inset) 10px;
-    min-height: 80px;
   }
   .heading-line {
     display: flex;

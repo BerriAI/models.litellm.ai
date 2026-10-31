@@ -221,6 +221,11 @@ button:disabled {
   gap: 16px;
   margin-left: auto;
 }
+@media (min-width: 641px) {
+  .hf-header-search + .hf-header-actions {
+    margin-left: 0;
+  }
+}
 .hf-docs {
   font-size: 12px;
   white-space: nowrap;
