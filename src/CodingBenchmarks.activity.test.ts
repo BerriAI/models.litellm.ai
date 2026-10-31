@@ -288,7 +288,7 @@ describe("coding benchmark results", () => {
     expect(chartRows("Quality")).toHaveLength(4);
   });
 
-  it("should show the mock changelog and retain the standalone benchmark link", async () => {
+  it("should show sourced catalog changes and retain the standalone benchmark link", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(fixture))),
@@ -296,10 +296,15 @@ describe("coding benchmark results", () => {
     component = new Home({ target: document.body });
     expect(panels()).toHaveLength(0);
     expect(document.body.textContent).toContain("THE MODEL CHANGELOG");
-    expect(document.body.textContent).toContain("DESIGN PREVIEW");
+    expect(document.body.textContent).toContain("CATALOG SNAPSHOT");
     expect(document.body.textContent?.replace(/\s+/g, " ")).toContain(
-      "Dates, prices, and changes below are illustrative.",
+      "Dates are catalog commits (Pacific time), not model launch dates.",
     );
+    expect(document.body.textContent).toContain("GPT-6 Rosalind");
+    expect(document.body.textContent).not.toContain("50% cheaper on DeepSeek");
+    expect(
+      document.querySelector("a.source-link")?.getAttribute("href"),
+    ).toMatch(/^https:\/\/github.com\/BerriAI\/litellm\/commit\/[a-f0-9]{40}$/);
     expect(document.body.textContent).not.toContain("Evaluation workspace");
     expect(document.querySelectorAll("dialog")).toHaveLength(0);
     const link = Array.from(document.getElementsByTagName("a")).find((a) =>

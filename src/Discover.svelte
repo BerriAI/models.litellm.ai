@@ -1,26 +1,45 @@
 <script lang="ts">
   import {
-    mockUpdates,
+    fieldLabel,
+    fieldValue,
+    priceDelta,
+    type CatalogUpdate,
     updateKinds,
     type UpdateKind,
-  } from "./discoveryChangelog.mock";
+  } from "./discoveryChangelog";
+  import snapshot from "./discoveryChangelog.snapshot.json";
+  const updates = snapshot.updates as CatalogUpdate[];
+  const providerNames: Record<string, string> = snapshot.providerNames;
+  const providerName = (id: string) =>
+    providerNames[id] ?? getProviderDisplayName(id);
+  let expanded = new Set<string>();
+  const startDate = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: snapshot.timezone,
+  }).format(new Date(snapshot.since));
+  const snapshotDate = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: snapshot.timezone,
+  }).format(new Date(snapshot.through));
   import { getProviderDisplayName, getProviderLogo } from "./providers";
 
   let category: UpdateKind | "all" = "all";
   let provider = "all";
   let query = "";
-  let visibleDays = 3;
-  const providers = [
-    ...new Set(mockUpdates.map((update) => update.provider)),
-  ].sort((a, b) =>
-    getProviderDisplayName(a).localeCompare(getProviderDisplayName(b)),
+  let visibleCount = 20;
+  const providers = [...new Set(updates.map((update) => update.provider))].sort(
+    (a, b) => providerName(a).localeCompare(providerName(b)),
   );
   const labels = {
     price: "Price update",
-    model: "New model",
+    model: "New listing",
     provider: "New provider",
     capability: "Capability",
     deprecation: "Deprecation",
+    metadata: "Catalog update",
   };
   const icons = {
     price: "↗",
@@ -28,10 +47,8 @@
     provider: "◇",
     capability: "✳",
     deprecation: "−",
+    metadata: "·",
   };
-  const money = (value: number) => `$${value.toFixed(2)}`;
-  const change = (before: number, after: number) =>
-    `${after > before ? "+" : "−"}${Math.abs(Math.round(((after - before) / before) * 100))}%`;
   const dayLabel = (date: string) =>
     new Intl.DateTimeFormat("en-US", {
       month: "long",
@@ -39,7 +56,7 @@
       timeZone: "UTC",
     }).format(new Date(`${date}T00:00:00Z`));
   $: search = query.trim().toLowerCase();
-  $: filtered = mockUpdates.filter(
+  $: filtered = updates.filter(
     (update) =>
       (category === "all" || update.kind === category) &&
       (provider === "all" || update.provider === provider) &&
@@ -47,24 +64,30 @@
         [
           update.title,
           update.description,
-          getProviderDisplayName(update.provider),
-          ...(update.facts ?? []),
+          providerName(update.provider),
+          ...update.entries.flatMap((entry) => [
+            entry.name,
+            entry.modelId,
+            ...entry.changes.map((change) => change.field),
+          ]),
         ]
           .join(" ")
           .toLowerCase()
           .includes(search)),
   );
-  $: days = [...new Set(filtered.map((update) => update.date))];
-  $: groups = days.slice(0, visibleDays).map((date) => ({
+  $: visible = filtered.slice(0, visibleCount);
+  $: days = [...new Set(visible.map((update) => update.date))];
+  $: groups = days.map((date) => ({
     date,
-    updates: filtered.filter((update) => update.date === date),
+    updates: visible.filter((update) => update.date === date),
+    total: filtered.filter((update) => update.date === date).length,
   }));
   $: shownCount = groups.reduce((sum, group) => sum + group.updates.length, 0);
   function reset() {
     category = "all";
     provider = "all";
     query = "";
-    visibleDays = 3;
+    visibleCount = 20;
   }
 </script>
 
@@ -97,9 +120,9 @@
   </section>
 
   <div class="preview-note">
-    <span class="preview-badge">DESIGN PREVIEW</span><span
-      >Sample updates to explore the layout. Dates, prices, and changes below
-      are illustrative.</span
+    <span class="preview-badge">CATALOG SNAPSHOT</span><span
+      >Verified LiteLLM catalog history through {snapshotDate}. Dates are
+      catalog commits (Pacific time), not model launch dates.</span
     >
   </div>
 
@@ -111,7 +134,7 @@
         aria-pressed={category === kind.id}
         on:click={() => {
           category = kind.id;
-          visibleDays = 3;
+          visibleCount = 20;
         }}
       >
         <span class="filter-icon" aria-hidden="true">{kind.icon}</span
@@ -137,26 +160,24 @@
           <input
             type="search"
             bind:value={query}
-            on:input={() => (visibleDays = 3)}
+            on:input={() => (visibleCount = 20)}
             aria-label="Search updates"
             placeholder="Search updates…"
           />
         </label>
         <select
           bind:value={provider}
-          on:change={() => (visibleDays = 3)}
+          on:change={() => (visibleCount = 20)}
           aria-label="Filter by provider"
         >
           <option value="all">All providers</option>
-          {#each providers as id}<option value={id}
-              >{getProviderDisplayName(id)}</option
+          {#each providers as id}<option value={id}>{providerName(id)}</option
             >{/each}
         </select>
       </div>
       <p class="result-count" role="status">
-        {filtered.length} sample {filtered.length === 1
-          ? "update"
-          : "updates"}<span>Newest first</span>
+        {filtered.length}
+        {filtered.length === 1 ? "update" : "updates"}<span>Newest first</span>
       </p>
       {#each groups as group}
         <section class="day-group" aria-labelledby={`date-${group.date}`}>
@@ -164,10 +185,12 @@
             <h2 id={`date-${group.date}`}>
               <time datetime={group.date}>{dayLabel(group.date)}</time>
             </h2>
-            <span class="year">2026</span>
+            <span class="year">{group.date.slice(0, 4)}</span>
             <span class="day-count"
-              >{group.updates.length}
-              {group.updates.length === 1 ? "update" : "updates"}</span
+              >{group.updates.length < group.total
+                ? `${group.updates.length} of ${group.total}`
+                : group.total}
+              {group.total === 1 ? "update" : "updates"}</span
             >
           </div>
           <div class="day-events">
@@ -179,58 +202,113 @@
                     >{labels[update.kind]}</span
                   >
                   <span class="provider-label"
-                    ><img
-                      src={getProviderLogo(update.provider)}
-                      alt=""
-                      width="16"
-                      height="16"
-                    />{getProviderDisplayName(update.provider)}</span
+                    >{#if getProviderLogo(update.provider)}<img
+                        src={getProviderLogo(update.provider)}
+                        alt=""
+                        width="16"
+                        height="16"
+                      />{/if}{providerName(update.provider)}</span
                   >
                 </div>
                 <h3>{update.title}</h3>
                 <p class="description">{update.description}</p>
-                {#if update.prices}
+                {#if update.entries.length === 1 && update.kind === "price"}
                   <div
                     class="price-table"
                     role="group"
-                    aria-label="Illustrative price changes in US dollars per million tokens"
+                    aria-label="Recorded catalog price changes"
                   >
                     <div class="price-heading">
-                      USD / 1M TOKENS <span
-                        >BEFORE <span aria-hidden="true">→</span> AFTER</span
-                      >
+                      CATALOG PRICING <span>BEFORE → AFTER</span>
                     </div>
-                    {#each update.prices as price}
-                      <div class="price-row">
-                        <span class="price-label">{price.label}</span>
-                        <span class="old-price">{money(price.before)}</span
-                        ><span class="price-arrow" aria-hidden="true">→</span
-                        ><strong>{money(price.after)}</strong>
+                    {#each update.entries[0].changes.filter((change) => (typeof change.before === "number" || change.before == null) && (typeof change.after === "number" || change.after == null)) as price}
+                      <div class="verified-price-row">
+                        <span class="price-label"
+                          >{fieldLabel(price.field)}</span
+                        >
+                        <span class="verified-values"
+                          ><span class="old-price"
+                            >{fieldValue(price.field, price.before)}</span
+                          ><span aria-hidden="true"> → </span><strong
+                            >{fieldValue(price.field, price.after)}</strong
+                          ></span
+                        >
                         <span
                           class="delta"
-                          class:decrease={price.after < price.before}
-                          class:increase={price.after > price.before}
+                          class:decrease={typeof price.before === "number" &&
+                            typeof price.after === "number" &&
+                            price.after < price.before}
+                          class:increase={typeof price.before === "number" &&
+                            typeof price.after === "number" &&
+                            price.after > price.before}
+                          >{priceDelta(price)}</span
                         >
-                          {price.before === price.after
-                            ? "Unchanged"
-                            : change(price.before, price.after)}
-                        </span>
                       </div>
                     {/each}
                   </div>
                 {/if}
-                {#if update.facts}<ul class="facts">
-                    {#each update.facts as fact}<li>{fact}</li>{/each}
+                {#if update.entries.length > 1}<ul class="facts">
+                    {#each update.entries.slice(0, 3) as entry}<li>
+                        {entry.name}
+                      </li>{/each}{#if update.entries.length > 3}<li>
+                        +{update.entries.length - 3} more
+                      </li>{/if}
                   </ul>{/if}
-                <a
-                  class="entry-link"
-                  href={update.kind === "provider"
-                    ? `/providers/${update.provider}`
-                    : `/search?q=${encodeURIComponent(update.model ?? "")}`}
-                  >{update.kind === "provider"
-                    ? "Explore provider"
-                    : "View model"}<span aria-hidden="true">↗</span></a
+                <div class="event-links">
+                  <a
+                    class="entry-link source-link"
+                    href={update.source}
+                    target="_blank"
+                    rel="noreferrer"
+                    >{update.sourceLabel}<span aria-hidden="true">↗</span></a
+                  >
+                  {#if update.entries.length === 1}<a
+                      class="entry-link"
+                      href={`/search?q=${encodeURIComponent(update.entries[0].modelId)}`}
+                      >View listing<span aria-hidden="true">↗</span></a
+                    >{/if}
+                </div>
+                <details
+                  class="change-details"
+                  on:toggle={(event) => {
+                    if (event.currentTarget.open)
+                      expanded = new Set([...expanded, update.id]);
+                    else {
+                      expanded = new Set(
+                        [...expanded].filter((id) => id !== update.id),
+                      );
+                    }
+                  }}
                 >
+                  <summary
+                    >View {update.entries.length === 1
+                      ? "exact changes"
+                      : `all ${update.entries.length} listings`}</summary
+                  >
+                  {#if expanded.has(update.id)}
+                    {#each update.entries as entry}
+                      <section class="listing-changes">
+                        <h4>
+                          <a
+                            href={`/search?q=${encodeURIComponent(entry.modelId)}`}
+                            >{entry.name}</a
+                          >
+                        </h4>
+                        <code>{entry.modelId}</code>
+                        {#each entry.changes as change}
+                          <div class="field-change">
+                            <strong>{fieldLabel(change.field)}</strong><span
+                              >{fieldValue(change.field, change.before)} → {fieldValue(
+                                change.field,
+                                change.after,
+                              )}</span
+                            >
+                          </div>
+                        {/each}
+                      </section>
+                    {/each}
+                  {/if}
+                </details>
               </article>
             {/each}
           </div>
@@ -243,24 +321,26 @@
           <button type="button" on:click={reset}>Clear filters</button>
         </div>
       {/each}
-      {#if days.length > visibleDays}
+      {#if filtered.length > visibleCount}
         <button
           class="load-more"
           type="button"
-          on:click={() => (visibleDays += 3)}
+          on:click={() => (visibleCount += 20)}
           >Load older updates <span aria-hidden="true">↓</span></button
         >
       {:else if filtered.length}
-        <p class="end-note">You're all caught up on this sample feed.</p>
+        <p class="end-note">End of this catalog snapshot.</p>
       {/if}
       {#if filtered.length}<p class="shown-count">
-          Showing {shownCount} of {filtered.length} sample updates
+          Showing {shownCount} of {filtered.length} updates
         </p>{/if}
     </section>
 
     <aside>
       <div class="aside-content">
-        <div class="aside-heading">IN THIS PREVIEW<span>01 — 04</span></div>
+        <div class="aside-heading">
+          IN THIS SNAPSHOT<span>{snapshot.commitCount} COMMITS</span>
+        </div>
         <h2>A lot can change<br />in a few days.</h2>
         <p>One place to follow the models and providers you build with.</p>
         <div class="summary-list">
@@ -270,10 +350,10 @@
               aria-pressed={category === kind.id}
               on:click={() => {
                 category = kind.id;
-                visibleDays = 3;
+                visibleCount = 20;
               }}
               ><span>{kind.label}</span><b
-                >{mockUpdates
+                >{updates
                   .filter((update) => update.kind === kind.id)
                   .length.toString()
                   .padStart(2, "0")}</b
@@ -291,8 +371,10 @@
           >
         </div>
         <p class="aside-footnote">
-          A preview of the feed, with fictional events. Model and provider links
-          open the existing catalog.
+          Snapshot of the price file from {startDate} through {snapshotDate}.
+          Updates are grouped by commit, provider, and change type. Includes
+          corrections, aliases, and restored listings. This draft does not
+          refresh automatically.
         </p>
       </div>
     </aside>
@@ -631,29 +713,11 @@
     display: flex;
     gap: 12px;
   }
-  .price-row {
-    display: grid;
-    grid-template-columns: 1fr 55px 18px 55px 82px;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 0;
-    font:
-      12px "IBM Plex Mono",
-      monospace;
-  }
   .price-label {
     font-family: "DM Sans", sans-serif;
   }
   .old-price {
     color: var(--hf-muted);
-    text-align: right;
-  }
-  .price-arrow {
-    color: var(--hf-muted);
-    text-align: center;
-  }
-  .price-row strong {
-    font-weight: 500;
   }
   .delta {
     font:
@@ -682,6 +746,66 @@
     border: 1px solid var(--hf-line);
     border-radius: 4px;
     padding: 5px 8px;
+  }
+  .verified-price-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px 12px;
+    padding: 9px 0;
+    font-size: 11px;
+  }
+  .verified-price-row .price-label {
+    grid-column: 1 / -1;
+    color: var(--hf-muted);
+  }
+  .verified-values {
+    overflow-wrap: anywhere;
+    font:
+      11px "IBM Plex Mono",
+      monospace;
+  }
+  .event-links {
+    display: flex;
+    gap: 20px;
+  }
+  .source-link {
+    color: var(--hf-accent);
+  }
+  .change-details {
+    margin-top: 14px;
+    font-size: 11px;
+    color: var(--hf-muted);
+  }
+  .change-details summary {
+    cursor: pointer;
+    padding: 6px 0;
+  }
+  .listing-changes {
+    padding: 14px 0;
+    border-top: 1px solid var(--hf-line);
+  }
+  .listing-changes h4 {
+    margin: 0 0 4px;
+    font-size: 13px;
+  }
+  .listing-changes h4 a {
+    color: var(--hf-accent);
+  }
+  .listing-changes code {
+    overflow-wrap: anywhere;
+    font-size: 10px;
+  }
+  .field-change {
+    display: grid;
+    gap: 4px;
+    margin-top: 12px;
+    overflow-wrap: anywhere;
+  }
+  .field-change span {
+    white-space: pre-wrap;
+  }
+  .facts li {
+    overflow-wrap: anywhere;
   }
   .entry-link {
     display: inline-flex;
@@ -943,11 +1067,6 @@
     }
     .price-table {
       padding: 12px;
-    }
-    .price-row {
-      grid-template-columns: 1fr 43px 13px 43px 65px;
-      gap: 5px;
-      font-size: 11px;
     }
     .delta {
       font-size: 9px;
