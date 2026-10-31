@@ -5,14 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && npm run seo && npm run seo:check",
+    "build": "npm run changelog && vite build && npm run seo && npm run seo:check",
     "seo": "vite-node scripts/seo/generate.ts",
     "seo:check": "vite-node scripts/seo/validate.ts",
     "og:preview": "vite-node scripts/seo/og-preview.ts",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "format": "prettier --write .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "changelog": "vite-node scripts/changelog/generate.ts"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^3.0.2",

@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import App from "./App.svelte";
   import Discover from "./Discover.svelte";
+  import Changelog from "./Changelog.svelte";
   import CodingBenchmarks from "./CodingBenchmarks.svelte";
   import Providers from "./Providers.svelte";
   import Cookbook from "./Cookbook.svelte";
@@ -14,6 +15,7 @@
   type Tab =
     | "benchmarks"
     | "discover"
+    | "changelog"
     | "models"
     | "providers"
     | "cookbook"
@@ -33,6 +35,7 @@
 
   const tabPaths: Record<Tab, string> = {
     discover: "/",
+    changelog: "/changelog",
     benchmarks: "/benchmarks",
     models: "/search",
     providers: "/providers",
@@ -42,6 +45,7 @@
 
   function getTabFromLocation(): Tab {
     const path = window.location.pathname.replace(/\/$/, "") || "/";
+    if (path === "/changelog") return "changelog";
     if (path === "/benchmarks") return "benchmarks";
     if (path === "/search") return "models";
     if (path === "/providers") return "providers";
@@ -196,6 +200,11 @@
           on:click={(event) => navigate(event, "providers")}>Providers</a
         >
         <a
+          href="/changelog"
+          aria-current={activeTab === "changelog" ? "page" : undefined}
+          on:click={(event) => navigate(event, "changelog")}>Changelog</a
+        >
+        <a
           href="/benchmarks"
           aria-current={activeTab === "benchmarks" ? "page" : undefined}
           on:click={(event) => navigate(event, "benchmarks")}
@@ -331,6 +340,8 @@
     <div class="hf-route" class:hf-catalog-route={activeTab === "models"}>
       {#if activeTab === "discover"}
         <Discover />
+      {:else if activeTab === "changelog"}
+        <Changelog />
       {:else if activeTab === "benchmarks"}
         <CodingBenchmarks />
       {:else if activeTab === "models"}

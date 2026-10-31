@@ -288,27 +288,18 @@ describe("coding benchmark results", () => {
     expect(chartRows("Quality")).toHaveLength(4);
   });
 
-  it("should show sourced catalog changes and retain the standalone benchmark link", async () => {
+  it("should embed real charts without the retired evaluation demo and retain the standalone link", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () => new Response(JSON.stringify(fixture))),
     );
     component = new Home({ target: document.body });
-    expect(panels()).toHaveLength(0);
-    expect(document.body.textContent).toContain("THE MODEL CHANGELOG");
-    expect(document.body.textContent).toContain("CATALOG SNAPSHOT");
-    expect(document.body.textContent?.replace(/\s+/g, " ")).toContain(
-      "Dates are catalog commits (Pacific time), not model launch dates.",
-    );
-    expect(document.body.textContent).toContain("GPT-6 Rosalind");
-    expect(document.body.textContent).not.toContain("50% cheaper on DeepSeek");
-    expect(
-      document.querySelector("a.source-link")?.getAttribute("href"),
-    ).toMatch(/^https:\/\/github.com\/BerriAI\/litellm\/commit\/[a-f0-9]{40}$/);
+    await vi.waitFor(() => expect(chartRows("Quality")).toHaveLength(4));
     expect(document.body.textContent).not.toContain("Evaluation workspace");
+    expect(document.body.textContent).not.toContain("illustrative data");
     expect(document.querySelectorAll("dialog")).toHaveLength(0);
     const link = Array.from(document.getElementsByTagName("a")).find((a) =>
-      a.textContent?.includes("Coding benchmarks"),
+      a.textContent?.includes("Open benchmarks"),
     );
     expect(link?.getAttribute("href")).toBe("/benchmarks");
   });

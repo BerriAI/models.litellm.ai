@@ -108,6 +108,18 @@ The page's headline price is the model's own lab when it sells the model (Anthro
 
 Build-time environment variables: `SITE_URL` (default `https://models.litellm.ai`), `COST_MAP_FILE` and `PROVIDER_SUPPORT_FILE` to build from local files, `PREVIOUS_MANIFEST_URL` (or `none`), `BUILD_DATE`, `SEO_OUT_DIR`, `GITHUB_TOKEN`.
 
+### Changelog and RSS
+
+The **Changelog** tab after **Providers** (`/changelog`) shows the last 30 days of model pricing, additions, providers, and capabilities. Price rows show the old rate, new rate, and percentage; expand a row for exact listing IDs and fields. Search and provider/type filters combine. Miscellaneous metadata is available under **Other changes**. Dates are Pacific-time catalog commits; additions include new provider listings and aliases.
+
+Subscribe to `/changelog.xml` for the same highlights, with stable item IDs and source links. The feed excludes miscellaneous metadata, matching the default **Highlights** view.
+
+Every `npm run build` first runs `npm run changelog`. It fetches public LiteLLM commit history, compares each price-file commit with its first parent, and generates `public/changelog.json` and `public/changelog.xml` before Vite copies them to `dist/`. Previously published immutable diffs are reused; missing history is reconstructed. A required upstream fetch failure fails the build so it cannot publish an incomplete feed. No new credentials are needed.
+
+The existing **Refresh model pages** workflow uses `VERCEL_DEPLOY_HOOK_URL` to rebuild when either the prices or the latest catalog commit changes, and verifies the new JSON and RSS after deployment. This catches changes followed by reverts even if prices return to their previous values. GitHub scheduling and Vercel build time determine the refresh delay.
+
+For a local preview, run `npm run changelog` once, then `npm run dev`. Open `/changelog` and `/changelog.xml`; a successful generation prints the commit and entry counts, and both should show matching recent changes. Rerun `npm run changelog` to refresh locally. If upstream is temporarily unavailable, retry generation; the error does not replace the previously generated files. To read from local history, run `CHANGELOG_REPO=/path/to/litellm npm run changelog`, replacing the path with a refreshed LiteLLM clone. The generator uses its `origin/main` and git blobs.
+
 ### Discovery rankings from public benchmark feeds
 
 The Discover page refreshes its rankings from public data without API keys. Top quality uses the [Epoch Capabilities Index](https://epoch.ai/eci), matched to catalog names and their declared aliases. Top coding uses the official [Terminal-Bench 4.0 submissions](https://github.com/harbor-framework/terminal-bench/tree/main/leaderboard/submissions). Each coding result shows its agent harness and reasoning setting; these are evaluations of the model and agent together.

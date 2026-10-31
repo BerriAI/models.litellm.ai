@@ -18,6 +18,7 @@
  *   COOKBOOK_FILE, GUARDRAILS_FILE  read the cookbook index and guardrails list from disk
  *   GITHUB_TOKEN           optional; avoids GitHub API rate limits for the star count
  */
+import { changelogPage } from "../changelog/page";
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -804,6 +805,13 @@ ${cheapestOnProvider(h.name, list)}
         page: guardrailsPage(guardrails),
       },
     ];
+    routes.push({
+      path: "/changelog",
+      title: PAGE_TITLES.changelog,
+      description: "Model price changes, new models, providers and capabilities. Browse the changelog or subscribe via RSS.",
+      card: { kicker: "LiteLLM changelog", title: "Model changelog", subtitle: "Pricing, model and provider updates", stats: [] },
+      page: changelogPage(JSON.parse(readFileSync(path.resolve("public/changelog.json"), "utf8"))),
+    });
     routes.push({
       path: "/benchmarks",
       title: PAGE_TITLES.benchmarks,
