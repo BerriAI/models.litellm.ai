@@ -179,3 +179,38 @@ jobs:
             echo "::error title=Provider logo needed::$provider has no entry in src/providerLogos.json, so models.litellm.ai shows its initials. Add its audited artwork as public/provider-logos/NOTICE.md describes."
           done <<< "$providers"
           exit 1
+
+  catalog-api:
+    # Independent of the website jobs: a failed API refresh retries next run,
+    # including when the website already has the latest prices.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CATALOG_API: https://api.models.litellm.ai
+      PRICE_FILE: https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json
+      DEPLOY_HOOK: ${{ secrets.CATALOG_API_DEPLOY_HOOK_URL }}
+    steps:
+      - name: Refresh the API when its price snapshot is behind
+        run: |
+          if [ -z "$DEPLOY_HOOK" ]; then
+            echo "::error::Configure the API project's deploy hook as CATALOG_API_DEPLOY_HOOK_URL."
+            exit 1
+          fi
+          curl -fsS --retry 3 --max-time 30 "$PRICE_FILE" -o "$RUNNER_TEMP/catalog-prices.json"
+          latest=$(sha256sum "$RUNNER_TEMP/catalog-prices.json" | cut -d' ' -f1)
+          live=$(curl -fsS --max-time 30 "$CATALOG_API/v1/snapshot" | jq -er '.meta.snapshot' || true)
+          if [ "$latest" = "$live" ]; then
+            echo "The API already serves the current price snapshot."
+            exit 0
+          fi
+          curl -fsS --max-time 30 -X POST "$DEPLOY_HOOK" > /dev/null
+          for _ in $(seq 1 20); do
+            sleep 15
+            live=$(curl -fsS --max-time 15 "$CATALOG_API/v1/snapshot" | jq -er '.meta.snapshot' || true)
+            if [ "$latest" = "$live" ]; then
+              echo "The API's new price snapshot is live."
+              exit 0
+            fi
+          done
+          echo "::error::The API did not publish the expected price snapshot within five minutes."
+          exit 1

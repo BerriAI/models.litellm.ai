@@ -57,6 +57,15 @@ export function createHandler({ env = process.env, send = fetch } = {}) {
         const response = await send(`${host}/track?ip=0&verbose=1`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(events.slice(i, i + 50)), signal: AbortSignal.timeout(8000), redirect: 'error' });
         if (!response.ok || (await response.json()).status !== 1) return reply(502, 'analytics_unavailable');
       }
+      // Counts only: never log request payloads, identities, signatures, or tokens.
+      console.info(JSON.stringify({
+        type: 'catalog_usage_delivery', received: logs.length, accepted: events.length,
+        cache_hits: events.filter(event => event.properties.cache_status === 'HIT').length,
+        matching_project: logs.filter(log => log?.projectId === projectId).length,
+        production: logs.filter(log => log?.environment === 'production').length,
+        static: logs.filter(log => log?.source === 'static').length,
+        catalog_paths: logs.filter(log => String(log?.proxy?.path ?? log?.path ?? '').startsWith('/v1/')).length,
+      }));
       return reply(200, 'accepted');
     } catch { return reply(502, 'delivery_failed'); }
   };

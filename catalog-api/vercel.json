@@ -3,5 +3,5 @@
   "framework": null,
   "buildCommand": "npm run build",
   "installCommand": "npm install --ignore-scripts",
-  "git": { "deploymentEnabled": { "main": false, "codex/static-model-api": true } }
+  "git": { "deploymentEnabled": { "main": true, "codex/static-model-api": true } }
 }

@@ -19,9 +19,17 @@ The API guide at `/` contains working curl examples. Exact lookups use `/v1/mode
 
 ## Create the isolated deployment
 
-Import the existing `BerriAI/models.litellm.ai` repository into a **new** project in the existing Vercel team. Choose root directory `catalog-api`, preset **Other**, Node 22, and build command `npm run build`. Use the `codex/static-model-api` branch for this experiment's production branch. Its folder-local Vercel configuration permits that branch and disables automatic main-branch deployment for this API project. Do not change the website project's Git or build settings. If this is later merged and maintained on main, deliberately change the API project's production branch and its deployment filter together.
+Import the existing `BerriAI/models.litellm.ai` repository into a **new** project in the existing Vercel team. Choose root directory `catalog-api`, preset **Other**, Node 22, and build command `npm run build`. Exclude files outside the root, enable skipping deployments when that root and its dependencies are unchanged, and select **Only build production** for the ignored build step. The basic build machine is sufficient. Do not change the website project's Git or build settings.
+
+Use `main` as the API production branch for ongoing deployment and refresh hooks. The initial deployment can use `codex/static-model-api` while this change awaits review. Switching the production branch to `main` preserves the current deployment until a new production build succeeds; merge this folder before expecting main-branch builds to work.
 
 Add `api.models.litellm.ai` to this new project. At the authoritative DNS provider, add only the CNAME record that Vercel supplies for `api.models`; preserve every other record. If Vercel requests ownership verification, follow its displayed TXT instructions. Verify HTTPS and a real model response before calling the domain live.
+
+## Refresh prices automatically
+
+The existing **Refresh model pages** workflow runs every ten minutes. Its independent `catalog-api` job compares `/v1/snapshot` with the public price map and rebuilds only the API when they differ. An API failure retries on the next run even if the website is already current; the website jobs are unchanged.
+
+Create a deploy hook in the **API project's** Git settings for branch `main`, then store its URL in the existing repository's Actions secret `CATALOG_API_DEPLOY_HOOK_URL`. Keep the website's `VERCEL_DEPLOY_HOOK_URL` unchanged. The scheduled API job starts after this workflow change is merged to the default branch. GitHub scheduling delays and upstream caching mean the ten-minute interval is not a freshness guarantee.
 
 ## Protect the API
 
@@ -31,7 +39,7 @@ Confirm any displayed metered-feature charges before activation. Do not enable a
 
 ## Track CDN requests in Mixpanel
 
-The catalog response never waits for analytics. Configure a Vercel **Logs** drain for **only this API project**, production environment, source **static**, JSON format, sampling **100%**, and paths starting with `/v1/`. Destination: `https://api.models.litellm.ai/api/usage-drain`. Do not select function/build logs: the intake must not feed its own requests back into the drain. Do not attach the website project.
+The catalog response never waits for analytics. Configure a Vercel **Logs** drain for **only this API project**, production environment, source **static**, JSON format, and sampling **100%** (no sampling rules). The receiver keeps only API paths starting with `/v1/`. Destination: `https://api.models.litellm.ai/api/usage-drain`. Do not select function/build logs: the intake must not feed its own requests back into the drain. Do not attach the website project.
 
 Set these environment variables on the API project through Vercel's secret controls, then redeploy:
 
@@ -52,7 +60,7 @@ Drains, request delivery, and Mixpanel ingestion are metered services. Analytics
 
 1. Request a known model twice. Verify JSON, source values, snapshot metadata, CORS, and the CDN cache headers. Record cold and warm timing separately; a warm cache result alone does not prove first-request latency.
 2. Follow a multi-page provider result. Verify missing models return JSON 404, writes return 405, and the old bulk map route is unavailable.
-3. Test a temporary low rate limit on an isolated test path in this API project, confirm 429 and recovery, then remove that test rule. Verify the production rule remains 120/minute/IP. Avoid sending a load test to the website.
+3. From a test client, send a bounded burst slightly above 120 requests within one minute. Confirm 429 and recovery after the window ends. Verify the production rule remains 120/minute/IP. Do not send this test to the website.
 4. Confirm real static requests reach Mixpanel with cache-hit events and no personal fields. Test a malformed drain signature returns 403.
 5. Verify the website's project settings, production deployment, and source/build files are unchanged.
 
