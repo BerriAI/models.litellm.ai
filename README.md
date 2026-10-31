@@ -11,6 +11,19 @@ npm run build    # app + static model pages into dist/
 npm test
 ```
 
+## Feedback
+
+**Help us improve** opens a feedback modal in the app and on generated catalog pages. It sends the message and page path to `/api/feedback`. Query parameters, account details, and browser credentials are not forwarded.
+
+Before deploying this feature:
+
+1. Create a Zap with [Webhooks by Zapier → Catch Hook](https://help.zapier.com/hc/en-us/articles/8496288690317-Trigger-Zap-workflows-from-webhooks).
+2. In the Vercel project's **Settings → Environment Variables**, add `FEEDBACK_WEBHOOK_URL` with that hook's URL for the intended deployment environment, then redeploy. Keep this server-only variable out of source control; do not give it a `VITE_` prefix.
+3. Configure the Zap's **Slack → Send Channel Message** action for `#feedback-models`, mapping `message`, `page`, and `timestamp`. Add a Google Sheets row action if you want a separate archive, then publish the Zap.
+4. Submit a clearly labeled test from the deployed site's **Help us improve** modal. Confirm it arrives in Slack and, if configured, the Sheet. The site's acknowledgement confirms Zapier accepted the request; check Zap history for downstream action failures.
+
+Without the environment variable, `/api/feedback` returns 503 and the modal keeps the visitor's draft. `npm run dev` serves the interface only; verify delivery on a Vercel preview with the variable configured.
+
 ## What the build produces
 
 `npm run build` runs three steps. `vite build` builds the Svelte catalog app. `npm run seo` (`scripts/seo/generate.ts`) then writes a static, server-rendered page for every model and provider, so search engines and AI agents can read prices without running JavaScript. `npm run seo:check` (`scripts/seo/validate.ts`) fails the build if a page lacks a title, description or canonical tag, has invalid JSON-LD, or links to a page that doesn't exist.
