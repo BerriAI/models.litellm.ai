@@ -1,8 +1,12 @@
+import type { DeprecationListing } from "../../src/deprecations";
+
 export type ManifestModel = {
   pageKey: string;
   name: string;
   /** Copyable LiteLLM route; absent in older manifests. */
   modelId?: string | null;
+  /** Provider hub of the copyable route, independent of the model developer. */
+  modelProviderId?: string | null;
   lab: string | null;
   price: string | null;
   context?: number;
@@ -26,6 +30,7 @@ export type Manifest = {
   buildDate: string;
   costMapHash: string;
   models: Record<string, ManifestModel>;
+  deprecations?: DeprecationListing[];
   /** Comparison pages and when each was first published; caps how many new ones each week releases. */
   compare?: Record<string, { firstSeen: string; kind: string }>;
   /** Ranking pages already published; each keeps its page while any model is left on it. */

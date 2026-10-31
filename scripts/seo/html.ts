@@ -17,22 +17,16 @@ import { DOCS_URL, GITHUB_URL, PRICE_FILE_URL, SITE_NAME, abs, modelPath, provid
 const POSTHOG_KEY = "phc_upsFA5iBuDFKnznEdV9pA5HYW8fwsLMJ8pF2p4xZzzpD";
 
 const CSS = `
-:root{--bg:#fff;--bg2:#f7f8fc;--bg3:#f0f2fc;--fg:#272b37;--fg2:#3a3e4b;--muted:#646875;--rule:#e9eaf0;--rule2:#d3d8f3;--accent:#0117be;--on-accent:#fff;--ring:rgba(1,23,190,.22);--code:#f7f8fc;--warn:#b45309;--warn-bg:#fff8eb;--ok:#047857;--no:#9a9caa;--shadow:0 1px 2px rgba(16,24,64,.05);--nav:rgba(255,255,255,.78);--mesh:radial-gradient(48% 540px at 4% -6%,rgba(1,23,190,.07) 0%,rgba(1,23,190,0) 64%),radial-gradient(42% 500px at 98% -4%,rgba(56,170,240,.12) 0%,rgba(56,170,240,0) 66%);color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#080b26;--bg2:#0f1335;--bg3:#161b46;--fg:#ffffff;--fg2:#d6d4ea;--muted:#a6a4c6;--rule:#1c2150;--rule2:#2b3170;--accent:#9fabff;--on-accent:#080b26;--ring:rgba(159,171,255,.3);--code:#0f1335;--warn:#f0b35a;--warn-bg:#2a1f0b;--ok:#5fd3a5;--no:#5c6290;--shadow:0 1px 2px rgba(0,0,0,.35);--nav:rgba(8,11,38,.78);--mesh:radial-gradient(48% 560px at 2% -8%,rgba(20,45,220,.3) 0%,rgba(20,45,220,0) 64%),radial-gradient(42% 500px at 100% -6%,rgba(56,170,240,.12) 0%,rgba(56,170,240,0) 66%);color-scheme:dark}}
+.provider-list{max-width:320px;white-space:normal}.update-nav{width:fit-content;max-width:100%}.affected-routes{max-width:380px;white-space:normal}.affected-routes code{overflow-wrap:anywhere;font-size:12px}.affected-routes summary{cursor:pointer;color:var(--muted)}.affected-routes ul{padding-left:16px}.affected-routes li{margin:8px 0}
+:root{--bg:var(--hf-bg);--bg2:var(--bg-secondary);--bg3:var(--bg-tertiary);--fg:var(--hf-ink);--fg2:var(--text-secondary);--muted:var(--hf-muted);--rule:var(--hf-line);--rule2:var(--border-color-strong);--accent:var(--hf-accent);--on-accent:var(--hf-button-ink);--ring:var(--focus-ring);--code:var(--code-bg);--warn:var(--hf-warning);--warn-bg:var(--bg-secondary);--ok:var(--success-color);--no:var(--hf-muted);--shadow:none}
 *{box-sizing:border-box;margin:0;padding:0}
-html{font-family:Geist,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
-body{background:var(--mesh) no-repeat,var(--bg);color:var(--fg);line-height:1.6;font-size:15px}
+html{font-family:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{background:var(--bg);color:var(--fg);line-height:1.6;font-size:15px}
 a{color:var(--accent);text-decoration:none;text-underline-offset:3px}a:hover{text-decoration:underline}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
-code,pre{font-family:"Geist Mono",ui-monospace,Menlo,monospace;font-size:.86em}
+code,pre{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-size:.86em}
 code{background:var(--bg3);padding:1px 6px;border-radius:5px;overflow-wrap:anywhere}
-.top{border-bottom:1px solid var(--rule);background:var(--nav);backdrop-filter:blur(12px);position:sticky;top:0;z-index:10}
-.top-in{max-width:1080px;margin:0 auto;padding:12px 20px;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
-.brand{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:13px;font-weight:500}.brand:hover{text-decoration:none}
-.brand img{display:block;height:25px;width:auto}.brand span{padding-left:10px;border-left:1px solid var(--rule2);line-height:1.1}
-.top nav{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto;font-size:14px}
-.top nav a{color:var(--fg2);padding:4px 10px;border-radius:6px;white-space:nowrap}.top nav a:hover{background:var(--bg3);text-decoration:none}
-main{max-width:1080px;margin:0 auto;padding:28px 20px 72px;display:grid;gap:40px}
+main{max-width:var(--page-width);margin:0 auto;padding:32px var(--page-gutter) 72px;display:grid;gap:40px}
 .crumbs{font-size:13px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap}
 .crumbs a{color:var(--muted)}.crumbs a:hover{color:var(--fg)}
 h1{font-size:clamp(28px,4.5vw,40px);line-height:1.15;letter-spacing:-.025em;font-weight:650;text-wrap:balance}
@@ -44,7 +38,7 @@ h3{font-size:15px;font-weight:600}
 .idline{display:flex;gap:8px 12px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--fg2)}
 .idline .id{display:inline-flex;gap:6px;align-items:center;min-width:0}.idline code{font-size:13px}
 .stats{display:flex;flex-wrap:wrap;gap:12px}
-.stat{flex:1 1 140px;border:1px solid var(--rule);border-radius:12px;padding:14px 16px;display:grid;gap:4px;align-content:start;background:var(--bg);box-shadow:var(--shadow);min-width:0}
+.stat{flex:1 1 140px;border:1px solid var(--rule);border-radius:var(--surface-radius);padding:14px 16px;display:grid;gap:4px;align-content:start;background:var(--card-bg);box-shadow:var(--shadow);min-width:0}
 .stat.lead{flex:2 1 280px}.stat dd time{white-space:nowrap}
 .stat dt{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--muted)}
 .stat dd{font-size:24px;line-height:1.25;font-weight:650;letter-spacing:-.015em;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
@@ -52,7 +46,7 @@ h3{font-size:15px;font-weight:600}
 section{display:grid;gap:14px;min-width:0}
 section>p,.note{max-width:75ch;color:var(--fg2)}
 .note{font-size:14px}
-.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:12px;background:var(--bg);box-shadow:var(--shadow)}
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--surface-radius);background:var(--card-bg);box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
 th{font-size:13px;font-weight:500;color:var(--muted);background:var(--bg2);white-space:nowrap}
@@ -74,15 +68,15 @@ details summary{cursor:pointer;color:var(--accent);font-size:14px;font-weight:50
 .code{display:grid;gap:8px}
 .code-h{display:flex;justify-content:space-between;align-items:center;gap:12px}
 .code-h span{font-size:13px;font-weight:600;color:var(--fg2)}
-.copy,.cmp,.ct .rm{display:inline-flex;align-items:center;gap:6px;height:28px;font:inherit;font-size:13px;font-weight:500;border:1px solid var(--rule2);background:var(--bg);color:var(--fg);border-radius:7px;padding:0 10px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
+.copy,.cmp,.ct .rm{display:inline-flex;align-items:center;gap:6px;height:28px;font:inherit;font-size:13px;font-weight:500;border:1px solid var(--rule2);background:var(--bg);color:var(--fg);border-radius:var(--control-radius);padding:0 10px;cursor:pointer;white-space:nowrap;transition:background .15s,border-color .15s}
 .copy:hover,.ct .rm:hover{background:var(--bg3);text-decoration:none}
 .cmp{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}.cmp:hover{text-decoration:none;filter:brightness(1.1)}
-pre{background:var(--code);border:1px solid var(--rule);border-radius:12px;padding:14px 16px;overflow-x:auto;line-height:1.6}
+pre{background:var(--code);border:1px solid var(--rule);border-radius:var(--surface-radius);padding:14px 16px;overflow-x:auto;line-height:1.6}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px}
 .faq{display:grid;gap:18px;max-width:80ch}
 .faq>div{display:grid;gap:4px}.faq p{color:var(--fg2)}
 .links{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px;list-style:none}
-.links li a{display:grid;gap:2px;height:100%;border:1px solid var(--rule);border-radius:12px;padding:12px 14px;color:var(--fg);font-weight:500;background:var(--bg);box-shadow:var(--shadow);transition:border-color .15s,background .15s}
+.links li a{display:grid;gap:2px;height:100%;border:1px solid var(--rule);border-radius:var(--surface-radius);padding:12px 14px;color:var(--fg);font-weight:500;background:var(--card-bg);box-shadow:var(--shadow);transition:border-color .15s,background .15s}
 .links li a:hover{border-color:var(--rule2);text-decoration:none;background:var(--bg2)}
 .links li a span{font-size:13px;font-weight:400;color:var(--muted)}
 .src{font-size:13px;color:var(--muted);display:grid;gap:4px}
@@ -91,9 +85,9 @@ pre{background:var(--code);border:1px solid var(--rule);border-radius:12px;paddi
 .tag{display:inline-flex;align-items:center;font-size:12px;font-weight:500;color:var(--accent);background:var(--bg3);border-radius:999px;padding:2px 10px;white-space:nowrap}
 th[scope=row]{font-size:14px;font-weight:500;color:var(--fg2);background:transparent;white-space:normal}
 th[scope=rowgroup]{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);background:var(--bg2)}
-.calc{display:grid;gap:16px;border:1px solid var(--rule);border-radius:12px;padding:18px;max-width:780px;background:var(--bg);box-shadow:var(--shadow)}
+.calc{display:grid;gap:16px;border:1px solid var(--rule);border-radius:var(--surface-radius);padding:18px;max-width:780px;background:var(--card-bg);box-shadow:var(--shadow)}
 .calc-in{display:flex;flex-wrap:wrap;gap:12px}.calc-intro{font-size:12px;font-weight:400;color:var(--muted)}.calc-in label{display:grid;gap:6px;font-size:13px;font-weight:500;color:var(--fg2);flex:1 1 160px}
-.calc-in input,.calc-in select,.ct input{font:inherit;font-size:14px;height:36px;color:var(--fg);background:var(--bg);border:1px solid var(--rule2);border-radius:8px;padding:0 10px;width:100%;transition:border-color .15s,box-shadow .15s}
+.calc-in input,.calc-in select,.ct input{font:inherit;font-size:14px;height:36px;color:var(--fg);background:var(--bg);border:1px solid var(--rule2);border-radius:var(--control-radius);padding:0 10px;width:100%;transition:border-color .15s,box-shadow .15s}
 .calc-in input:focus,.calc-in select:focus,.ct input:focus{outline:2px solid transparent;outline-offset:2px;border-color:var(--accent);box-shadow:0 0 0 3px var(--ring)}
 .calc-out{display:flex;flex-wrap:wrap;gap:12px;padding-top:14px;border-top:1px solid var(--rule)}.calc-out div{flex:1 1 140px;display:grid;gap:2px}.calc-out dt{font-size:13px;font-weight:500;color:var(--muted)}.calc-out dd{font-size:24px;font-weight:650;letter-spacing:-.015em;font-variant-numeric:tabular-nums}
 ${TOOL_CSS}
@@ -101,11 +95,11 @@ ${TOOL_CSS}
 .jump a{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--rule);border-radius:999px;padding:3px 12px;background:var(--bg);color:var(--fg2);font-weight:500}.jump a:hover{border-color:var(--rule2);background:var(--bg2);text-decoration:none}
 .jump span{color:var(--muted);font-weight:400}
 .pill{display:inline-flex;align-items:center;font-size:12px;font-weight:500;padding:1px 8px;border-radius:999px;background:var(--bg3);color:var(--fg2)}
-.warnbox{border:1px solid var(--warn);background:var(--warn-bg);border-radius:12px;padding:12px 16px;color:var(--fg);max-width:75ch}
+.warnbox{border:1px solid var(--warn);background:var(--warn-bg);border-radius:var(--surface-radius);padding:12px 16px;color:var(--fg);max-width:75ch}
 footer{border-top:1px solid var(--rule);color:var(--muted);font-size:13px}
-footer div{max-width:1080px;margin:0 auto;padding:24px 20px;display:flex;gap:8px 20px;flex-wrap:wrap}
+footer div{max-width:var(--page-width);margin:0 auto;padding:24px var(--page-gutter);display:flex;gap:8px 20px;flex-wrap:wrap}
 footer a{color:var(--muted)}footer a:hover{color:var(--fg)}
-@media (max-width:600px){main{padding:20px 16px 56px;gap:32px}.stats{gap:8px}.stat{padding:12px 14px}.stat dd{font-size:21px}.top-in{padding:10px 16px}.top nav{margin-left:-6px;max-width:calc(100% + 6px)}.top nav a{padding:4px 6px}th,td{padding:9px 10px}.grid2{grid-template-columns:1fr}.calc{padding:14px}}
+@media (max-width:600px){main{padding:32px var(--page-gutter) 56px;gap:32px}.stats{gap:8px}.stat{padding:12px 14px}.stat dd{font-size:21px}th,td{padding:9px 10px}.grid2{grid-template-columns:1fr}.calc{padding:14px}}
 @media (pointer:coarse){.calc-in input,.calc-in select,.ct input{font-size:16px}}
 `;
 
@@ -120,6 +114,7 @@ export type Layout = {
   body: string;
   jsonLd?: Record<string, unknown>;
   markdownPath?: string;
+  rssPath?: string;
   noindex?: boolean;
   ogType?: string;
   image?: OgImage;
@@ -154,6 +149,7 @@ export function layout(l: Layout): string {
 <title>${esc(l.title)}</title>
 <meta name="description" content="${esc(l.description)}">
 <link rel="canonical" href="${esc(url)}">
+${l.rssPath ? `<link rel="alternate" type="application/rss+xml" title="${esc(l.title)}" href="${esc(abs(l.rssPath))}">` : ""}
 <meta name="robots" content="${l.noindex ? "noindex,follow" : "index,follow,max-snippet:-1,max-image-preview:large"}">
 ${l.markdownPath ? `<link rel="alternate" type="text/markdown" href="${esc(abs(l.markdownPath))}">\n` : ""}<meta property="og:type" content="${l.ogType ?? "website"}">
 <meta property="og:site_name" content="${SITE_NAME}">
@@ -168,15 +164,18 @@ ${imageTags(l.image)}
 <link rel="apple-touch-icon" href="/brand/litellm-monogram-blue-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap" onload="this.onload=null;this.rel='stylesheet'">
-<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400&display=swap"></noscript>
 <style>${CSS.trim()}</style>
+<link rel="stylesheet" href="/site.css">
+<script src="/theme.js"></script>
 ${l.jsonLd ? jsonLdScript(l.jsonLd) : ""}
 </head>
 <body>
-<header class="top"><div class="top-in">
-<a class="brand" href="/"><picture><source srcset="/brand/litellm-logo-white.png" media="(prefers-color-scheme: dark)"><img src="/brand/litellm-logo-blue.png" alt="LiteLLM" width="132" height="25"></picture><span>Models</span></a>
-<nav aria-label="Site"><a href="/models">All models</a><a href="/">Search</a><a href="/providers">Providers</a><a href="${DOCS_URL}">Docs</a><a href="${GITHUB_URL}">GitHub</a></nav>
+<header class="hf-header"><div class="hf-header-inner">
+<a class="hf-brand" href="/" aria-label="LiteLLM Discover home"><img class="hf-logo-light" src="/brand/litellm-primary-blue.svg" alt="LiteLLM" width="132" height="32"><img class="hf-logo-dark" src="/brand/litellm-primary-white.svg" alt="LiteLLM" width="132" height="32"><span>/ MODELS</span></a>
+<nav class="hf-nav" aria-label="Main navigation"><a href="/">Discover</a><a href="/search"${l.path.startsWith("/models") ? ' aria-current="page"' : ""}>Models</a><a href="/providers"${l.path.startsWith("/providers/") ? ' aria-current="page"' : ""}>Providers</a><a href="/benchmarks">Coding benchmarks</a></nav>
+<form class="hf-header-search" action="/search" role="search"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input name="q" type="search" placeholder="Search models" aria-label="Search models" autocomplete="off"><kbd aria-hidden="true">⌘ K</kbd></form>
+<div class="hf-header-actions"><a class="hf-docs" href="${DOCS_URL}" target="_blank" rel="noopener noreferrer">Docs ↗</a><button class="hf-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode"><svg class="theme-moon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20.8 13.1A9 9 0 0 1 10.9 3.2 9 9 0 1 0 20.8 13.1Z"/></svg><svg class="theme-sun" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
+<details class="hf-more"><summary class="hf-more-toggle" aria-label="More navigation">···</summary><nav class="hf-more-menu" aria-label="More navigation"><a href="/cookbook">Cookbook</a><a href="/guardrails">Guardrails</a><a href="/models">All models index</a><a href="/compare/custom">Compare models</a><a href="/calculator">Pricing calculator</a><a href="/new-models">New models</a><a href="/deprecated-models">Recently deprecated</a><a href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="/?request=true">Request a model +</a></nav></details></div>
 </div></header>
 <main${l.track ? ` data-page-kind="${esc(l.track.kind)}" data-page-id="${esc(l.track.id)}"` : ""}>
 ${l.body}
@@ -609,32 +608,49 @@ export function rankingHubBody(items: { slug: string; title: string; note: strin
 <section><h2>All rankings</h2><ul class="links">${items.map((i) => `<li><a href="/rankings/${i.slug}">${esc(i.title)}<span>${esc(i.note)}</span></a></li>`).join("")}</ul></section>`;
 }
 
-export type NewModelRow = { slug: string; name: string; lab: string | null; date: string; price: string | null; context?: number; providers: number; status: string };
+export type NewModelRow = { slug: string; name: string; lab: string | null; date: string; price: string | null; context?: number; providers: { name: string; hub: string }[]; status: string };
 
 const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 
-export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[]): string {
+function newModelProviders(providers: NewModelRow["providers"]): string {
+  return providers.map((provider) => `<a href="${providerPath(provider.hub)}">${esc(provider.name)}</a>`).join(", ") || "–";
+}
+
+export function modelUpdatesMeta(active: "new" | "deprecated", updated: string): string {
+  const feed = active === "new" ? "/new-models.xml" : "/deprecated-models.xml";
+  return `<div class="meta"><span>Updated <time datetime="${esc(updated)}">${longDate(updated)}</time></span><a class="rss-link" href="${feed}">RSS feed</a></div>`;
+}
+
+export function modelUpdatesNav(active: "new" | "deprecated"): string {
+  return `<nav class="update-nav segmented-tabs" aria-label="Model updates"><a href="/new-models"${active === "new" ? ' aria-current="page"' : ""}>What's new</a><a href="/deprecated-models"${active === "deprecated" ? ' aria-current="page"' : ""}>Recently deprecated</a></nav>`;
+}
+
+export function newModelsMonthBody(ym: string, rows: NewModelRow[], months: { ym: string; count: number }[], updated: string): string {
   const i = months.findIndex((m) => m.ym === ym);
   const newer = months[i - 1];
   const older = months[i + 1];
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><a href="/new-models">New models</a><span>›</span><span>${esc(monthName(ym))}</span></nav>
 <h1>New AI models in ${esc(monthName(ym))}</h1>
-<p class="answer">${rows.length} ${rows.length === 1 ? "model was" : "models were"} added to LiteLLM's price file in ${esc(monthName(ym))}, newest first, with each one's headline price and context window.</p></div>
-<section><div class="tbl" data-track="new-models-table" data-page-kind="new-models" data-page-id="${ym}"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th><th class="n">Providers</th></tr></thead><tbody>${rows
+<p class="answer">${rows.length} ${rows.length === 1 ? "model was" : "models were"} added to LiteLLM's price file in ${esc(monthName(ym))}, newest first, with each one's headline price and context window.</p>
+${modelUpdatesMeta("new", updated)}</div>
+${modelUpdatesNav("new")}
+<section><div class="tbl" data-track="new-models-table" data-page-kind="new-models" data-page-id="${ym}"><table><thead><tr><th>Added</th><th>Model</th><th>Model developer</th><th>API providers</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${rows
     .map(
       (r) =>
-        `<tr><td>${r.date.length === 10 ? `<time datetime="${r.date}">${shortDate(r.date)}</time>` : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a>${r.status === "active" ? "" : ` <span class="pill">${esc(r.status)}</span>`}</td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td><td class="n">${r.providers}</td></tr>`,
+        `<tr><td>${r.date.length === 10 ? `<time datetime="${r.date}">${shortDate(r.date)}</time>` : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a>${r.status === "active" ? "" : ` <span class="pill">${esc(r.status)}</span>`}</td><td>${esc(r.lab ?? "–")}</td><td class="provider-list">${newModelProviders(r.providers)}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`,
     )
     .join("")}</tbody></table></div></section>
-<nav class="jump" aria-label="Other months">${newer ? `<a href="/new-models/${newer.ym}">← ${esc(monthName(newer.ym))}</a>` : ""}<a href="/new-models">All months</a>${older ? `<a href="/new-models/${older.ym}">${esc(monthName(older.ym))} →</a>` : ""}<a href="/new-models.xml">RSS feed</a></nav>`;
+<nav class="jump" aria-label="Other months">${newer ? `<a href="/new-models/${newer.ym}">← ${esc(monthName(newer.ym))}</a>` : ""}<a href="/new-models">All months</a>${older ? `<a href="/new-models/${older.ym}">${esc(monthName(older.ym))} →</a>` : ""}</nav>`;
 }
 
 export function newModelsHubBody(latest: NewModelRow[], months: { ym: string; count: number }[], updated: string): string {
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span><span>New models</span></nav>
 <h1>New AI models on LiteLLM</h1>
-<p class="answer">As of ${longDate(updated)}, the ${latest.length} models most recently added to LiteLLM's price file, with their prices on the day. Every month has its own page, and there's an <a href="/new-models.xml">RSS feed</a>.</p></div>
-<section><h2>Latest additions</h2><div class="tbl"><table><thead><tr><th>Added</th><th>Model</th><th>Lab</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${latest
-    .map((r) => `<tr><td>${r.date.length === 10 ? shortDate(r.date) : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`)
+<p class="answer">The ${latest.length} models most recently added to LiteLLM's price file, with their prices on the day. Every month has its own page.</p>
+${modelUpdatesMeta("new", updated)}</div>
+${modelUpdatesNav("new")}
+<section><h2>Latest additions</h2><div class="tbl"><table><thead><tr><th>Added</th><th>Model</th><th>Model developer</th><th>API providers</th><th>Price</th><th class="n">Context</th></tr></thead><tbody>${latest
+    .map((r) => `<tr><td>${r.date.length === 10 ? shortDate(r.date) : esc(monthName(r.date))}</td><td><a href="${modelPath(r.slug)}">${esc(r.name)}</a></td><td>${esc(r.lab ?? "–")}</td><td class="provider-list">${newModelProviders(r.providers)}</td><td class="pr">${esc(r.price ?? "–")}</td><td class="n">${r.context ? tokensShort(r.context) : "–"}</td></tr>`)
     .join("")}</tbody></table></div></section>
 <section><h2>By month</h2><ul class="links">${months.map((m) => `<li><a href="/new-models/${m.ym}">${esc(monthName(m.ym))}<span>${m.count} ${m.count === 1 ? "model" : "models"}</span></a></li>`).join("")}</ul></section>`;
 }

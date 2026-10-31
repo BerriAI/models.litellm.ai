@@ -63,6 +63,8 @@ describe("discovery catalog", () => {
         manifest({
           clairic: model("Clairic", "2026-10-23", {
             modelId: "cloudflare/clairic",
+            modelProviderId: "cloudflare",
+            lab: " ",
           }),
           legacy: model("Legacy", "2026-10-22"),
           invalid: model("Invalid", "2026-10-21", { modelId: 42 }),
@@ -72,6 +74,12 @@ describe("discovery catalog", () => {
     expect(
       catalog.models.find((entry) => entry.slug === "clairic")?.modelId,
     ).toBe("cloudflare/clairic");
+    expect(
+      catalog.models.find((entry) => entry.slug === "clairic")?.modelProviderId,
+    ).toBe("cloudflare");
+    expect(
+      catalog.models.find((entry) => entry.slug === "clairic")?.lab,
+    ).toBeNull();
     expect(
       catalog.models.find((entry) => entry.slug === "legacy")?.modelId,
     ).toBeNull();

@@ -2,7 +2,6 @@
   export let id: string;
   export let title: string;
   export let description: string;
-  export let eyebrow = "THE OPEN MODEL CATALOG";
   export let diagramLabels: [string, string, string] = [
     "QUALITY",
     "SPEED",
@@ -31,8 +30,7 @@
 
 <section class="page-hero" aria-labelledby={`${id}-title`}>
   <div class="hero-copy">
-    <div class="eyebrow"><span class="status-light"></span>{eyebrow}</div>
-    <h1 id={`${id}-title`}>{title}<span aria-hidden="true">↗</span></h1>
+    <h1 id={`${id}-title`}>{title}</h1>
     <p>{description}</p>
     {#if $$slots.default}<div class="hero-actions"><slot /></div>{/if}
   </div>
@@ -209,29 +207,12 @@
     display: grid;
     grid-template-columns: minmax(0, 1fr) 390px;
     gap: 30px;
-    align-items: center;
-    padding: 29px 0 31px;
+    align-items: start;
+    padding: 40px 0 32px;
     color: var(--hf-ink);
   }
   .hero-copy {
     min-width: 0;
-  }
-  .eyebrow {
-    font:
-      10px "IBM Plex Mono",
-      monospace;
-    letter-spacing: 1.3px;
-    color: var(--hf-muted);
-    display: flex;
-    align-items: center;
-    gap: 9px;
-  }
-  .status-light {
-    width: 4px;
-    height: 4px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: var(--hf-accent);
   }
   h1 {
     font:
@@ -239,15 +220,7 @@
       Impact,
       sans-serif;
     letter-spacing: -2px;
-    margin: 19px 0;
-  }
-  h1 span {
-    font:
-      300 76px/1 "DM Sans",
-      sans-serif;
-    display: inline-block;
-    vertical-align: 6px;
-    margin-left: 14px;
+    margin: 0 0 20px;
   }
   p {
     font-size: 17px;
@@ -260,7 +233,7 @@
   }
   .blueprint {
     width: 100%;
-    height: 230px;
+    height: 208px;
     color: var(--hf-accent);
   }
   .blueprint .guide {
@@ -300,44 +273,24 @@
     letter-spacing: 0.6px;
     opacity: 0.45;
   }
-  @media (min-width: 1500px) {
-    .page-hero {
-      min-height: 300px;
-    }
-  }
   @media (max-width: 1100px) {
     .page-hero {
       grid-template-columns: minmax(0, 1fr) 300px;
-      min-height: 250px;
     }
     h1 {
       font-size: 81px;
-    }
-    h1 span {
-      font-size: 64px;
-    }
-    .blueprint {
-      height: 210px;
     }
   }
   @media (max-width: 800px) {
     .page-hero {
       grid-template-columns: minmax(0, 1fr) 230px;
       gap: 10px;
-      min-height: 235px;
     }
     h1 {
       font-size: 68px;
     }
-    h1 span {
-      font-size: 48px;
-      margin-left: 8px;
-    }
     p {
       font-size: 14px;
-    }
-    .blueprint {
-      height: 190px;
     }
   }
   @media (max-width: 640px) {
@@ -345,8 +298,8 @@
       display: block;
       position: relative;
       overflow: hidden;
-      min-height: 230px;
-      padding: 37px 0;
+      min-height: 208px;
+      padding: 32px 0;
     }
     .hero-copy {
       position: relative;
@@ -354,20 +307,11 @@
     }
     h1 {
       font-size: clamp(52px, 10.6vw, 68px);
-      margin-top: 22px;
       letter-spacing: -1px;
     }
-    h1 span {
-      font-size: 42px;
-      vertical-align: 3px;
-      margin-left: 8px;
-    }
     p {
-      font-size: 13px;
+      font-size: 14px;
       max-width: 320px;
-    }
-    .eyebrow {
-      font-size: 8px;
     }
     .blueprint {
       position: absolute;

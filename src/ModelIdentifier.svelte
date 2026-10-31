@@ -22,7 +22,25 @@
     title={`Copy LiteLLM model ID: ${modelId}`}
   >
     <code>{modelId}</code>
-    <span aria-hidden="true">{copied ? "✓" : "⧉"}</span>
+    <svg
+      class="copy-icon"
+      width="14"
+      height="14"
+      viewBox="0 0 14 14"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      aria-hidden="true"
+    >
+      {#if copied}
+        <path d="m3 7 2.5 2.5L11 4" />
+      {:else}
+        <rect x="4" y="4" width="8" height="8" rx="1.5" />
+        <path d="M2 6V2.5A1.5 1.5 0 0 1 3.5 1H7" />
+      {/if}
+    </svg>
   </button>
   <span class="copy-feedback" class:visually-hidden={!failed} role="status">
     {#if failed}Couldn't copy — select the ID.{:else if copied}Copied{/if}
@@ -65,6 +83,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     user-select: text;
+  }
+  .copy-icon {
+    flex: 0 0 14px;
   }
   button:hover {
     color: var(--hf-accent);

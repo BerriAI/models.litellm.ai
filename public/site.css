@@ -2,6 +2,10 @@
 
 :root,
 :root[data-theme="light"] {
+  --page-width: 1600px;
+  --page-gutter: 44px;
+  --control-radius: 6px;
+  --surface-radius: 8px;
   color-scheme: light;
   --hf-bg: #f7f8fa;
   --hf-ink: #1a2130;
@@ -124,9 +128,9 @@ button:disabled {
 }
 .hf-header-inner {
   min-height: 84px;
-  max-width: 1600px;
+  max-width: var(--page-width);
   margin: auto;
-  padding: 0 48px;
+  padding: 0 var(--page-gutter);
   display: flex;
   align-items: center;
   gap: 34px;
@@ -180,6 +184,7 @@ button:disabled {
   min-width: 150px;
   height: 36px;
   border: 1px solid var(--hf-line);
+  border-radius: var(--control-radius);
   padding: 0 11px;
   color: var(--hf-muted);
 }
@@ -214,6 +219,12 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-left: auto;
+}
+@media (min-width: 641px) {
+  .hf-header-search + .hf-header-actions {
+    margin-left: 0;
+  }
 }
 .hf-docs {
   font-size: 12px;
@@ -233,7 +244,7 @@ button:disabled {
   color: var(--hf-ink);
   background: transparent;
   border: 1px solid var(--hf-line);
-  border-radius: 0;
+  border-radius: var(--control-radius);
   padding: 0;
 }
 .hf-theme-toggle:hover,
@@ -296,7 +307,7 @@ button:disabled {
 .handoff-app .filter-button,
 .handoff-app .btn,
 .handoff-app .add-model-section {
-  border-radius: 0;
+  border-radius: var(--control-radius);
   box-shadow: none;
 }
 .handoff-app .provider-logo {
@@ -311,14 +322,9 @@ button:disabled {
   color: var(--hf-ink);
 }
 
-@media (min-width: 1600px) {
-  .hf-header-inner {
-    padding-inline: 64px;
-  }
-}
 @media (max-width: 1180px) {
   .hf-header-inner {
-    padding-inline: 28px;
+    padding-inline: var(--page-gutter);
     gap: 24px;
   }
   .hf-brand span {
@@ -336,7 +342,7 @@ button:disabled {
 }
 @media (min-width: 641px) and (max-width: 900px) {
   .hf-header-inner {
-    padding-inline: 20px;
+    padding-inline: var(--page-gutter);
     gap: 16px;
   }
   .hf-brand img {
@@ -362,7 +368,7 @@ button:disabled {
 }
 @media (max-width: 640px) {
   .hf-header-inner {
-    padding: 18px 20px 0;
+    padding: 18px var(--page-gutter) 0;
     min-height: auto;
     flex-wrap: wrap;
     gap: 18px;
@@ -403,7 +409,144 @@ button:disabled {
   }
 }
 
-/* Shared top-level hero aligns with the Discover report. */
-.hf-hero-wrap { max-width: 1400px; margin: 0 auto; padding: 0 44px; }
-@media (max-width: 1100px) { .hf-hero-wrap { padding-inline: 30px; } }
-@media (max-width: 560px) { .hf-hero-wrap { padding-inline: 20px; } }
+/* Shared page grid; individual reading blocks may be narrower. */
+.hf-hero-wrap {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 0 var(--page-gutter);
+}
+@media (max-width: 1100px) {
+  :root,
+  :root[data-theme] {
+    --page-gutter: 28px;
+  }
+}
+@media (max-width: 640px) {
+  :root,
+  :root[data-theme] {
+    --page-gutter: 20px;
+  }
+}
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+.hf-header a {
+  text-decoration: none;
+}
+.hf-header-search {
+  flex-shrink: 1;
+}
+.hf-header-actions {
+  flex-shrink: 0;
+}
+.hf-more summary {
+  list-style: none;
+  cursor: pointer;
+}
+.hf-more summary::-webkit-details-marker {
+  display: none;
+}
+.hf-more-menu {
+  border-radius: var(--surface-radius);
+}
+.hf-more-menu a {
+  box-sizing: border-box;
+}
+.hf-more-menu a[aria-current="page"] {
+  color: var(--hf-accent);
+}
+.hf-logo-dark {
+  display: none;
+}
+[data-theme="dark"] .hf-logo-light {
+  display: none;
+}
+[data-theme="dark"] .hf-logo-dark {
+  display: block;
+}
+@media (pointer: coarse) {
+  .handoff-app .search-input,
+  .hf-header-search input {
+    font-size: 16px;
+  }
+}
+@media (max-width: 640px) {
+  .hf-nav {
+    gap: 24px;
+    overflow-x: auto;
+  }
+}
+
+.theme-sun {
+  display: none;
+}
+[data-theme="dark"] .theme-moon {
+  display: none;
+}
+[data-theme="dark"] .theme-sun {
+  display: block;
+}
+
+/* One subscription affordance across the app and generated archives. */
+.rss-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.rss-link::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  background: currentColor;
+  -webkit-mask: url("/rss.svg") center / contain no-repeat;
+  mask: url("/rss.svg") center / contain no-repeat;
+}
+
+/* Segmented controls share geometry; each page decides where they belong. */
+.segmented-tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--hf-faint);
+}
+.segmented-tabs > :is(button, a) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--hf-muted);
+  font:
+    500 13px/1.3 "DM Sans",
+    sans-serif;
+  text-align: center;
+  text-decoration: none;
+}
+.segmented-tabs > :is([aria-selected="true"], [aria-current="page"]) {
+  background: var(--hf-dialog);
+  border-color: var(--hf-line);
+  color: var(--hf-accent);
+  box-shadow: 0 1px 3px #00000008;
+}
+.segmented-tabs > :is(button, a):hover {
+  color: var(--hf-accent);
+  text-decoration: none;
+}
+@media (max-width: 500px) {
+  .segmented-tabs > :is(button, a) {
+    min-height: 48px;
+    padding: 6px;
+    font-size: 12px;
+  }
+}

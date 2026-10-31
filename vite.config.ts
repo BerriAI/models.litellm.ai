@@ -17,6 +17,19 @@ export default defineConfig(({ mode }) => {
         configureServer(server) {
           server.middlewares.use((request, response, next) => {
             const pathname = request.url?.split("?")[0];
+            if (pathname && /^\/(?:new|deprecated)-models(?:\/\d{4}-\d{2})?(?:\.(?:md|xml))?$/.test(pathname)) {
+              try {
+                const extension = /\.(md|xml)$/.exec(pathname)?.[1];
+                const file = resolve("dist", `${pathname.slice(1)}${extension ? "" : ".html"}`);
+                const contentType = extension === "xml" ? "application/rss+xml" : extension === "md" ? "text/markdown" : "text/html";
+                const data = readFileSync(file);
+                response.setHeader("Content-Type", `${contentType}; charset=utf-8`);
+                response.end(data);
+              } catch {
+                next();
+              }
+              return;
+            }
             if (
               pathname !== "/models/manifest.json" &&
               pathname !== "/compare/models.json" &&
@@ -52,6 +65,10 @@ export default defineConfig(({ mode }) => {
           changeOrigin: true,
         },
         "/new-models": {
+          target: "https://models.litellm.ai",
+          changeOrigin: true,
+        },
+        "/deprecated-models": {
           target: "https://models.litellm.ai",
           changeOrigin: true,
         },

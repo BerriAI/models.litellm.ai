@@ -26,6 +26,7 @@ The generator writes:
 | `/rankings/<slug>`, `/rankings` | Models sorted by one fact: blended price (3 input : 1 output), context window, or provider count for the price-capped lists. Never by quality; each page states its method |
 | `/calculator` | Cost per request, day and month for any token-priced model, with shareable links (`?model=&in=&out=&req=`) and a static table of the default workload for the compared models |
 | `/new-models/<yyyy-mm>`, `/new-models`, `/new-models.xml` | Models added to the price file each month, from each model's date added, plus an RSS feed of the latest 50 |
+| `/deprecated-models/<yyyy-mm>`, `/deprecated-models`, `/deprecated-models.xml` | Provider-specific deprecations by effective date, monthly history, upcoming dates, and an RSS feed of recorded past deprecations |
 | `/models/<model-id>.md` | The same page as markdown, also served for `Accept: text/markdown` by `middleware.ts` |
 | `/models` | Every active model, grouped by lab with a jump menu, newest first within each lab |
 | `/providers/<provider>` | Every model one provider sells, at that provider's price |
@@ -37,6 +38,16 @@ The generator writes:
 | `/changes.json` | URLs that changed in this build, for IndexNow |
 | `/og/<kind>/<id>.json` | Each page's share-card text; `api/og.ts` draws it as `/og/<kind>/<id>.png` |
 | `/index.html`, `/providers.html`, `/cookbook.html`, `/guardrails.html` | The app's routes, each with its own title, canonical, share image, BreadcrumbList and its content rendered as plain HTML (`#seo-shell`, built in `scripts/seo/app-pages.ts`) for crawlers that don't run JavaScript. The app removes it when it mounts. `/providers` lists every provider in `provider_endpoints_support.json`; `/cookbook` lists every tutorial on docs.litellm.ai (from its sitemap and each page's markdown copy, `scripts/seo/cookbook.ts`) plus the litellm repo's cookbook index, written to `/cookbook.json` for the app's Cookbook tab too; `/guardrails` renders the guardrails list. Both go noindex if the build can't load their data |
+
+## Deprecation updates
+
+The home page’s **What’s new** and **Recently deprecated** tabs link to matching archive pages and RSS feeds. The pages and feeds use the same catalog data; the pages do not parse RSS.
+
+Deprecations come from `deprecation_date` in LiteLLM’s price file. Dates are effective dates, not announcement dates. The build backfills all valid dated listings it can map to catalog models. It groups variants with the same model, provider, and date, and lists the exact affected routes. Future dates appear under **Scheduled for deprecation** and enter RSS when their date arrives (UTC).
+
+The published `/models/manifest.json` retains dated listings so past deprecations remain available after a listing is removed. Corrections to an existing listing’s date are respected. Models removed before this tracking began may be absent from the backfill; a removal alone is not treated as a deprecation. RSS item identifiers stay stable across rebuilds.
+
+The existing **Refresh model pages** workflow checks for price-file changes every 10 minutes and refreshes on a new UTC day, subject to GitHub scheduling and deployment time. Automatic deployment requires the repository’s existing `VERCEL_DEPLOY_HOOK_URL` secret. After deploying, check `/deprecated-models` and `/deprecated-models.xml`; dates and affected providers should agree.
 
 ## Share images
 

@@ -162,7 +162,7 @@
 </script>
 
 <div class="hf-hero-wrap">
-  <PageHero id="guardrails" title="GUARDRAILS" eyebrow="PROTECT EVERY REQUEST" description="Checks you can copy, customize, and deploy." diagramLabels={["REQUEST", "CHECK", "RESPONSE"]} diagramCaption="VALIDATE / FILTER / PROTECT">
+  <PageHero id="guardrails" title="GUARDRAILS" description="Checks you can copy, customize, and deploy." diagramLabels={["REQUEST", "CHECK", "RESPONSE"]} diagramCaption="VALIDATE / FILTER / PROTECT">
     <div class="cta-buttons">
       <a href="https://docs.litellm.ai/docs/proxy/guardrails/custom_code_guardrail" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
@@ -183,7 +183,7 @@
           <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.5"/>
           <path d="M12.5 12.5L16.5 16.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
         </svg>
-        <input bind:value={query} type="text" autocomplete="off" placeholder="Search guardrails..." class="search-input" />
+        <input bind:value={query} type="text" autocomplete="off" placeholder="Search guardrails..." class="search-input" aria-label="Search guardrails" />
       </div>
 
       <select bind:value={selectedCategory} class="filter-select">
@@ -201,9 +201,9 @@
       </select>
     </div>
 
-    <div class="results-count">
+    {#if !loading}<div class="results-count">
       {results.length} guardrail{results.length !== 1 ? "s" : ""} found
-    </div>
+    </div>{/if}
   </div>
 
   {#if loading}
@@ -296,7 +296,7 @@
 </div>
 
 <style>
-  .guardrails-container { max-width: 1000px; margin: 0 auto; padding: 0 2rem 4rem; }
+  .guardrails-container { max-width: var(--page-width); margin: 0 auto; padding: 24px var(--page-gutter) 48px; }
 
   .cta-buttons { display: flex; gap: 0.75rem; justify-content: flex-start; flex-wrap: wrap; }
 
@@ -325,19 +325,19 @@
   }
 
   .search-input {
-    width: 100%; padding: 0.625rem 1rem 0.625rem 2.75rem; font-size: 0.9375rem;
-    border: 1px solid var(--border-color); border-radius: 10px;
+    width: 100%; padding: 0.625rem 1rem 0.625rem 2.75rem; font-size: 14px;
+    border: 1px solid var(--border-color); border-radius: var(--control-radius);
     background-color: var(--bg-color); color: var(--text-color);
-    transition: border-color 0.15s; height: 40px; box-sizing: border-box;
+    transition: border-color 0.15s; height: 44px; box-sizing: border-box;
   }
 
   .search-input:focus { outline: none; border-color: var(--litellm-primary); box-shadow: 0 0 0 3px var(--focus-ring); }
 
   .filter-select {
     padding: 0.625rem 1rem; font-size: 0.875rem;
-    border: 1px solid var(--border-color); border-radius: 10px;
+    border: 1px solid var(--border-color); border-radius: var(--surface-radius);
     background-color: var(--bg-color); color: var(--text-color);
-    min-width: 140px; height: 40px; cursor: pointer;
+    min-width: 140px; height: 44px; cursor: pointer;
   }
 
   .filter-select:focus { outline: none; border-color: var(--litellm-primary); }
@@ -348,7 +348,7 @@
 
   .guardrail-card {
     background: var(--card-bg); border: 1px solid var(--border-color);
-    border-radius: 10px; padding: 1.25rem; cursor: pointer;
+    border-radius: var(--surface-radius); padding: 1.25rem; cursor: pointer;
     transition: all 0.15s ease;
   }
 
@@ -414,7 +414,7 @@
   .code-block, .usage-code {
     background: var(--code-bg); border: 1px solid var(--border-color);
     border-radius: 8px; padding: 1rem; overflow-x: auto;
-    font-family: 'Geist Mono', 'Menlo', monospace; font-size: 0.75rem;
+    font-family: 'IBM Plex Mono', 'Menlo', monospace; font-size: 0.75rem;
     line-height: 1.6; margin: 0; text-align: left; white-space: pre;
   }
 

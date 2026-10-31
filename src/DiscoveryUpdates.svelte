@@ -25,6 +25,26 @@
   let benchmarkLoading = true;
   let benchmarkFailed = false;
   let selectedRanking = "overall";
+  let selectedUpdate: "new" | "deprecated" = "new";
+  const updateTabs = [
+    { id: "new", label: "What's new" },
+    { id: "deprecated", label: "Recently deprecated" },
+  ] as const;
+  $: updatesPath =
+    selectedUpdate === "new" ? "/new-models" : "/deprecated-models";
+  $: deprecations = (catalog?.deprecations ?? []).slice(0, 6);
+
+  function handleUpdateKey(event: KeyboardEvent, index: number) {
+    let next = index;
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft")
+      next = 1 - index;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = 1;
+    else return;
+    event.preventDefault();
+    selectedUpdate = updateTabs[next].id;
+    document.getElementById(`update-tab-${selectedUpdate}`)?.focus();
+  }
 
   $: models = selectDiscoveryModels(catalog?.models ?? [], 6);
   $: lists = [
@@ -178,79 +198,172 @@
 
   <div class="discovery-grid">
     <section class="new-models panel" aria-labelledby="new-models-title">
-      <header class="panel-heading">
-        <div class="heading-line">
-          <h2 id="new-models-title">
-            What's new <span class="new-dot" aria-hidden="true"></span>
-          </h2>
-          <a href="/new-models">View all <span aria-hidden="true">↗</span></a>
-        </div>
-        <p>The latest additions to LiteLLM, across modalities.</p>
-      </header>
-      {#if loading}
-        <div class="empty-state" role="status">Loading the latest models…</div>
-      {:else if failed}
-        <div class="empty-state" role="status">
-          <p>Recent additions couldn't be loaded.</p>
-          <button on:click={loadUpdates}>Try again</button>
-        </div>
-      {:else if models.length}
-        <ol class="model-list" aria-label="New models">
-          {#each models as model (model.slug)}
-            {@const modality = discoveryModality(model)}
-            <li>
-              <div class="model-row">
-                {#if model.logo}
-                  <img
-                    class="brand-logo"
-                    src={model.logo}
-                    alt={model.lab ?? ""}
-                  />
-                {:else}
-                  <span class="brand-fallback" aria-hidden="true"
-                    >{(model.lab ?? model.name).slice(0, 1)}</span
-                  >
-                {/if}
-                <span class="model-copy">
-                  <span class="model-title-line">
-                    <a href={model.href} aria-label={`Explore ${model.name}`}
-                      ><strong>{model.name}</strong></a
-                    >
-                    {#if model.modelId}<ModelIdentifier
-                        modelId={model.modelId}
-                      />{/if}
-                  </span>
-                  <span class="model-meta"
-                    >{model.lab ?? "LiteLLM catalog"}<span aria-hidden="true"
-                      >·</span
-                    >Added {addedDate(model.firstSeen)}</span
-                  >
-                  <span class="modality-line"
-                    ><span class="task-label">{modality.task}</span
-                    >{#if modality.flow}<span class="modality-flow"
-                        >{modality.flow}</span
-                      >{/if}</span
-                  >
-                </span>
-              </div>
-            </li>
-          {/each}
-        </ol>
-      {:else}
-        <p class="empty-state" role="status">
-          No dated model additions are available yet. <a href="/search"
-            >Explore the catalog ↗</a
+      <h2 id="new-models-title" class="sr-only">Model updates</h2>
+      <div
+        class="update-tabs segmented-tabs"
+        role="tablist"
+        aria-label="Model updates"
+      >
+        {#each updateTabs as tab, index}
+          <button
+            type="button"
+            role="tab"
+            id={`update-tab-${tab.id}`}
+            aria-selected={selectedUpdate === tab.id}
+            aria-controls={`update-panel-${tab.id}`}
+            tabindex={selectedUpdate === tab.id ? 0 : -1}
+            on:click={() => (selectedUpdate = tab.id)}
+            on:keydown={(event) => handleUpdateKey(event, index)}
+            >{tab.label}</button
           >
+        {/each}
+      </div>
+      <header class="panel-heading update-heading">
+        <p class="update-summary">
+          <span
+            >{selectedUpdate === "new"
+              ? "The latest additions to LiteLLM, across modalities."
+              : "Recently deprecated listings, by provider."}</span
+          >
+          <a href={updatesPath}>View all <span aria-hidden="true">↗</span></a>
         </p>
-      {/if}
+      </header>
+      <div
+        role="tabpanel"
+        id={`update-panel-${selectedUpdate}`}
+        aria-labelledby={`update-tab-${selectedUpdate}`}
+        tabindex="0"
+        class="update-panel"
+      >
+        {#if loading}
+          <div class="empty-state" role="status">
+            Loading the latest models…
+          </div>
+        {:else if failed}
+          <div class="empty-state" role="status">
+            <p>
+              {selectedUpdate === "new"
+                ? "Recent additions couldn't be loaded."
+                : "Recent deprecations couldn't be loaded."}
+            </p>
+            <button on:click={loadUpdates}>Try again</button>
+          </div>
+        {:else if selectedUpdate === "deprecated"}
+          {#if deprecations.length}
+            <ol class="model-list" aria-label="Recently deprecated models">
+              {#each deprecations as entry (entry.id)}
+                {@const logo = getProviderLogo(entry.provider)}
+                <li>
+                  <div class="model-row">
+                    {#if logo}<img
+                        class="brand-logo"
+                        src={logo}
+                        alt={entry.providerName}
+                      />
+                    {:else}<span class="brand-fallback" aria-hidden="true"
+                        >{entry.providerName.slice(0, 1)}</span
+                      >{/if}
+                    <span class="model-copy">
+                      <span class="model-title-line"
+                        ><a
+                          href={`/deprecated-models/${entry.date.slice(0, 7)}#${entry.id}`}
+                          ><strong>{entry.name}</strong></a
+                        >
+                        {#if entry.listings.length === 1}<ModelIdentifier
+                            modelId={entry.listings[0].modelId}
+                          />{/if}
+                      </span>
+                      <span class="model-meta"
+                        >{entry.providerName}<span aria-hidden="true">·</span
+                        >Deprecated {addedDate(entry.date)}</span
+                      >
+                      <span class="modality-line"
+                        ><span class="task-label"
+                          >{entry.listings.length === 1
+                            ? "1 affected listing"
+                            : `${entry.listings.length} affected listings`}</span
+                        ></span
+                      >
+                    </span>
+                  </div>
+                </li>
+              {/each}
+            </ol>
+          {:else}
+            <p class="empty-state" role="status">
+              No dated deprecations are available yet.
+            </p>
+          {/if}
+        {:else if models.length}
+          <ol class="model-list" aria-label="New models">
+            {#each models as model (model.slug)}
+              {@const modality = discoveryModality(model)}
+              {@const provider =
+                model.providers.find(
+                  (entry) => entry.id === model.modelProviderId,
+                ) ?? (model.providers.length === 1 ? model.providers[0] : null)}
+              <li>
+                <div class="model-row">
+                  {#if model.logo}
+                    <img
+                      class="brand-logo"
+                      src={model.logo}
+                      alt={model.lab ?? provider?.name ?? ""}
+                    />
+                  {:else}
+                    <span class="brand-fallback" aria-hidden="true"
+                      >{(model.lab ?? model.name).slice(0, 1)}</span
+                    >
+                  {/if}
+                  <span class="model-copy">
+                    <span class="model-title-line">
+                      <a href={model.href} aria-label={`Explore ${model.name}`}
+                        ><strong>{model.name}</strong></a
+                      >
+                      {#if model.modelId}<ModelIdentifier
+                          modelId={model.modelId}
+                        />{/if}
+                    </span>
+                    <span class="model-meta"
+                      >{model.lab ??
+                        provider?.name ??
+                        "LiteLLM catalog"}{#if model.lab && provider && provider.name !== model.lab}<span
+                          aria-hidden="true">·</span
+                        ><span>via {provider.name}</span>{/if}<span
+                        aria-hidden="true">·</span
+                      >Added {addedDate(model.firstSeen)}</span
+                    >
+                    <span class="modality-line"
+                      ><span class="task-label">{modality.task}</span
+                      >{#if modality.flow}<span class="modality-flow"
+                          >{modality.flow}</span
+                        >{/if}</span
+                    >
+                  </span>
+                </div>
+              </li>
+            {/each}
+          </ol>
+        {:else}
+          <p class="empty-state" role="status">
+            No dated model additions are available yet. <a href="/search"
+              >Explore the catalog ↗</a
+            >
+          </p>
+        {/if}
+      </div>
       <footer class="list-footer">
-        <span>From the LiteLLM model catalog</span>
+        <a class="rss-link" href={`${updatesPath}.xml`}>RSS feed</a>
         {#if catalog}<span>Updated {addedDate(catalog.updatedAt)}</span>{/if}
       </footer>
     </section>
 
     <div class="rankings panel">
-      <div class="ranking-tabs" role="tablist" aria-label="Model rankings">
+      <div
+        class="ranking-tabs segmented-tabs"
+        role="tablist"
+        aria-label="Model rankings"
+      >
         {#each lists as list, index}
           <button
             id={`ranking-tab-${list.id}`}
@@ -490,11 +603,12 @@
   }
   .discovery-grid {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 20px;
     align-items: stretch;
   }
   .panel {
+    --panel-inset: 20px;
     border: 1px solid var(--hf-line);
     background: var(--hf-dialog);
     border-radius: 10px;
@@ -506,7 +620,7 @@
     flex-direction: column;
   }
   .panel-heading {
-    padding: 18px 20px 14px;
+    padding: 14px var(--panel-inset) 10px;
   }
   .heading-line {
     display: flex;
@@ -520,33 +634,54 @@
     letter-spacing: -0.35px;
     margin: 0;
   }
-  .heading-line > a {
-    font-size: 11px;
-    white-space: nowrap;
-    color: var(--discovery-muted);
-  }
-  .heading-line > a:hover {
-    color: var(--hf-accent);
-  }
   .panel-heading p {
     color: var(--discovery-muted);
     font-size: 11px;
     margin: 7px 0 0;
     line-height: 1.5;
   }
-  .new-dot {
-    display: inline-block;
-    width: 6px;
-    height: 6px;
-    background: var(--hf-accent);
-    border-radius: 50%;
-    vertical-align: middle;
-    margin-left: 5px;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .update-panel {
+    flex: 1;
+    min-width: 0;
+  }
+  .update-heading .update-summary {
+    display: flex;
+    align-items: center;
+    min-height: 26px;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    margin: 0;
+  }
+  .update-summary a {
+    color: var(--discovery-muted);
+    white-space: nowrap;
+  }
+  .update-summary a:hover {
+    color: var(--hf-accent);
+  }
+  .update-tabs button:focus-visible,
+  .update-panel:focus-visible {
+    outline: 2px solid var(--hf-accent);
+    outline-offset: 3px;
+  }
+  .list-footer a {
+    color: inherit;
   }
   .model-list,
   .ranking-list {
     list-style: none;
-    padding: 0 20px;
+    padding: 0 var(--panel-inset);
     margin: 0;
   }
   .model-list li,
@@ -634,7 +769,7 @@
   }
   .list-footer {
     margin-top: auto;
-    padding: 15px 22px;
+    padding: 15px var(--panel-inset);
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
@@ -658,35 +793,9 @@
     outline: 2px solid var(--hf-accent);
     outline-offset: -3px;
   }
-  .ranking-tabs {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.5fr);
-    gap: 4px;
-    margin: 12px 12px 0;
-    padding: 4px;
-    border-radius: 7px;
-    background: var(--hf-faint);
-  }
-  .ranking-tabs button {
-    min-width: 0;
-    border: 1px solid transparent;
-    border-radius: 5px;
-    padding: 8px 4px;
-    background: transparent;
-    color: var(--discovery-muted);
-    font-size: 13px;
-    font-weight: 500;
-    line-height: 1.3;
-  }
-  .ranking-tabs button[aria-selected="true"] {
-    background: var(--hf-dialog);
-    border-color: var(--hf-line);
-    color: var(--hf-accent);
-    box-shadow: 0 1px 3px #00000008;
-  }
-  .ranking-tabs button:hover:not([aria-selected="true"]) {
-    color: var(--hf-ink);
-    background: var(--hf-dialog);
+  .ranking-tabs,
+  .update-tabs {
+    margin: 16px var(--panel-inset) 0;
   }
   .visually-hidden {
     position: absolute;
@@ -712,6 +821,7 @@
     margin-top: 7px;
   }
   .ranking-title {
+    min-height: 26px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -724,9 +834,6 @@
     padding: 3px 6px;
     border: 1px solid var(--hf-line);
     border-radius: 4px;
-  }
-  .ranking-panel .panel-heading {
-    padding: 14px 20px 10px;
   }
   .ranking-list {
     padding-bottom: 4px;
@@ -851,7 +958,6 @@
     margin-top: 8px;
   }
   button {
-    font: inherit;
     cursor: pointer;
   }
   .empty-state button {
@@ -942,17 +1048,8 @@
       padding: 9px 12px;
       font-size: 12px;
     }
-    .panel-heading {
-      padding: 18px 16px 14px;
-    }
-    .model-list,
-    .ranking-list {
-      padding-left: 16px;
-      padding-right: 16px;
-    }
-    .list-footer {
-      padding-left: 16px;
-      padding-right: 16px;
+    .panel {
+      --panel-inset: 16px;
     }
     .model-row {
       gap: 10px;

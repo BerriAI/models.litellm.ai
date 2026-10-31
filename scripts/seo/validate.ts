@@ -47,10 +47,12 @@ const pages: [string, string][] = [
     ...htmlFiles("compare"),
     ...htmlFiles("rankings"),
     ...htmlFiles("new-models"),
+    ...htmlFiles("deprecated-models"),
     "models.html",
     "compare.html",
     "rankings.html",
     "new-models.html",
+    "deprecated-models.html",
     "calculator.html",
   ].map((rel): [string, string] => [
     rel,
@@ -123,7 +125,7 @@ for (const slug of new Set(Object.values(slugs))) {
   if (!existsSync(path.join(OUT, "models", `${slug}.md`))) errors.push(`missing markdown copy for ${slug}`);
 }
 
-for (const map of ["sitemaps/pages.xml", "sitemaps/models.xml", "sitemaps/providers.xml", "sitemaps/compare.xml", "sitemaps/rankings.xml", "sitemaps/new-models.xml"]) {
+for (const map of ["sitemaps/pages.xml", "sitemaps/models.xml", "sitemaps/providers.xml", "sitemaps/compare.xml", "sitemaps/rankings.xml", "sitemaps/new-models.xml", "sitemaps/deprecated-models.xml"]) {
   const xml = readFileSync(path.join(OUT, map), "utf8");
   for (const m of xml.matchAll(/<loc>([^<]*)<\/loc>/g)) {
     if (!m[1].startsWith(SITE_URL) || !fileFor(m[1].slice(SITE_URL.length) || "/")) errors.push(`${map}: ${m[1]} has no page`);

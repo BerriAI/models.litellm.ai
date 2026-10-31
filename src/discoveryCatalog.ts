@@ -5,6 +5,11 @@ import {
 } from "../scripts/seo/providers";
 import { getProviderLogo } from "./providers";
 import { parseLiteLLMModelId } from "./litellmModelId";
+import {
+  groupDeprecations,
+  parseDeprecations,
+  type Deprecation,
+} from "./deprecations";
 
 export type DiscoveryProviderReference = {
   id: string;
@@ -17,6 +22,7 @@ export type DiscoveryModel = {
   slug: string;
   name: string;
   modelId: string | null;
+  modelProviderId?: string | null;
   lab: string | null;
   logo: string | null;
   href: string;
@@ -42,6 +48,7 @@ export type DiscoveryCatalog = {
   updatedAt: string;
   models: DiscoveryModel[];
   providers: DiscoveryProvider[];
+  deprecations?: Deprecation[];
 };
 
 type CatalogModel = Omit<DiscoveryModel, "logo" | "firstSeen" | "providers"> & {
@@ -105,7 +112,15 @@ function parseModels(value: unknown, updatedAt: string): CatalogModel[] {
       pageKey: entry.pageKey,
       name: entry.name,
       modelId: parseLiteLLMModelId(entry.modelId),
-      lab: typeof entry.lab === "string" ? entry.lab : null,
+      modelProviderId:
+        typeof entry.modelProviderId === "string" &&
+        SAFE_ID.test(entry.modelProviderId)
+          ? entry.modelProviderId
+          : null,
+      lab:
+        typeof entry.lab === "string" && entry.lab.trim()
+          ? entry.lab.trim()
+          : null,
       href: `/models/${slug}`,
       // Future or malformed dates must not turn into new model announcements.
       firstSeen: firstSeen && firstSeen <= updatedAt ? firstSeen : null,
@@ -272,6 +287,7 @@ function buildCatalog(
       slug: entry.slug,
       name: entry.name,
       modelId: entry.modelId,
+      modelProviderId: entry.modelProviderId,
       lab: entry.lab,
       logo,
       href: entry.href,
@@ -291,6 +307,9 @@ function buildCatalog(
   return {
     updatedAt,
     models,
+    deprecations: groupDeprecations(
+      parseDeprecations(manifest.deprecations),
+    ).filter((entry) => entry.date <= updatedAt),
     providers: [...providers.values()].sort(
       (a, b) =>
         (b.latestModelDate ?? "").localeCompare(a.latestModelDate ?? "") ||

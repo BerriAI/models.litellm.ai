@@ -429,7 +429,9 @@ describe("Discover updates", () => {
       expect(panel?.getAttribute("aria-labelledby")).toBe(tab.id);
       expect(
         Array.from(document.getElementsByTagName("*")).filter(
-          (element) => element.getAttribute("role") === "tabpanel",
+          (element) =>
+            element.getAttribute("role") === "tabpanel" &&
+            element.id.startsWith("ranking-panel-"),
         ),
       ).toHaveLength(1);
       for (const other of ["overall", "coding", "value"] as const) {
@@ -592,7 +594,9 @@ describe("Discover updates", () => {
     await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
     expect(document.getElementsByTagName("select")).toHaveLength(0);
     expect(
-      section("new-models-title").getElementsByTagName("button"),
+      Array.from(
+        section("new-models-title").getElementsByTagName("button"),
+      ).filter((button) => button.getAttribute("role") !== "tab"),
     ).toHaveLength(2);
     expect(rankingTab("overall").textContent).toBe("Top quality");
     expect(rankingTab("value").textContent).toBe("Best Task per Dollar");
@@ -601,6 +605,124 @@ describe("Discover updates", () => {
     expect(section("new-models-title").textContent).not.toContain(
       "Top quality",
     );
+  });
+
+  it.each([
+    ["Z.ai", "Z.ai · via Refuseless"],
+    [null, "Refuseless"],
+    ["Refuseless", "Refuseless"],
+  ])(
+    "should attribute the copied route to its provider when developer is %s",
+    async (lab, expected) => {
+      const host = {
+        id: "refuseless",
+        name: "Refuseless",
+        logo: null,
+        href: "/providers/refuseless",
+      };
+      vi.mocked(loadDiscoveryCatalog).mockResolvedValue({
+        ...catalog,
+        models: [
+          {
+            ...catalog.models[0],
+            lab,
+            modelId: "refuseless/example",
+            modelProviderId: host.id,
+            providers: [anthropic, host],
+          },
+        ],
+      });
+      component = new DiscoveryUpdates({ target: document.body });
+      await vi.waitFor(() => expect(recentLinks()).toHaveLength(1));
+      const meta = section("new-models-title")
+        .querySelector(".model-meta")
+        ?.textContent?.replace(/\s+/g, " ")
+        .trim();
+      expect(meta?.replace(/\s*·\s*/g, " · ")).toBe(`${expected} · Added Oct 23`);
+      expect(
+        copyButton(section("new-models-title"), "refuseless/example"),
+      ).toBeDefined();
+    },
+  );
+
+  it("should switch update tabs with the keyboard, show provider scope and change both archive and RSS links", async () => {
+    vi.mocked(loadDiscoveryCatalog).mockResolvedValue({
+      ...catalog,
+      deprecations: [
+        {
+          id: "example--azure--2026-10-20",
+          slug: "example",
+          name: "Example model",
+          provider: "azure",
+          providerName: "Azure OpenAI",
+          date: "2026-10-20",
+          listings: [
+            {
+              key: "azure/example",
+              slug: "example",
+              name: "Example model",
+              provider: "azure",
+              providerName: "Azure OpenAI",
+              modelId: "azure/example",
+              date: "2026-10-20",
+              firstObservedOn: "2026-10-24",
+            },
+          ],
+        },
+      ],
+    });
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
+    const recent = section("new-models-title");
+    const newTab = document.getElementById("update-tab-new")!;
+    const deprecatedTab = document.getElementById("update-tab-deprecated")!;
+    newTab.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }),
+    );
+    await vi.waitFor(() =>
+      expect(deprecatedTab.getAttribute("aria-selected")).toBe("true"),
+    );
+    expect(document.activeElement).toBe(deprecatedTab);
+    expect(recent.textContent).toContain("Azure OpenAI");
+    expect(recent.textContent).toContain("Deprecated Oct 20");
+    expect(
+      recent.querySelector('a[href="/deprecated-models.xml"]'),
+    ).not.toBeNull();
+    expect(recent.querySelector('a[href="/deprecated-models"]')).not.toBeNull();
+    expect(
+      recent.querySelector(
+        'a[href="/deprecated-models/2026-10#example--azure--2026-10-20"]',
+      ),
+    ).not.toBeNull();
+    expect(recent.querySelectorAll('[role="tabpanel"]')).toHaveLength(1);
+    expect(
+      document
+        .getElementById("update-panel-deprecated")
+        ?.getAttribute("aria-labelledby"),
+    ).toBe("update-tab-deprecated");
+    expect(rankingRows("overall")).toHaveLength(3);
+    deprecatedTab.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Home", bubbles: true }),
+    );
+    await vi.waitFor(() =>
+      expect(newTab.getAttribute("aria-selected")).toBe("true"),
+    );
+    expect(recent.querySelector('a[href="/new-models.xml"]')).not.toBeNull();
+    expect(recentLinks()).toHaveLength(2);
+    expect(loadDiscoveryCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it("should show a deprecation empty state for older manifests while preserving additions", async () => {
+    component = new DiscoveryUpdates({ target: document.body });
+    await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
+    document.getElementById("update-tab-deprecated")!.click();
+    await vi.waitFor(() =>
+      expect(section("new-models-title").textContent).toContain(
+        "No dated deprecations",
+      ),
+    );
+    document.getElementById("update-tab-new")!.click();
+    await vi.waitFor(() => expect(recentLinks()).toHaveLength(2));
   });
 
   it("should preserve rankings and retry only the catalog when additions fail to load", async () => {
