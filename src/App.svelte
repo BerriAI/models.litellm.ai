@@ -4,7 +4,7 @@
 
   import { getProviderDisplayName, getProviderInitial, getProviderLogo } from "./providers";
   import ProviderDropdown from "./ProviderDropdown.svelte";
-  import { trackSearch } from "./analytics";
+  import { track, trackSearch } from "./analytics";
   import { buildInfo, formatStars } from "./buildInfo";
   import CatalogStats from "./CatalogStats.svelte";
   import QuickStartBox from "./QuickStartBox.svelte";
@@ -214,6 +214,7 @@
   }
 
   function clearFilters() {
+    track("Filters Reset", { query });
     selectedProvider = "";
     maxInputTokens = null;
     maxOutputTokens = null;
@@ -224,6 +225,7 @@
   }
 
   function requestModel() {
+    track("Request Model Clicked", { query, source: "no_results" });
     window.dispatchEvent(new CustomEvent("request-support", { detail: { modelName: query.trim() } }));
   }
 
@@ -412,7 +414,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     loading = false;
   }
 
-  function copyToClipboard(text: string) {
+  function copyToClipboard(text: string, what: string, model: string) {
+    track("Copied", { what, model, query });
     navigator.clipboard.writeText(text).then(() => {
       copiedModel = text;
       setTimeout(() => { copiedModel = ""; }, 1500);
@@ -430,10 +433,15 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   function toggleRow(name: string) {
+    const position = results.findIndex((r) => r.item.name === name);
+    const item = results[position]?.item;
+    const props = { model: name, provider: item?.litellm_provider, mode: item?.mode, query, position: position + 1, results_count: results.length };
     if (expandedRows.has(name)) {
       expandedRows.delete(name);
+      track("Model Collapsed", props);
     } else {
       expandedRows.add(name);
+      track("Model Expanded", props);
     }
     expandedRows = expandedRows;
   }
@@ -446,6 +454,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       sortDirection = column === "released" ? "desc" : "asc";
     }
     userSorted = true;
+    track("Sort Changed", { column: sortColumn, direction: sortDirection, query });
     applySorting();
   }
 
@@ -726,7 +735,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               Clear all filters
             </button>
           {/if}
-          <button class="clear-filters" disabled={refreshing} on:click={() => refreshCatalog(true)}>{refreshing ? "Refreshing…" : "Refresh catalog"}</button>
+          <button class="clear-filters" disabled={refreshing} on:click={() => { track("Catalog Refreshed"); refreshCatalog(true); }}>{refreshing ? "Refreshing…" : "Refresh catalog"}</button>
           <a class="results-credit" href="https://models.dev" target="_blank" rel="noopener noreferrer">Names and release dates via models.dev</a>
         </div>
       </div>
@@ -875,7 +884,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                   </div>
                   <button
                     class="copy-button"
-                    on:click|stopPropagation={() => copyToClipboard(getDisplayModelName(name, litellm_provider))}
+                    on:click|stopPropagation={() => copyToClipboard(getDisplayModelName(name, litellm_provider), "model_name", name)}
                     title="Copy model name"
                     type="button"
                   >
@@ -1016,20 +1025,20 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                           <button
                             class="code-tab"
                             class:active={!codeTabStates[name] || codeTabStates[name] === "sdk"}
-                            on:click|stopPropagation={() => { codeTabStates[name] = "sdk"; codeTabStates = codeTabStates; }}
+                            on:click|stopPropagation={() => { codeTabStates[name] = "sdk"; codeTabStates = codeTabStates; track("Code Tab Changed", { tab: "sdk", model: name }); }}
                           >Python SDK</button>
                           <button
                             class="code-tab"
                             class:active={codeTabStates[name] === "proxy"}
-                            on:click|stopPropagation={() => { codeTabStates[name] = "proxy"; codeTabStates = codeTabStates; }}
+                            on:click|stopPropagation={() => { codeTabStates[name] = "proxy"; codeTabStates = codeTabStates; track("Code Tab Changed", { tab: "proxy", model: name }); }}
                           >AI Gateway (Proxy)</button>
                         </div>
                         {#if !codeTabStates[name] || codeTabStates[name] === "sdk"}
-                          <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmSdkSnippet(mode, getDisplayModelName(name, litellm_provider)))}>
+                          <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmSdkSnippet(mode, getDisplayModelName(name, litellm_provider)), "sdk_snippet", name)}>
                             {copiedModel.includes("from litellm") ? "Copied!" : "Copy"}
                           </button>
                         {:else}
-                          <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmProxyCurlSnippet(mode, getDisplayModelName(name, litellm_provider)))}>
+                          <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(getLiteLLmProxyCurlSnippet(mode, getDisplayModelName(name, litellm_provider)), "proxy_snippet", name)}>
                             {copiedModel.includes("curl") ? "Copied!" : "Copy"}
                           </button>
                         {/if}

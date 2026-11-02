@@ -41,6 +41,7 @@ export function installFeedback(doc, send = fetch) {
     const trigger = event.target.closest?.("[data-feedback-open]");
     if (!trigger || dialog.open) return;
     opener = trigger;
+    doc.defaultView?.litellmTrack?.("Feedback Opened", { page: doc.location.pathname });
     if (!pending) {
       form.hidden = false;
       success.hidden = true;
@@ -97,6 +98,12 @@ export function installFeedback(doc, send = fetch) {
       });
       const result = await response.json();
       if (!response.ok || result.ok !== true) throw new Error("Not accepted");
+      doc.defaultView?.litellmTrack?.("Feedback Submitted", {
+        page: doc.location.pathname,
+        message_length: text.length,
+        has_purpose: !!purpose.value.trim(),
+        has_contact: !!contact.value.trim(),
+      });
       message.value = "";
       purpose.value = "";
       contact.value = "";

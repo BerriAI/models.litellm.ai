@@ -7,7 +7,7 @@
   import Cookbook from "./Cookbook.svelte";
   import Guardrails from "./Guardrails.svelte";
   import RequestForm from "./RequestForm.svelte";
-  import { initAnalytics, trackPageView, trackTabChange } from "./analytics";
+  import { initAnalytics, track, trackPageView, trackTabChange } from "./analytics";
   import { PAGE_TITLES } from "./pageTitles";
   import { sanitizeSearchQuery } from "./searchQuery";
 
@@ -104,7 +104,8 @@
     selectTab(tab);
   }
 
-  function setTheme(nextTheme: Theme) {
+  function setTheme(nextTheme: Theme, source = "toggle") {
+    if (source === "toggle") track("Theme Changed", { theme: nextTheme });
     theme = nextTheme;
     document.documentElement.dataset.theme = theme;
     try {
@@ -123,6 +124,7 @@
   }
 
   function openRequest() {
+    track("Request Model Clicked", { source: "nav" });
     moreMenuOpen = false;
     requestForm?.openModal(activeTab === "models" ? modelSearchQuery : "");
   }
@@ -141,9 +143,9 @@
   onMount(() => {
     try {
       const savedTheme = window.localStorage.getItem("litellm-handoff-theme");
-      setTheme(savedTheme === "dark" ? "dark" : "light");
+      setTheme(savedTheme === "dark" ? "dark" : "light", "saved");
     } catch {
-      setTheme("light");
+      setTheme("light", "saved");
     }
     initAnalytics();
     document.title = PAGE_TITLES[activeTab];

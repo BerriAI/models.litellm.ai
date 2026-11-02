@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { track } from "./analytics";
   import { onMount } from "svelte";
   import PageHero from "./PageHero.svelte";
   import {
@@ -84,10 +85,12 @@
   $: visible = filtered.slice(0, visibleCount);
   $: days = [...new Set(visible.map((item) => item.date))];
   function toggle(id: string) {
+    track(expanded.has(id) ? "Changelog Item Collapsed" : "Changelog Item Expanded", { item: id });
     expanded.has(id) ? expanded.delete(id) : expanded.add(id);
     expanded = new Set(expanded);
   }
   function reset() {
+    track("Filters Reset", { page: "changelog", query });
     category = "all";
     provider = "all";
     query = "";
@@ -114,7 +117,10 @@
     />
     <select
       bind:value={provider}
-      on:change={() => (visibleCount = 40)}
+      on:change={() => {
+        visibleCount = 40;
+        track("Changelog Filter Changed", { filter: "provider", value: provider });
+      }}
       aria-label="Filter by provider"
       ><option value="all">All providers</option>{#each providers as id}<option
           value={id}>{providerName(id)}</option
@@ -127,6 +133,7 @@
         on:click={() => {
           category = filter.id;
           visibleCount = 40;
+          track("Changelog Filter Changed", { filter: "category", value: filter.id });
         }}>{filter.label}</button
       >{/each}
   </nav>
@@ -204,7 +211,10 @@
       </div>{/if}
     {#if visible.length < filtered.length}<button
         class="more"
-        on:click={() => (visibleCount += 40)}
+        on:click={() => {
+          visibleCount += 40;
+          track("Changelog Load More", { visible: visibleCount });
+        }}
         >Load older updates <span>↓</span></button
       >{/if}
   {/if}

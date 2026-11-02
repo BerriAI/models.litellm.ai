@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { track } from "./analytics";
   import { tick } from "svelte";
   import {
     getProviderDisplayName,
@@ -51,6 +52,7 @@
 
   function select(provider: string) {
     selectedProvider = provider;
+    track("Provider Filter Changed", { provider: provider || "all" });
     searchQuery = "";
     close();
   }

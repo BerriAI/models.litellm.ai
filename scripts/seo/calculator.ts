@@ -102,7 +102,7 @@ ${picker}
     box.querySelector('[data-r="month"]').textContent=fmt(each*r*${DAYS_PER_MONTH});
     if(list){var u=new URLSearchParams({model:get("model").value,in:i,out:o,req:r});history.replaceState(null,"","?"+u)}
   }
-  box.addEventListener("input",function(){run();if(!used&&window.posthog&&posthog.capture){used=true;posthog.capture("calculator_used",{page_kind:box.getAttribute("data-page-kind"),page_id:box.getAttribute("data-page-id")})}});
+  box.addEventListener("input",function(){run();if(!used&&window.litellmTrack){used=true;litellmTrack("calculator_used",{page_kind:box.getAttribute("data-page-kind"),page_id:box.getAttribute("data-page-id")})}});
   run();
 });
 })()</script>`;

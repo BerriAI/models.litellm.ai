@@ -3,7 +3,7 @@
   import PageHero from "./PageHero.svelte";
   import { filterProviders, supportsEndpoint } from "./providerFilters";
   import { getProviderInitial, getProviderLogo, PROVIDER_DISPLAY_NAMES } from "./providers";
-  import { trackSearch } from "./analytics";
+  import { track, trackSearch } from "./analytics";
 
   type ProviderEndpoint = {
     provider: string;
@@ -170,7 +170,7 @@
           <h2>Endpoints</h2>
         </div>
         <nav class="endpoints-list" aria-label="Filter by endpoint">
-          <button class="endpoint-item" class:active={!selectedEndpoint} on:click={() => selectedEndpoint = ""} type="button">
+          <button class="endpoint-item" class:active={!selectedEndpoint} on:click={() => { selectedEndpoint = ""; track("Endpoint Filter Changed", { endpoint: "all" }); }} type="button">
             <span class="endpoint-label">All endpoints</span>
             <span class="provider-count">{matchingProviders.length}</span>
           </button>
@@ -178,7 +178,7 @@
             <button
               class="endpoint-item"
               class:active={selectedEndpoint === endpoint}
-              on:click={() => selectedEndpoint = endpoint}
+              on:click={() => { selectedEndpoint = endpoint; track("Endpoint Filter Changed", { endpoint }); }}
               type="button"
             >
               <span class="endpoint-label">{formatEndpointName(endpoint)}</span>
@@ -222,7 +222,7 @@
         {#if searchQuery.trim() && hiddenProviderMatches > 0}
           <div class="filter-notice" role="status">
             <span>{hiddenProviderMatches} {hiddenProviderMatches === 1 ? 'match' : 'matches'} outside this endpoint filter.</span>
-            <button type="button" on:click={() => selectedEndpoint = ""}>Clear endpoint filter ↗</button>
+            <button type="button" on:click={() => { selectedEndpoint = ""; track("Endpoint Filter Changed", { endpoint: "all" }); }}>Clear endpoint filter ↗</button>
           </div>
         {/if}
         {#if filteredProviders.length > 0}

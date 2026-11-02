@@ -13,6 +13,7 @@ vi.mock("./searchWorker?worker", () => ({
   },
 }));
 vi.mock("./analytics", () => ({
+  track: vi.fn(),
   trackSearch: vi.fn(),
   initAnalytics: vi.fn(),
   trackPageView: vi.fn(),

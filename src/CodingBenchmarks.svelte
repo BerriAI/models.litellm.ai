@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { track } from "./analytics";
   import { onMount } from "svelte";
   import { getProviderLogo } from "./providers";
   import {
@@ -148,7 +149,10 @@
                   chart.title +
                   ": " +
                   (value === null ? "unavailable" : chart.format(value))}
-                on:click={() => (selected = selected === row.id ? "" : row.id)}
+                on:click={() => {
+                  selected = selected === row.id ? "" : row.id;
+                  if (selected) track("Benchmark Result Selected", { result: row.id });
+                }}
               >
                 <span class="row-heading"
                   ><span>Harness: {harnessName(row.harness)}</span><strong

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { track } from "./analytics";
   import { onMount } from "svelte";
   import PageHero from "./PageHero.svelte";
   import { fly } from "svelte/transition";
@@ -112,6 +113,7 @@
   }
 
   function copyToClipboard(text: string, id: string) {
+    track("Copied", { what: "guardrail_code", guardrail: id });
     navigator.clipboard.writeText(text);
     copiedId = id;
     setTimeout(() => (copiedId = ""), 2000);
@@ -122,6 +124,7 @@
       expandedRows.delete(id);
     } else {
       expandedRows.add(id);
+      track("Guardrail Expanded", { guardrail: id });
     }
     expandedRows = expandedRows;
   }
