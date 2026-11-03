@@ -9,24 +9,23 @@ import {
   deprecationMarkdown,
   deprecationPath,
 } from "./deprecation-pages";
-import {
-  DEPRECATION_NOTICES,
-  deprecationNotice,
-  refreshCadence,
-} from "./deprecation-sources";
+import { refreshCadence } from "./deprecation-sources";
 import { rssFeed } from "./crawl";
 import { loadDiscoveryCatalog } from "../../src/discoveryCatalog";
 
-const row = (provider: string, date?: string) => ({
+const AZURE_NOTICE =
+  "https://learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-retirements";
+const row = (provider: string, date?: string, source?: string) => ({
   litellm_provider: provider,
   mode: "chat",
   input_cost_per_token: 0.000001,
   output_cost_per_token: 0.000002,
   ...(date ? { deprecation_date: date } : {}),
+  ...(source ? { deprecation_source: source } : {}),
 });
 const map: CostMap = {
   "gpt-example": row("openai"),
-  "azure/gpt-example": row("azure", "2026-10-30"),
+  "azure/gpt-example": row("azure", "2026-10-30", AZURE_NOTICE),
   "azure/eu/gpt-example": row("azure", "2026-10-30"),
   "anthropic/claude-example": row("anthropic", "2026-11-01"),
   "openai/invalid-example": row("openai", "2026-02-30"),
@@ -204,7 +203,7 @@ describe("provider deprecation history", () => {
       entries.find((entry) => entry.provider === "azure")!.id,
     )!;
     expect(azureRow.querySelector("a[target]")?.getAttribute("href")).toBe(
-      DEPRECATION_NOTICES.azure,
+      AZURE_NOTICE,
     );
     expect(azureRow.querySelector("a[target]")?.getAttribute("rel")).toBe(
       "noopener",
@@ -242,16 +241,11 @@ describe("provider deprecation history", () => {
     expect(month.body.textContent).not.toContain("Tracked providers");
 
     const md = deprecationMarkdown(entries, "Deprecated", "2026-10-30");
-    expect(md).toContain(
-      `Reference: [learn.microsoft.com](${DEPRECATION_NOTICES.azure})`,
-    );
-    expect(md.match(/^Reference: /gm)).toHaveLength(2);
+    expect(md).toContain(`Reference: [learn.microsoft.com](${AZURE_NOTICE})`);
+    expect(md.match(/^Reference: /gm)).toHaveLength(1);
   });
 
-  test("every provider notice is an https page and the refresh schedule names the synced providers", () => {
-    for (const url of Object.values(DEPRECATION_NOTICES))
-      expect(url).toMatch(/^https:\/\/[^/]+\/./);
-    expect(deprecationNotice("not-a-provider")).toBeUndefined();
+  test("the refresh schedule names the synced providers", () => {
     expect(refreshCadence("openai")).toBe("Every 30 minutes");
     expect(refreshCadence("xai")).toBe("Every 4 hours");
     expect(refreshCadence("wandb")).toBe("Daily");

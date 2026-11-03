@@ -32,6 +32,7 @@ export function buildDeprecations(
         firstObservedOn:
           old?.date === row.deprecation ? old.firstObservedOn : today,
         ...(row.successor ? { successor: row.successor } : {}),
+        ...(row.reference ? { reference: row.reference } : {}),
       });
     }
   }

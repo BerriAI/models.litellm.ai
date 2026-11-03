@@ -54,7 +54,6 @@ import { auditProviderLogos } from "../provider-logos";
 import { buildDeprecations } from "./deprecations";
 import { groupDeprecations } from "../../src/deprecations";
 import { deprecationBody, deprecationMarkdown, deprecationPath } from "./deprecation-pages";
-import { deprecationNotice } from "./deprecation-sources";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
@@ -701,7 +700,7 @@ ${cheapestOnProvider(h.name, list)}
     deprecated.map((entry) => ({
       title: `${entry.name} listings deprecated on ${entry.providerName}`,
       link: abs(deprecationPath(entry)), guid: `urn:litellm:deprecation:${entry.id}`, date: entry.date,
-      description: `Effective ${entry.date} on ${entry.providerName}. Affected listings: ${[...new Set(entry.listings.map((row) => row.modelId))].join(", ")}. Other versions or providers may still offer this model.${entry.successor ? ` Recommended replacement: ${entry.successor}.` : ""}${deprecationNotice(entry.provider) ? ` Provider notice: ${deprecationNotice(entry.provider)}` : ""}`,
+      description: `Effective ${entry.date} on ${entry.providerName}. Affected listings: ${[...new Set(entry.listings.map((row) => row.modelId))].join(", ")}. Other versions or providers may still offer this model.${entry.successor ? ` Recommended replacement: ${entry.successor}.` : ""}${entry.reference ? ` Provider notice: ${entry.reference}` : ""}`,
     })), "/deprecated-models.xml",
   ));
 
