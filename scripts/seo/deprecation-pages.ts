@@ -7,6 +7,13 @@ export const deprecationPath = (entry: Deprecation) =>
   `/deprecated-models/${entry.date.slice(0, 7)}#${entry.id}`;
 const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 
+const auditCadence =
+  "Deprecation audits typically run daily. Verified changes appear here after they are merged into LiteLLM’s price file; the site checks for merged updates every 10 minutes. The page generation date is not the last successful audit of each provider.";
+// Provider-sync configuration, not a list inferred from dated catalog entries.
+// Keep this maintained alongside changes to the provider-sync coverage.
+const auditCoverage =
+  "Automated catalog checks are configured for Anthropic, AWS Bedrock, Azure OpenAI and Azure AI Foundry, Baseten, Databricks, Fireworks AI, Google Gemini, Google Vertex AI, GitHub Copilot, Meta, OpenAI, Together AI, TypeSafe, W&B Inference, and xAI. Deprecation coverage varies by provider and source availability.";
+
 export function deprecationTable(entries: Deprecation[]): string {
   if (!entries.length)
     return '<p class="note">No deprecations recorded for this period.</p>';
@@ -45,7 +52,9 @@ ${modelUpdatesNav("deprecated")}
 <section><h2>${month ? "Deprecated this month" : "Recently deprecated"}</h2>${deprecationTable(month ? recent : recent.slice(0, 30))}</section>
 ${upcoming.length ? `<section><h2>Scheduled for deprecation</h2><p class="note">These dates are still ahead. Entries join the RSS feed when their effective date arrives.</p>${deprecationTable(month ? upcoming : upcoming.slice(0, 15))}</section>` : ""}
 <section><h2>By month</h2><ul class="links">${byMonth}</ul></section>
-<p class="note">Dates come from <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">LiteLLM’s price file</a> and reflect provider listings, not announcement dates. History is backfilled from recorded dates; it may not include models removed before tracking began. Regional and pricing variants with the same provider and date are grouped together.</p>`;
+<p class="note">Dates come from <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">LiteLLM’s price file</a> and reflect provider listings, not announcement dates. History is backfilled from recorded dates; it may not include models removed before tracking began. Regional and pricing variants with the same provider and date are grouped together.</p>
+<p class="note">${esc(auditCadence)}</p>
+<p class="note">${esc(auditCoverage)}</p>`;
 }
 
 export function deprecationMarkdown(
@@ -56,7 +65,11 @@ export function deprecationMarkdown(
   return [
     `# ${title}`,
     "",
-    `Updated ${today}. Dates are effective deprecation dates, not announcement dates. Other versions or providers may still offer the model.`,
+    `Page generated ${today} (UTC). Dates are effective deprecation dates, not announcement dates. Other versions or providers may still offer the model.`,
+    "",
+    auditCadence,
+    "",
+    auditCoverage,
     "",
     ...entries.flatMap((entry) => [
       `## ${entry.name} — ${entry.providerName}`,

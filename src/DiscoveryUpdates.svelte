@@ -367,7 +367,12 @@
         </div>
         <footer class="list-footer">
           <a class="rss-link" href={`${updatesPath}.xml`}>RSS feed</a>
-          {#if catalog}<span>Updated {addedDate(catalog.updatedAt)}</span>{/if}
+          {#if catalog}
+            <span>Catalog generated <time datetime={catalog.updatedAt}
+                >{addedDate(catalog.updatedAt)} (UTC)</time
+              ></span
+            >
+          {/if}
         </footer>
       </section>
     {/if}

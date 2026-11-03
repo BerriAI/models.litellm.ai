@@ -619,7 +619,8 @@ function newModelProviders(providers: NewModelRow["providers"]): string {
 
 export function modelUpdatesMeta(active: "new" | "deprecated", updated: string): string {
   const feed = active === "new" ? "/new-models.xml" : "/deprecated-models.xml";
-  return `<div class="meta"><span>Updated <time datetime="${esc(updated)}">${longDate(updated)}</time></span><a class="rss-link" href="${feed}">RSS feed</a></div>`;
+  // The generator stores a UTC calendar date, not a timestamp we can localize.
+  return `<div class="meta"><span>Page generated <time datetime="${esc(updated)}">${longDate(updated)} (UTC)</time></span><a class="rss-link" href="${feed}">RSS feed</a></div>`;
 }
 
 export function modelUpdatesNav(active: "new" | "deprecated"): string {
