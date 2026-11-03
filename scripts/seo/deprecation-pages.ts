@@ -8,11 +8,28 @@ export const deprecationPath = (entry: Deprecation) =>
 const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 
 const auditCadence =
-  "Deprecation audits typically run daily. Verified changes appear here after they are merged into LiteLLM’s price file; the site checks for merged updates every 10 minutes. The page generation date is not the last successful audit of each provider.";
+  "Deprecation audits typically run daily. Verified changes appear here after they are merged into LiteLLM’s price file; the site checks for merged updates every 10 minutes.";
 // Provider-sync configuration, not a list inferred from dated catalog entries.
 // Keep this maintained alongside changes to the provider-sync coverage.
-const auditCoverage =
-  "Automated catalog checks are configured for Anthropic, AWS Bedrock, Azure OpenAI and Azure AI Foundry, Baseten, Databricks, Fireworks AI, Google Gemini, Google Vertex AI, GitHub Copilot, Meta, OpenAI, Together AI, TypeSafe, W&B Inference, and xAI. Deprecation coverage varies by provider and source availability.";
+const auditedProviders = [
+  "Anthropic",
+  "AWS Bedrock",
+  "Azure OpenAI and Azure AI Foundry",
+  "Baseten",
+  "Databricks",
+  "Fireworks AI",
+  "Google Gemini",
+  "Google Vertex AI",
+  "GitHub Copilot",
+  "Meta",
+  "OpenAI",
+  "Together AI",
+  "TypeSafe",
+  "W&B Inference",
+  "xAI",
+];
+const coverageNote =
+  "Deprecation coverage varies by provider and source availability.";
 
 export function deprecationTable(entries: Deprecation[]): string {
   if (!entries.length)
@@ -52,9 +69,15 @@ ${modelUpdatesNav("deprecated")}
 <section><h2>${month ? "Deprecated this month" : "Recently deprecated"}</h2>${deprecationTable(month ? recent : recent.slice(0, 30))}</section>
 ${upcoming.length ? `<section><h2>Scheduled for deprecation</h2><p class="note">These dates are still ahead. Entries join the RSS feed when their effective date arrives.</p>${deprecationTable(month ? upcoming : upcoming.slice(0, 15))}</section>` : ""}
 <section><h2>By month</h2><ul class="links">${byMonth}</ul></section>
+<section aria-labelledby="about-notices"><h2 id="about-notices">About these notices</h2>
 <p class="note">Dates come from <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">LiteLLM’s price file</a> and reflect provider listings, not announcement dates. History is backfilled from recorded dates; it may not include models removed before tracking began. Regional and pricing variants with the same provider and date are grouped together.</p>
-<p class="note">${esc(auditCadence)}</p>
-<p class="note">${esc(auditCoverage)}</p>`;
+<div class="grid2" style="align-items:start">
+<section aria-labelledby="audit-cadence"><h3 id="audit-cadence">Update cadence</h3><p class="note">${esc(auditCadence)}</p></section>
+<section aria-labelledby="audit-coverage"><h3 id="audit-coverage">Provider coverage</h3>
+<p class="note">Automated catalog checks are configured for:</p>
+<ul class="caps">${auditedProviders.map((provider) => `<li>${esc(provider)}</li>`).join("")}</ul>
+<p class="note">${esc(coverageNote)}</p></section>
+</div></section>`;
 }
 
 export function deprecationMarkdown(
@@ -65,11 +88,7 @@ export function deprecationMarkdown(
   return [
     `# ${title}`,
     "",
-    `Page generated ${today} (UTC). Dates are effective deprecation dates, not announcement dates. Other versions or providers may still offer the model.`,
-    "",
-    auditCadence,
-    "",
-    auditCoverage,
+    `Updated ${today}. Dates are effective deprecation dates, not announcement dates. Other versions or providers may still offer the model.`,
     "",
     ...entries.flatMap((entry) => [
       `## ${entry.name} — ${entry.providerName}`,
@@ -79,5 +98,18 @@ export function deprecationMarkdown(
       ...entry.listings.map((row) => `- \`${row.modelId.replace(/`/g, "")}\``),
       "",
     ]),
+    "## About these notices",
+    "",
+    "### Update cadence",
+    "",
+    auditCadence,
+    "",
+    "### Provider coverage",
+    "",
+    "Automated catalog checks are configured for:",
+    "",
+    ...auditedProviders.map((provider) => `- ${provider}`),
+    "",
+    coverageNote,
   ].join("\n");
 }
