@@ -8,16 +8,14 @@ export const deprecationPath = (entry: Deprecation) =>
   `/deprecated-models/${entry.date.slice(0, 7)}#${entry.id}`;
 const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 
-/** The notice's host and path, so the reference reads as a citation and not as a button. */
-const noticeLabel = (url: string): string => {
-  const { hostname, pathname } = new URL(url);
-  return `${hostname.replace(/^www\./, "")}${pathname.replace(/\/$/, "")}`;
-};
+/** The notice's host, so the reference reads as a citation and not as a button. */
+const noticeLabel = (url: string): string =>
+  new URL(url).hostname.replace(/^www\./, "");
 
 const noticeLink = (provider: string): string => {
   const url = deprecationNotice(provider);
   return url
-    ? `<a href="${esc(url)}" rel="noopener" target="_blank">${esc(noticeLabel(url))}</a>`
+    ? `<a class="ref" href="${esc(url)}" rel="noopener" target="_blank">${esc(noticeLabel(url))}</a>`
     : "–";
 };
 
