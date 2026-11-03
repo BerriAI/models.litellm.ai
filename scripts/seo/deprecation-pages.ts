@@ -69,15 +69,15 @@ ${modelUpdatesNav("deprecated")}
 <section><h2>${month ? "Deprecated this month" : "Recently deprecated"}</h2>${deprecationTable(month ? recent : recent.slice(0, 30))}</section>
 ${upcoming.length ? `<section><h2>Scheduled for deprecation</h2><p class="note">These dates are still ahead. Entries join the RSS feed when their effective date arrives.</p>${deprecationTable(month ? upcoming : upcoming.slice(0, 15))}</section>` : ""}
 <section><h2>By month</h2><ul class="links">${byMonth}</ul></section>
+<div class="grid2 notice-info">
 <section aria-labelledby="about-notices"><h2 id="about-notices">About these notices</h2>
-<p class="note">Dates come from <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">LiteLLM’s price file</a> and reflect provider listings, not announcement dates. History is backfilled from recorded dates; it may not include models removed before tracking began. Regional and pricing variants with the same provider and date are grouped together.</p>
-<div class="grid2" style="align-items:start">
-<section aria-labelledby="audit-cadence"><h3 id="audit-cadence">Update cadence</h3><p class="note">${esc(auditCadence)}</p></section>
-<section aria-labelledby="audit-coverage"><h3 id="audit-coverage">Provider coverage</h3>
+<p class="note">Dates come from <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">LiteLLM’s price file</a> and reflect provider listings, not announcement dates. History is backfilled from recorded dates; it may not include models removed before tracking began. Regional and pricing variants with the same provider and date are grouped together.</p></section>
+<section aria-labelledby="audit-cadence"><h2 id="audit-cadence">Update cadence</h2><p class="note">${esc(auditCadence)}</p></section>
+<section aria-labelledby="audit-coverage"><h2 id="audit-coverage">Provider coverage</h2>
 <p class="note">Automated catalog checks are configured for:</p>
 <ul class="caps">${auditedProviders.map((provider) => `<li>${esc(provider)}</li>`).join("")}</ul>
 <p class="note">${esc(coverageNote)}</p></section>
-</div></section>`;
+</div>`;
 }
 
 export function deprecationMarkdown(
