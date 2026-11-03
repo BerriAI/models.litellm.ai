@@ -4,7 +4,16 @@ import { buildDeprecations } from "./deprecations";
 import { groupDeprecations, parseDeprecations } from "../../src/deprecations";
 import { assignSlugs, groupCostMap, type CostMap } from "./group";
 import { buildModelView } from "./model-view";
-import { deprecationBody, deprecationPath } from "./deprecation-pages";
+import {
+  deprecationBody,
+  deprecationMarkdown,
+  deprecationPath,
+} from "./deprecation-pages";
+import {
+  DEPRECATION_NOTICES,
+  deprecationNotice,
+  refreshCadence,
+} from "./deprecation-sources";
 import { rssFeed } from "./crawl";
 import { loadDiscoveryCatalog } from "../../src/discoveryCatalog";
 
@@ -175,5 +184,75 @@ describe("provider deprecation history", () => {
     expect(doc.querySelector("item description")?.textContent).toBe(
       "Provider <example> & listings",
     );
+  });
+
+  test("links every dated row to its provider's own retirement notice and lists the providers tracked", () => {
+    const data: CostMap = {
+      ...map,
+      "scaleway/example": row("scaleway", "2026-10-01"),
+    };
+    const entries = groupDeprecations(build(data));
+    const months = [
+      { ym: "2026-10", count: 2 },
+      { ym: "2026-11", count: 1 },
+    ];
+    const hub = new DOMParser().parseFromString(
+      deprecationBody(entries, months, "2026-10-30"),
+      "text/html",
+    );
+    const azureRow = hub.getElementById(
+      entries.find((entry) => entry.provider === "azure")!.id,
+    )!;
+    expect(azureRow.querySelector("a[target]")?.getAttribute("href")).toBe(
+      DEPRECATION_NOTICES.azure,
+    );
+    expect(azureRow.querySelector("a[target]")?.getAttribute("rel")).toBe(
+      "noopener",
+    );
+    const scalewayRow = hub.getElementById(
+      entries.find((entry) => entry.provider === "scaleway")!.id,
+    )!;
+    expect(scalewayRow.querySelector("a[target]")).toBeNull();
+    expect(scalewayRow.lastElementChild?.textContent).toBe("–");
+
+    const tracked = [...hub.querySelectorAll("section")].find((section) =>
+      section.querySelector("h2")?.textContent?.startsWith("Tracked providers"),
+    )!;
+    const cells = (name: string) =>
+      [...tracked.querySelectorAll("tbody tr")]
+        .find((tr) => tr.firstElementChild?.textContent === name)!
+        .querySelectorAll("td");
+    expect(cells("Azure OpenAI")[1].textContent).toBe("2");
+    expect(cells("Azure OpenAI")[2].textContent).toBe("Every 30 minutes");
+    expect(cells("Scaleway")[2].textContent).toBe("By hand");
+    expect(cells("Scaleway")[3].textContent).toBe("–");
+    expect(
+      tracked.querySelector("tbody tr")?.firstElementChild?.textContent,
+    ).toBe("Azure OpenAI");
+
+    const month = new DOMParser().parseFromString(
+      deprecationBody(
+        entries.filter((entry) => entry.date.startsWith("2026-10")),
+        months,
+        "2026-10-30",
+        "2026-10",
+      ),
+      "text/html",
+    );
+    expect(month.body.textContent).not.toContain("Tracked providers");
+
+    const md = deprecationMarkdown(entries, "Deprecated", "2026-10-30");
+    expect(md).toContain(`Reference: ${DEPRECATION_NOTICES.azure}`);
+    expect(md.match(/^Reference: /gm)).toHaveLength(2);
+  });
+
+  test("every provider notice is an https page and the refresh schedule names the synced providers", () => {
+    for (const url of Object.values(DEPRECATION_NOTICES))
+      expect(url).toMatch(/^https:\/\/[^/]+\/./);
+    expect(deprecationNotice("not-a-provider")).toBeUndefined();
+    expect(refreshCadence("openai")).toBe("Every 30 minutes");
+    expect(refreshCadence("xai")).toBe("Every 4 hours");
+    expect(refreshCadence("wandb")).toBe("Daily");
+    expect(refreshCadence("not-a-provider")).toBe("By hand");
   });
 });
