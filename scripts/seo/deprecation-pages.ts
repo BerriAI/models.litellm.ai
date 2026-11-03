@@ -43,11 +43,11 @@ export function trackedProvidersTable(entries: Deprecation[]): string {
 export function deprecationTable(entries: Deprecation[]): string {
   if (!entries.length)
     return '<p class="note">No deprecations recorded for this period.</p>';
-  return `<div class="tbl"><table><thead><tr><th>Effective date</th><th>Model</th><th>API provider</th><th>Affected listings</th><th>Reference</th></tr></thead><tbody>${entries
+  return `<div class="tbl"><table><thead><tr><th>Effective date</th><th>Model</th><th>API provider</th><th>Affected listings</th><th>Replacement</th><th>Reference</th></tr></thead><tbody>${entries
     .map((entry) => {
       const routes = [...new Set(entry.listings.map((row) => row.modelId))];
       const listing = (route: string) => `<code>${esc(route)}</code>`;
-      return `<tr id="${esc(entry.id)}"><td><a href="${deprecationPath(entry)}"><time datetime="${entry.date}">${shortDate(entry.date)}</time></a></td><td><a href="${modelPath(entry.slug)}">${esc(entry.name)}</a></td><td>${esc(entry.providerName)}</td><td class="affected-routes">${routes.length === 1 ? listing(routes[0]) : `<details><summary>${routes.length} listings</summary><ul>${routes.map((route) => `<li>${listing(route)}</li>`).join("")}</ul></details>`}</td><td>${noticeLink(entry.provider)}</td></tr>`;
+      return `<tr id="${esc(entry.id)}"><td><a href="${deprecationPath(entry)}"><time datetime="${entry.date}">${shortDate(entry.date)}</time></a></td><td><a href="${modelPath(entry.slug)}">${esc(entry.name)}</a></td><td>${esc(entry.providerName)}</td><td class="affected-routes">${routes.length === 1 ? listing(routes[0]) : `<details><summary>${routes.length} listings</summary><ul>${routes.map((route) => `<li>${listing(route)}</li>`).join("")}</ul></details>`}</td><td>${entry.successor ? `<code>${esc(entry.successor)}</code>` : "–"}</td><td>${noticeLink(entry.provider)}</td></tr>`;
     })
     .join("")}</tbody></table></div>`;
 }
@@ -96,6 +96,9 @@ export function deprecationMarkdown(
       `## ${entry.name} — ${entry.providerName}`,
       "",
       `${entry.date > today ? "Scheduled for" : "Deprecated"}: ${entry.date}`,
+      ...(entry.successor
+        ? [`Replacement: \`${entry.successor.replace(/`/g, "")}\``]
+        : []),
       ...(deprecationNotice(entry.provider)
         ? [`Reference: ${deprecationNotice(entry.provider)}`]
         : []),

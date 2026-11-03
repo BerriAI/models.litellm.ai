@@ -8,6 +8,8 @@ export type DeprecationListing = {
   modelId: string;
   date: string;
   firstObservedOn: string;
+  /** The provider's recommended replacement, when its notice names one. */
+  successor?: string;
 };
 
 export type Deprecation = Omit<
@@ -16,6 +18,7 @@ export type Deprecation = Omit<
 > & {
   id: string;
   listings: DeprecationListing[];
+  successor?: string;
 };
 
 export function isDay(value: unknown): value is string {
@@ -41,7 +44,9 @@ export function parseDeprecations(value: unknown): DeprecationListing[] {
       typeof entry.provider === "string" &&
       /^[a-z0-9][a-z0-9_-]*$/.test(entry.provider) &&
       isDay(entry.date) &&
-      isDay(entry.firstObservedOn)
+      isDay(entry.firstObservedOn) &&
+      (entry.successor === undefined ||
+        (typeof entry.successor === "string" && entry.successor.trim() !== ""))
     );
   });
 }
@@ -68,6 +73,8 @@ export function groupDeprecations(
     }
     if (!group.listings.some((row) => row.key === listing.key))
       group.listings.push(listing);
+    if (!group.successor && listing.successor)
+      group.successor = listing.successor;
   }
   for (const group of groups.values())
     group.listings.sort(
