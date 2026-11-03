@@ -36,3 +36,8 @@ export function pageKind(path: string): string {
   if (first === "deprecated-models") return second ? "deprecated-models-month" : "deprecated-models";
   return first;
 }
+
+export function outboundLinkProps(link: HTMLAnchorElement, origin: string) {
+  if (link.origin === origin || !/^https?:$/.test(link.protocol)) return undefined;
+  return { url: link.href, host: link.hostname, text: (link.textContent ?? "").trim().slice(0, 80) };
+}

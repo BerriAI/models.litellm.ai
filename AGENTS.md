@@ -46,5 +46,6 @@ Every new page, route, component, feed or user interaction ships with Mixpanel t
 - In the app, use `track()` (or a named helper) from `src/analytics.ts`. Name events in Title Case ("Model Expanded") and send ids and filter values, never free text a user typed into a form, full emails or feedback text.
 - On generated static pages (`scripts/seo/`), call `window.litellmTrack(event, props)` from page scripts; it sends to both Mixpanel and PostHog. `layout()` already sends "Page View" and "Page Leave", so a new page only needs a `track` kind and id, or a case in `pageKind()` in `src/analyticsConfig.ts`.
 - Fetches that run no JavaScript (RSS feeds, `.md` copies, `llms.txt`) are reported from `middleware.ts`; add a new feed or machine-readable path to its `matcher` and `machineFetchEvent()`. Links back to this site in RSS items go through `feedLink()` so feed clicks carry `utm_source=rss`.
+- Every click on a link to another site is sent as "Outbound Link Clicked" (url, host, link text) on both the app and static pages, so a new external link needs nothing extra.
 - Mixpanel's autocapture (clicks, inputs, scroll depth) is a backstop, not a replacement for named events.
 - If something genuinely needs no tracking, say why in the PR description.

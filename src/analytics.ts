@@ -1,5 +1,5 @@
 import mixpanel from 'mixpanel-browser';
-import { MIXPANEL_OPTIONS, pageKind } from './analyticsConfig';
+import { MIXPANEL_OPTIONS, outboundLinkProps, pageKind } from './analyticsConfig';
 
 // Get Mixpanel token from environment variable
 const MIXPANEL_TOKEN = import.meta.env.VITE_MIXPANEL_TOKEN;
@@ -16,6 +16,12 @@ function trackPageLeave(transport?: 'sendBeacon') {
   mixpanel.track('Page Leave', { page: currentPage }, transport ? { transport } : undefined);
 }
 
+function trackOutboundClick(event: MouseEvent) {
+  const link = (event.target as Element | null)?.closest?.('a[href]');
+  const props = link instanceof HTMLAnchorElement ? outboundLinkProps(link, window.location.origin) : undefined;
+  if (props) mixpanel.track('Outbound Link Clicked', props, { transport: 'sendBeacon' });
+}
+
 // Initialize Mixpanel
 export function initAnalytics() {
   if (MIXPANEL_TOKEN) {
@@ -24,6 +30,7 @@ export function initAnalytics() {
     // Static scripts (feedback widget) report through this hook on every surface.
     window.litellmTrack = track;
     window.addEventListener('pagehide', () => trackPageLeave('sendBeacon'));
+    document.addEventListener('click', trackOutboundClick, true);
     console.log('Mixpanel initialized');
   } else {
     console.warn('Mixpanel token not found. Set VITE_MIXPANEL_TOKEN in your .env file');
