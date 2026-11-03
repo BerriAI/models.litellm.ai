@@ -243,7 +243,7 @@ describe("provider deprecation history", () => {
 
     const md = deprecationMarkdown(entries, "Deprecated", "2026-10-30");
     expect(md).toContain(
-      `Reference: [learn.microsoft.com/en-us/azure/foundry/openai/concepts/model-retirements](${DEPRECATION_NOTICES.azure})`,
+      `Reference: [learn.microsoft.com](${DEPRECATION_NOTICES.azure})`,
     );
     expect(md.match(/^Reference: /gm)).toHaveLength(2);
   });

@@ -46,7 +46,7 @@ h3{font-size:15px;font-weight:600}
 section{display:grid;gap:14px;min-width:0}
 section>p,.note{max-width:75ch;color:var(--fg2)}
 .note{font-size:14px}
-.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--surface-radius);background:var(--card-bg);box-shadow:var(--shadow)}
+.tbl a.ref{text-decoration:underline;white-space:nowrap}.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:var(--surface-radius);background:var(--card-bg);box-shadow:var(--shadow)}
 table{width:100%;border-collapse:collapse;font-size:14px}
 th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
 th{font-size:13px;font-weight:500;color:var(--muted);background:var(--bg2);white-space:nowrap}
