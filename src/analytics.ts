@@ -26,6 +26,8 @@ function trackOutboundClick(event: MouseEvent) {
 export function initAnalytics() {
   if (MIXPANEL_TOKEN) {
     mixpanel.init(MIXPANEL_TOKEN, { ...MIXPANEL_OPTIONS, debug: import.meta.env.DEV });
+    // Static pages persist their id in the shared visitor storage.
+    mixpanel.unregister('page_id');
     mixpanel.register({ surface: 'app' });
     // Static scripts (feedback widget) report through this hook on every surface.
     window.litellmTrack = track;

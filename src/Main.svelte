@@ -150,7 +150,10 @@
     initAnalytics();
     document.title = PAGE_TITLES[activeTab];
     trackPageView(activeTab);
-    const onPopState = () => updatePage(getTabFromLocation());
+    const onPopState = () => {
+      updatePage(getTabFromLocation());
+      trackPageView(activeTab);
+    };
     window.addEventListener("popstate", onPopState);
     window.addEventListener("request-support", handleModelRequest);
     if (new URLSearchParams(window.location.search).get("request") === "true")

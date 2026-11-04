@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tick } from "svelte";
 import Changelog from "./Changelog.svelte";
 import Main from "./Main.svelte";
+import { trackPageView } from "./analytics";
 import snapshot from "../scripts/changelog/seed.json";
 vi.mock("svelte", () =>
   vi.importActual<typeof import("svelte")>("svelte/internal"),
@@ -15,6 +16,7 @@ vi.mock("./analytics", () => ({
 }));
 let component: Changelog | Main;
 beforeEach(() => {
+  vi.clearAllMocks();
   document.body.innerHTML = "";
   window.history.replaceState({}, "", "/changelog");
   vi.stubGlobal(
@@ -27,6 +29,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("Changelog page", () => {
+  it("tracks the restored page on both Back and Forward", async () => {
+    component = new Main({ target: document.body });
+    await tick();
+    expect(trackPageView).toHaveBeenLastCalledWith("changelog");
+    document
+      .querySelector<HTMLAnchorElement>('nav a[href="/providers"]')!
+      .click();
+    await tick();
+    expect(trackPageView).toHaveBeenLastCalledWith("providers");
+
+    window.history.back();
+    await vi.waitFor(() => {
+      expect(window.location.pathname).toBe("/changelog");
+      expect(trackPageView).toHaveBeenLastCalledWith("changelog");
+    });
+    window.history.forward();
+    await vi.waitFor(() => {
+      expect(window.location.pathname).toBe("/providers");
+      expect(trackPageView).toHaveBeenLastCalledWith("providers");
+    });
+    expect(vi.mocked(trackPageView).mock.calls).toEqual([
+      ["changelog"],
+      ["providers"],
+      ["changelog"],
+      ["providers"],
+    ]);
+  });
   it("opens directly and puts Changelog immediately after Benchmarks", async () => {
     component = new Main({ target: document.body });
     await vi.waitFor(() =>
