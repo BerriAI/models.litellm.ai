@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import middleware, { machineFetchEvent } from "../middleware";
 import { pageKind } from "../src/analyticsConfig";
 import { feedLink, rssFeed } from "./seo/crawl";
@@ -45,5 +45,21 @@ describe("machine fetch tracking", () => {
     expect(md?.headers.get("x-middleware-rewrite")).toBe("https://models.litellm.ai/models/gpt-4o.md");
     expect(pending).toHaveLength(2);
     await Promise.all(pending);
+  });
+
+  it("still reports when the runtime passes no context", async () => {
+    vi.stubEnv("VITE_MIXPANEL_TOKEN", "test-token");
+    const sent = vi.fn().mockResolvedValue(new Response("1"));
+    vi.stubGlobal("fetch", sent);
+    try {
+      expect(middleware(new Request("https://models.litellm.ai/llms.txt"))).toBeUndefined();
+      await vi.waitFor(() => expect(sent).toHaveBeenCalledOnce());
+      const [event] = JSON.parse(sent.mock.calls[0][1].body);
+      expect(event.event).toBe("llms.txt Fetched");
+      expect(event.properties.distinct_id).toMatch(/^fetch:[0-9a-f]{32}$/);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
   });
 });

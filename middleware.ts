@@ -60,7 +60,8 @@ async function trackFetch(request: Request, event: string, path: string, via: st
 }
 
 function report(request: Request, context: Context | undefined, event: string, path: string, via: string): void {
-  context?.waitUntil(trackFetch(request, event, path, via).catch(() => undefined));
+  const sending = trackFetch(request, event, path, via).catch(() => undefined);
+  context?.waitUntil(sending);
 }
 
 export default function middleware(request: Request, context?: Context): Response | undefined {
