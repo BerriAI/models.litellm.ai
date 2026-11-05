@@ -6,6 +6,7 @@ import { submitModelRequest } from "./modelRequest";
 
 vi.mock("./modelRequest", () => ({ submitModelRequest: vi.fn() }));
 vi.mock("./analytics", () => ({
+  track: vi.fn(),
   trackRequest: vi.fn(),
   trackRequestFormOpened: vi.fn(),
 }));

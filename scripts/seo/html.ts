@@ -13,8 +13,15 @@ import type { OgImage } from "./og";
 import type { ModelView, RowView } from "./model-view";
 import type { RowPrices } from "./pricing";
 import { DOCS_URL, GITHUB_URL, PRICE_FILE_URL, SITE_NAME, abs, modelPath, providerPath } from "./site";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
+import { MIXPANEL_OPTIONS, pageKind } from "../../src/analyticsConfig";
 
 const POSTHOG_KEY = "phc_upsFA5iBuDFKnznEdV9pA5HYW8fwsLMJ8pF2p4xZzzpD";
+// Same token and options as the app (src/analytics.ts), so a visitor keeps one Mixpanel id across both.
+const MIXPANEL_TOKEN = process.env.VITE_MIXPANEL_TOKEN ?? "";
+const MIXPANEL_SNIPPET = readFileSync(createRequire(path.join(process.cwd(), "package.json")).resolve("mixpanel-browser/dist/mixpanel-jslib-snippet.min.js"), "utf8").trim();
 
 const CSS = `
 .provider-list{max-width:320px;white-space:normal}.update-nav{width:fit-content;max-width:100%}.affected-routes{max-width:380px;white-space:normal}.affected-routes code{overflow-wrap:anywhere;font-size:12px}.affected-routes summary{cursor:pointer;color:var(--muted)}.affected-routes ul{padding-left:16px}.affected-routes li{margin:8px 0}
@@ -105,7 +112,18 @@ footer a{color:var(--muted)}footer a:hover{color:var(--fg)}
 
 const ANALYTICS = `<script>if(location.hostname==="models.litellm.ai"){!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once unregister identify reset get_distinct_id set_config opt_in_capturing opt_out_capturing".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);posthog.init(${JSON.stringify(POSTHOG_KEY)},{api_host:"https://us.i.posthog.com",defaults:"2026-05-30",person_profiles:"identified_only",cross_subdomain_cookie:true,capture_pageview:true,capture_pageleave:true,disable_session_recording:true,capture_heatmaps:false,disable_surveys:true,autocapture:{dom_event_allowlist:["click"],element_allowlist:["a","button"]}})}</script>`;
 
-const COPY_JS = `<script>document.addEventListener("click",function(e){var b=e.target.closest("[data-copy]");if(!b)return;var t=document.getElementById(b.getAttribute("data-copy"));if(!t||!navigator.clipboard)return;navigator.clipboard.writeText(t.innerText).then(function(){b.textContent="Copied";setTimeout(function(){b.textContent="Copy"},1500)}).catch(function(){});var m=document.querySelector("main");if(window.posthog&&posthog.capture)posthog.capture("snippet_copied",{snippet:b.getAttribute("data-copy"),page_kind:m&&m.getAttribute("data-page-kind"),page_id:m&&m.getAttribute("data-page-id")})})</script>`;
+/** Fans one event out to PostHog and Mixpanel; page scripts report through it. */
+const TRACK_JS = `<script>window.litellmTrack=function(n,p){if(window.posthog&&posthog.capture)posthog.capture(n,p);if(window.mixpanel&&mixpanel.track)mixpanel.track(n,p)}</script>`;
+
+/** Mixpanel on a static page: a "Page View" with the page kind, and a timed "Page Leave". */
+export function mixpanelScript(path: string, track?: { kind: string; id: string }): string {
+  if (!MIXPANEL_TOKEN) return "";
+  const kind = track?.kind ?? pageKind(path);
+  const page = { page: kind, page_kind: kind, page_id: track?.id ?? path };
+  return `<script>if(location.hostname==="models.litellm.ai"){${MIXPANEL_SNIPPET};mixpanel.init(${JSON.stringify(MIXPANEL_TOKEN)},${JSON.stringify(MIXPANEL_OPTIONS)});mixpanel.register(Object.assign({surface:"static"},${JSON.stringify(page)}));mixpanel.time_event("Page Leave");mixpanel.track("Page View",{page:${JSON.stringify(kind)},url:location.href,path:location.pathname,referrer:document.referrer});addEventListener("pagehide",function(){mixpanel.track("Page Leave",{page:${JSON.stringify(kind)}},{transport:"sendBeacon"})});document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a||a.origin===location.origin||!/^https?:$/.test(a.protocol))return;mixpanel.track("Outbound Link Clicked",{url:a.href,host:a.hostname,text:(a.textContent||"").trim().slice(0,80)},{transport:"sendBeacon"})},true)}</script>`;
+}
+
+const COPY_JS = `<script>document.addEventListener("click",function(e){var b=e.target.closest("[data-copy]");if(!b)return;var t=document.getElementById(b.getAttribute("data-copy"));if(!t||!navigator.clipboard)return;navigator.clipboard.writeText(t.innerText).then(function(){b.textContent="Copied";setTimeout(function(){b.textContent="Copy"},1500)}).catch(function(){});var m=document.querySelector("main");if(window.litellmTrack)litellmTrack("snippet_copied",{snippet:b.getAttribute("data-copy"),page_kind:m&&m.getAttribute("data-page-kind"),page_id:m&&m.getAttribute("data-page-id")})})</script>`;
 
 export type Layout = {
   title: string;
@@ -185,9 +203,11 @@ ${l.body}
 <span>Prices from LiteLLM's open-source <a href="${PRICE_FILE_URL}">model price file</a>.</span>
 <a href="/models">All models</a><a href="/llms.txt">llms.txt</a><a href="/sitemap.xml">Sitemap</a><a href="${DOCS_URL}/docs/proxy/cost_tracking">Cost tracking docs</a>
 </div></footer>
+${TRACK_JS}
 ${COPY_JS}
 ${l.script ?? ""}
 ${ANALYTICS}
+${mixpanelScript(l.path, l.track)}
 </body>
 </html>
 `;

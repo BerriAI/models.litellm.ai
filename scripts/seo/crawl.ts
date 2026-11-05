@@ -85,6 +85,16 @@ export function llmsTxt(
 }
 
 /** RSS 2.0 catalog feed; existing new-model callers retain their URL-based GUIDs. */
+/** Tags a link back to this site so a click from a feed reader starts a Mixpanel journey with its feed. */
+export function feedLink(link: string, feedPath: string): string {
+  if (!link.startsWith(SITE_URL)) return link;
+  const url = new URL(link);
+  url.searchParams.set("utm_source", "rss");
+  url.searchParams.set("utm_medium", "feed");
+  url.searchParams.set("utm_campaign", feedPath.replace(/^\/|\.xml$/g, ""));
+  return url.toString();
+}
+
 export function rssFeed(title: string, link: string, description: string, items: { title: string; link: string; description: string; date: string; guid?: string }[], feedPath = "/new-models.xml"): string {
   const rfc = (d: string) => new Date(`${d.length === 10 ? d : `${d}-01`}T00:00:00Z`).toUTCString();
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -98,7 +108,7 @@ export function rssFeed(title: string, link: string, description: string, items:
 ${items
   .map(
     (i) =>
-      `<item><title>${xmlEscape(i.title)}</title><link>${xmlEscape(i.link)}</link><guid isPermaLink="${i.guid ? "false" : "true"}">${xmlEscape(i.guid ?? i.link)}</guid><pubDate>${rfc(i.date)}</pubDate><description>${xmlEscape(i.description)}</description></item>`,
+      `<item><title>${xmlEscape(i.title)}</title><link>${xmlEscape(feedLink(i.link, feedPath))}</link><guid isPermaLink="${i.guid ? "false" : "true"}">${xmlEscape(i.guid ?? i.link)}</guid><pubDate>${rfc(i.date)}</pubDate><description>${xmlEscape(i.description)}</description></item>`,
   )
   .join("\n")}
 </channel>

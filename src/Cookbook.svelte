@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { track } from "./analytics";
   import { onMount } from "svelte";
   import PageHero from "./PageHero.svelte";
 
@@ -86,6 +87,7 @@
   }
 
   function openSubmitModal() {
+    track("Guide Submit Form Opened");
     showSubmitModal = true;
     submitSuccess = false;
     submitError = null;
@@ -143,6 +145,7 @@
       });
 
       submitSuccess = true;
+      track("Guide Submitted");
       submitLoading = false;
 
 

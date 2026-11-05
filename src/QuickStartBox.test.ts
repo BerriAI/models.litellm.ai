@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 vi.mock("svelte", () => vi.importActual<typeof import("svelte")>("svelte/internal"));
-vi.mock("./analytics", () => ({ trackQuickStartCopy: vi.fn() }));
+vi.mock("./analytics", () => ({ track: vi.fn(), trackQuickStartCopy: vi.fn() }));
 import QuickStartBox from "./QuickStartBox.svelte";
 import { AGENT_PROMPTS, QUICKSTART } from "./quickstart";
 import { trackQuickStartCopy } from "./analytics";

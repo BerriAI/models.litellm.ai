@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { track } from "./analytics";
   import { onMount } from "svelte";
   import {
     discoveryModality,
@@ -45,6 +46,7 @@
     else return;
     event.preventDefault();
     selectedUpdate = updateTabs[next].id;
+    track("Discovery Tab Changed", { section: "updates", tab: selectedUpdate });
     document.getElementById(`update-tab-${selectedUpdate}`)?.focus();
   }
 
@@ -98,6 +100,7 @@
     else return;
     event.preventDefault();
     selectedRanking = lists[next].id;
+    track("Discovery Tab Changed", { section: "rankings", tab: selectedRanking });
     document.getElementById(`ranking-tab-${selectedRanking}`)?.focus();
   }
 
@@ -221,7 +224,10 @@
               aria-selected={selectedUpdate === tab.id}
               aria-controls={`update-panel-${tab.id}`}
               tabindex={selectedUpdate === tab.id ? 0 : -1}
-              on:click={() => (selectedUpdate = tab.id)}
+              on:click={() => {
+                selectedUpdate = tab.id;
+                track("Discovery Tab Changed", { section: "updates", tab: tab.id });
+              }}
               on:keydown={(event) => handleUpdateKey(event, index)}
               >{tab.label}</button
             >
@@ -385,7 +391,10 @@
             aria-selected={selectedRanking === list.id}
             aria-controls={`ranking-panel-${list.id}`}
             tabindex={selectedRanking === list.id ? 0 : -1}
-            on:click={() => (selectedRanking = list.id)}
+            on:click={() => {
+              selectedRanking = list.id;
+              track("Discovery Tab Changed", { section: "rankings", tab: list.id });
+            }}
             on:keydown={(event) => handleTabKey(event, index)}
             >{list.title}</button
           >

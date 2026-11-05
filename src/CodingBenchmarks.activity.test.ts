@@ -11,6 +11,7 @@ vi.mock("svelte", () =>
   vi.importActual<typeof import("svelte")>("svelte/internal"),
 );
 vi.mock("./analytics", () => ({
+  track: vi.fn(),
   initAnalytics: vi.fn(),
   trackPageView: vi.fn(),
   trackTabChange: vi.fn(),

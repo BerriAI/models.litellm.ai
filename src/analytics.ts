@@ -1,33 +1,59 @@
 import mixpanel from 'mixpanel-browser';
+import { MIXPANEL_OPTIONS, outboundLinkProps, pageKind } from './analyticsConfig';
 
 // Get Mixpanel token from environment variable
 const MIXPANEL_TOKEN = import.meta.env.VITE_MIXPANEL_TOKEN;
 
+let currentPage = '';
+
+// Generic event, for interactions without a dedicated helper below.
+export function track(event: string, properties: Record<string, unknown> = {}) {
+  if (MIXPANEL_TOKEN) mixpanel.track(event, properties);
+}
+
+function trackPageLeave(transport?: 'sendBeacon') {
+  if (!MIXPANEL_TOKEN || !currentPage) return;
+  mixpanel.track('Page Leave', { page: currentPage }, transport ? { transport } : undefined);
+}
+
+function trackOutboundClick(event: MouseEvent) {
+  const link = (event.target as Element | null)?.closest?.('a[href]');
+  const props = link instanceof HTMLAnchorElement ? outboundLinkProps(link, window.location.origin) : undefined;
+  if (props) mixpanel.track('Outbound Link Clicked', props, { transport: 'sendBeacon' });
+}
+
 // Initialize Mixpanel
 export function initAnalytics() {
   if (MIXPANEL_TOKEN) {
-    mixpanel.init(MIXPANEL_TOKEN, {
-      debug: import.meta.env.DEV,
-      track_pageview: true,
-      persistence: 'localStorage'
-    });
+    mixpanel.init(MIXPANEL_TOKEN, { ...MIXPANEL_OPTIONS, debug: import.meta.env.DEV });
+    // Static pages persist their id in the shared visitor storage.
+    mixpanel.unregister('page_id');
+    mixpanel.register({ surface: 'app' });
+    // Static scripts (feedback widget) report through this hook on every surface.
+    window.litellmTrack = track;
+    window.addEventListener('pagehide', () => trackPageLeave('sendBeacon'));
+    document.addEventListener('click', trackOutboundClick, true);
     console.log('Mixpanel initialized');
   } else {
     console.warn('Mixpanel token not found. Set VITE_MIXPANEL_TOKEN in your .env file');
   }
 }
 
-// Track page view
+// Track page view; "Page Leave" for the previous page carries its duration.
 export function trackPageView(page: string) {
   if (MIXPANEL_TOKEN) {
+    trackPageLeave();
+    currentPage = page;
+    mixpanel.register({ page, page_kind: pageKind(window.location.pathname) });
+    mixpanel.time_event('Page Leave');
     mixpanel.track('Page View', {
       page: page,
       url: window.location.href,
+      path: window.location.pathname,
       referrer: document.referrer
     });
   }
 }
-
 // Track search
 export function trackSearch(query: string, provider?: string, resultsCount?: number, filters?: { minInputTokens: number | null; minOutputTokens: number | null; freeOnly?: boolean; hiddenCount?: number; output?: string; inputs?: string[]; toolsOnly?: boolean }) {
   if (MIXPANEL_TOKEN) {

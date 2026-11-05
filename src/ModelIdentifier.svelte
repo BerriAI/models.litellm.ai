@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { track } from "./analytics";
   export let modelId: string;
   let copied = false;
   let failed = false;
@@ -6,6 +7,7 @@
   async function copy() {
     try {
       await navigator.clipboard.writeText(modelId);
+      track("Copied", { what: "model_id", model: modelId });
       copied = true;
       failed = false;
     } catch {
