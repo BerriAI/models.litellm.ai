@@ -25,6 +25,8 @@ export type RowView = {
   maxOutput?: number;
   deprecation?: string;
   source?: string;
+  /** The provider's recommended replacement, from the price file's `successor_model`. */
+  successor?: string;
 };
 
 export type Capability = { label: string; supported: boolean };
@@ -237,6 +239,7 @@ export function buildModelView(
     const prices = rowPrices(m.row);
     const deprecation = typeof m.row.deprecation_date === "string" ? m.row.deprecation_date : undefined;
     const source = typeof m.row.source === "string" && m.row.source.startsWith("http") ? m.row.source : undefined;
+    const successor = typeof m.row.successor_model === "string" && m.row.successor_model.trim() ? m.row.successor_model.trim() : undefined;
     return {
       key: m.key,
       provider: m.provider,
@@ -255,6 +258,7 @@ export function buildModelView(
       maxOutput: intOf(m.row.max_output_tokens),
       deprecation,
       source,
+      successor,
     };
   });
   flagOutliers(rows);

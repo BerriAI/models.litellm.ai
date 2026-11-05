@@ -257,4 +257,44 @@ describe("provider deprecation history", () => {
     expect(refreshCadence("wandb")).toBe("Daily");
     expect(refreshCadence("not-a-provider")).toBe("By hand");
   });
+
+  test("shows the provider's recommended replacement next to each dated row and carries it through the archive", () => {
+    const data: CostMap = {
+      ...map,
+      "azure/gpt-example": {
+        ...row("azure", "2026-10-30"),
+        successor_model: "azure/gpt-next",
+      },
+    };
+    const listings = build(data);
+    expect(
+      listings.find((entry) => entry.key === "azure/gpt-example")?.successor,
+    ).toBe("azure/gpt-next");
+    expect(
+      listings.find((entry) => entry.key === "azure/eu/gpt-example")?.successor,
+    ).toBeUndefined();
+    expect(build(data, listings, "2026-11-01")).toEqual(listings);
+    expect(parseDeprecations([{ ...listings[0], successor: "" }])).toEqual([]);
+    const entries = groupDeprecations(listings);
+    expect(entries.find((entry) => entry.provider === "azure")?.successor).toBe(
+      "azure/gpt-next",
+    );
+    const doc = new DOMParser().parseFromString(
+      deprecationBody(entries, [], "2026-10-30"),
+      "text/html",
+    );
+    const cells = (id: string) =>
+      [...doc.getElementById(id)!.querySelectorAll("td")].map(
+        (td) => td.textContent,
+      );
+    expect(
+      cells(entries.find((entry) => entry.provider === "azure")!.id)[4],
+    ).toBe("azure/gpt-next");
+    expect(
+      cells(entries.find((entry) => entry.provider === "anthropic")!.id)[4],
+    ).toBe("–");
+    expect(deprecationMarkdown(entries, "Deprecated", "2026-10-30")).toContain(
+      "Replacement: `azure/gpt-next`",
+    );
+  });
 });

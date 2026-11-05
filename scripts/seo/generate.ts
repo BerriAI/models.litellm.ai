@@ -701,7 +701,7 @@ ${cheapestOnProvider(h.name, list)}
     deprecated.map((entry) => ({
       title: `${entry.name} listings deprecated on ${entry.providerName}`,
       link: abs(deprecationPath(entry)), guid: `urn:litellm:deprecation:${entry.id}`, date: entry.date,
-      description: `Effective ${entry.date} on ${entry.providerName}. Affected listings: ${[...new Set(entry.listings.map((row) => row.modelId))].join(", ")}. Other versions or providers may still offer this model.${deprecationNotice(entry.provider) ? ` Provider notice: ${deprecationNotice(entry.provider)}` : ""}`,
+      description: `Effective ${entry.date} on ${entry.providerName}. Affected listings: ${[...new Set(entry.listings.map((row) => row.modelId))].join(", ")}. Other versions or providers may still offer this model.${entry.successor ? ` Recommended replacement: ${entry.successor}.` : ""}${deprecationNotice(entry.provider) ? ` Provider notice: ${deprecationNotice(entry.provider)}` : ""}`,
     })), "/deprecated-models.xml",
   ));
 

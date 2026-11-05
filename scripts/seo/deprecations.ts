@@ -31,6 +31,7 @@ export function buildDeprecations(
         date: row.deprecation,
         firstObservedOn:
           old?.date === row.deprecation ? old.firstObservedOn : today,
+        ...(row.successor ? { successor: row.successor } : {}),
       });
     }
   }
