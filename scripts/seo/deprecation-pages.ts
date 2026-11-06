@@ -77,6 +77,7 @@ function sync(text,p){var u=new URLSearchParams(location.search);if(text)u.set("
 function apply(){
   var text=q.value.trim(),p=sel.value;sync(text,p);
   if(!text&&!p){out.hidden=true;out.innerHTML="";status.hidden=true;if(def)def.hidden=false;return Promise.resolve()}
+  if(def)def.hidden=true;status.hidden=false;if(!rows){out.hidden=true;status.textContent="Loading deprecations…"}
   return load().then(function(){
     if(q.value.trim()!==text||sel.value!==p)return;
     var terms=text.toLowerCase().split(/\\s+/).filter(Boolean);
@@ -84,7 +85,7 @@ function apply(){
     matches=hits.length;if(def)def.hidden=true;status.hidden=false;out.hidden=!hits.length;
     status.textContent=!hits.length?"No deprecations match.":hits.length>MAX?"Showing the first "+MAX+" of "+hits.length+" matching deprecations.":hits.length+(hits.length===1?" matching deprecation.":" matching deprecations.");
     out.innerHTML=hits.length?'<div class="tbl"><table>${TABLE_HEAD}<tbody>'+hits.slice(0,MAX).map(row).join("")+"</tbody></table></div>":"";
-  },function(){status.hidden=false;status.textContent="Search could not load. Reload the page to try again."});
+  },function(){if(def)def.hidden=false;status.hidden=false;status.textContent="Search could not load. Reload the page to try again."});
 }
 function track(){if((q.value.trim()||sel.value)&&window.litellmTrack)litellmTrack("deprecations_filtered",{provider:sel.value||null,has_query:!!q.value.trim(),matches:matches,page_kind:month?"deprecated-models-month":"deprecated-models"})}
 form.addEventListener("submit",function(e){e.preventDefault()});

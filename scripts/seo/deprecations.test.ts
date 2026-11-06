@@ -401,6 +401,24 @@ describe("deprecation search", () => {
     expect(location.search).toBe("");
   });
 
+  test("a shared filter hides the default tables while the index loads", async () => {
+    const entries = groupDeprecations(build());
+    let finish: (value: unknown) => void = () => {};
+    vi.stubGlobal("fetch", () => new Promise((resolve) => (finish = resolve)));
+    history.replaceState(null, "", "/deprecated-models?provider=azure");
+    document.body.innerHTML = deprecationBody(entries, months, "2026-10-30");
+    new Function(DEPRECATION_SEARCH_JS.replace(/^<script>|<\/script>$/g, ""))();
+    const status = document.querySelector("[data-dep-status]")!;
+    expect(
+      document.querySelector<HTMLElement>("[data-dep-default]")!.hidden,
+    ).toBe(true);
+    expect(status.textContent).toBe("Loading deprecations…");
+    finish({ json: async () => deprecationSearchIndex(entries) });
+    await settle();
+    await settle();
+    expect(status.textContent).toBe("1 matching deprecation.");
+  });
+
   test("applies filters from the URL and keeps a month page to its own month", async () => {
     const page = await open("/deprecated-models/2026-10?q=gpt", "2026-10");
     await settle();
