@@ -53,7 +53,7 @@ import { loadDiscoveryBenchmarkData } from "./discovery-benchmarks";
 import { auditProviderLogos } from "../provider-logos";
 import { buildDeprecations } from "./deprecations";
 import { groupDeprecations } from "../../src/deprecations";
-import { deprecationBody, deprecationMarkdown, deprecationPath } from "./deprecation-pages";
+import { DEPRECATION_SEARCH_JS, deprecationBody, deprecationMarkdown, deprecationPath, deprecationSearchIndex } from "./deprecation-pages";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
@@ -688,12 +688,14 @@ ${cheapestOnProvider(h.name, list)}
       title, description, path: pagePath,
       body: deprecationBody(entries, deprecationMonths, BUILD_DATE, ym ?? undefined),
       markdownPath: `${pagePath}.md`, rssPath: "/deprecated-models.xml",
+      script: DEPRECATION_SEARCH_JS,
       jsonLd: listGraph(pagePath, title, description, BUILD_DATE, [{ name: "Deprecated models", path: "/deprecated-models" }, ...(ym ? [{ name: ym, path: pagePath }] : [])], entries.map((entry) => ({ name: `${entry.name} on ${entry.providerName}`, path: deprecationPath(entry) }))),
       image: writeCard(OUT, "pages", `deprecated-models${ym ? `-${ym}` : ""}`, { kicker: "LiteLLM Model Catalog", title: heading, subtitle: "Effective dates, by provider", stats: [{ value: int(entries.length), label: "recorded deprecations" }] }),
     }));
     write(`${pagePath.slice(1)}.md`, deprecationMarkdown(entries, heading, BUILD_DATE));
     if (ym) deprecationEntries.push({ path: pagePath, lastmod: BUILD_DATE });
   }
+  write("deprecated-models.json", JSON.stringify(deprecationSearchIndex(deprecations)));
   write("deprecated-models.xml", rssFeed(
     "Recently deprecated AI models on LiteLLM", abs("/deprecated-models"),
     "Provider-specific model deprecations recorded by LiteLLM. Publication dates are effective deprecation dates, not announcement dates.",

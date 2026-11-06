@@ -1,13 +1,15 @@
 // @vitest-environment happy-dom
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { buildDeprecations } from "./deprecations";
 import { groupDeprecations, parseDeprecations } from "../../src/deprecations";
 import { assignSlugs, groupCostMap, type CostMap } from "./group";
 import { buildModelView } from "./model-view";
 import {
+  DEPRECATION_SEARCH_JS,
   deprecationBody,
   deprecationMarkdown,
   deprecationPath,
+  deprecationSearchIndex,
 } from "./deprecation-pages";
 import { refreshCadence } from "./deprecation-sources";
 import { rssFeed } from "./crawl";
@@ -289,6 +291,145 @@ describe("provider deprecation history", () => {
     ).toBe("–");
     expect(deprecationMarkdown(entries, "Deprecated", "2026-10-30")).toContain(
       "Replacement: `azure/gpt-next`",
+    );
+  });
+});
+
+describe("deprecation search", () => {
+  const months = [
+    { ym: "2026-10", count: 1 },
+    { ym: "2026-11", count: 1 },
+  ];
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+  const open = async (path: string, month?: string) => {
+    const entries = groupDeprecations(build());
+    const index = deprecationSearchIndex(entries);
+    const fetched: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      fetched.push(url);
+      return { json: async () => index };
+    });
+    const tracked: [string, Record<string, unknown>][] = [];
+    vi.stubGlobal(
+      "litellmTrack",
+      (name: string, props: Record<string, unknown>) =>
+        tracked.push([name, props]),
+    );
+    history.replaceState(null, "", path);
+    document.body.innerHTML = deprecationBody(
+      month ? entries.filter((entry) => entry.date.startsWith(month)) : entries,
+      months,
+      "2026-10-30",
+      month,
+    );
+    new Function(DEPRECATION_SEARCH_JS.replace(/^<script>|<\/script>$/g, ""))();
+    await settle();
+    return {
+      fetched,
+      tracked,
+      q: document.querySelector<HTMLInputElement>('[name="q"]')!,
+      provider: document.querySelector<HTMLSelectElement>('[name="provider"]')!,
+      results: () =>
+        [...document.querySelectorAll("[data-dep-results] tbody tr")].map(
+          (tr) => tr.textContent,
+        ),
+      defaultHidden: () =>
+        document.querySelector<HTMLElement>("[data-dep-default]")!.hidden,
+    };
+  };
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  test("the index carries every grouped deprecation with each affected model id", () => {
+    const entries = groupDeprecations(build());
+    const index = deprecationSearchIndex(entries);
+    expect(index.map((row) => row.id)).toEqual(
+      entries.map((entry) => entry.id),
+    );
+    expect(index.find((row) => row.p === "azure")?.ids).toEqual([
+      "azure/eu/gpt-example",
+      "azure/gpt-example",
+    ]);
+  });
+
+  test("offers one provider option per API provider on the page and fetches nothing until used", async () => {
+    const page = await open("/deprecated-models");
+    expect([...page.provider.options].map((option) => option.value)).toEqual([
+      "",
+      "anthropic",
+      "azure",
+    ]);
+    expect(page.fetched).toEqual([]);
+    expect(page.defaultHidden()).toBe(false);
+  });
+
+  test("matches a model id, filters by provider, and restores the default tables when cleared", async () => {
+    const page = await open("/deprecated-models");
+    page.q.value = "azure/eu";
+    page.q.dispatchEvent(new Event("input"));
+    await settle();
+    expect(page.fetched).toEqual(["/deprecated-models.json"]);
+    expect(page.results()).toHaveLength(1);
+    expect(page.results()[0]).toContain("azure/eu/gpt-example");
+    expect(page.defaultHidden()).toBe(true);
+    expect(location.search).toBe("?q=azure%2Feu");
+
+    page.q.value = "";
+    page.provider.value = "anthropic";
+    page.provider.dispatchEvent(new Event("change"));
+    await settle();
+    expect(page.results()).toHaveLength(1);
+    expect(page.results()[0]).toContain("Anthropic");
+    expect(page.tracked).toEqual([
+      [
+        "deprecations_filtered",
+        {
+          provider: "anthropic",
+          has_query: false,
+          matches: 1,
+          page_kind: "deprecated-models",
+        },
+      ],
+    ]);
+
+    page.provider.value = "";
+    page.provider.dispatchEvent(new Event("change"));
+    await settle();
+    expect(page.defaultHidden()).toBe(false);
+    expect(location.search).toBe("");
+  });
+
+  test("a shared filter hides the default tables while the index loads", async () => {
+    const entries = groupDeprecations(build());
+    let finish: (value: unknown) => void = () => {};
+    vi.stubGlobal("fetch", () => new Promise((resolve) => (finish = resolve)));
+    history.replaceState(null, "", "/deprecated-models?provider=azure");
+    document.body.innerHTML = deprecationBody(entries, months, "2026-10-30");
+    new Function(DEPRECATION_SEARCH_JS.replace(/^<script>|<\/script>$/g, ""))();
+    const status = document.querySelector("[data-dep-status]")!;
+    expect(
+      document.querySelector<HTMLElement>("[data-dep-default]")!.hidden,
+    ).toBe(true);
+    expect(status.textContent).toBe("Loading deprecations…");
+    finish({ json: async () => deprecationSearchIndex(entries) });
+    await settle();
+    await settle();
+    expect(status.textContent).toBe("1 matching deprecation.");
+  });
+
+  test("applies filters from the URL and keeps a month page to its own month", async () => {
+    const page = await open("/deprecated-models/2026-10?q=gpt", "2026-10");
+    await settle();
+    expect(page.q.value).toBe("gpt");
+    expect(page.results()).toHaveLength(1);
+    page.q.value = "claude";
+    page.q.dispatchEvent(new Event("input"));
+    await settle();
+    expect(page.results()).toEqual([]);
+    expect(document.querySelector("[data-dep-status]")?.textContent).toBe(
+      "No deprecations match.",
     );
   });
 });
