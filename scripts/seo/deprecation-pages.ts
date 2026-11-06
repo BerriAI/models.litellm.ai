@@ -98,39 +98,27 @@ if(sp&&sel.querySelector('option[value="'+sp.replace(/[^a-z0-9_-]/g,"")+'"]'))se
 if(q.value||sel.value)apply();
 })()</script>`;
 
-/** One row per API provider with dated listings: how many, how often LiteLLM re-reads it, and where to check. */
+/** One row per API provider with dated listings: how many, and how often LiteLLM re-reads them. */
 export function trackedProvidersTable(entries: Deprecation[]): string {
-  const byProvider = new Map<
-    string,
-    { name: string; listings: number; references: Map<string, number> }
-  >();
+  const byProvider = new Map<string, { name: string; listings: number }>();
   for (const entry of entries) {
     const row = byProvider.get(entry.provider) ?? {
       name: entry.providerName,
       listings: 0,
-      references: new Map<string, number>(),
     };
     row.listings += entry.listings.length;
-    if (entry.reference)
-      row.references.set(
-        entry.reference,
-        (row.references.get(entry.reference) ?? 0) + entry.listings.length,
-      );
     byProvider.set(entry.provider, row);
   }
-  /** The notice most of the provider's dated listings cite. */
-  const mainReference = (references: Map<string, number>) =>
-    [...references.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const rows = [...byProvider.entries()].sort(
     (a, b) =>
       b[1].listings - a[1].listings || a[1].name.localeCompare(b[1].name),
   );
   if (!rows.length)
     return '<p class="note">No providers with recorded deprecation dates.</p>';
-  return `<div class="tbl"><table><thead><tr><th>API provider</th><th class="n">Dated listings</th><th>Checked</th><th>Reference</th></tr></thead><tbody>${rows
+  return `<div class="tbl"><table><thead><tr><th>API provider</th><th class="n">Dated listings</th><th>Checked</th></tr></thead><tbody>${rows
     .map(
       ([provider, row]) =>
-        `<tr><td>${esc(row.name)}</td><td class="n">${row.listings}</td><td>${esc(refreshCadence(provider))}</td><td>${noticeLink(mainReference(row.references))}</td></tr>`,
+        `<tr><td>${esc(row.name)}</td><td class="n">${row.listings}</td><td>${esc(refreshCadence(provider))}</td></tr>`,
     )
     .join("")}</tbody></table></div>`;
 }

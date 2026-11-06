@@ -187,7 +187,7 @@ describe("provider deprecation history", () => {
     );
   });
 
-  test("links every dated row to its provider's own retirement notice and lists the providers tracked", () => {
+  test("links every dated row to its provider's own retirement notice and lists the providers tracked without one", () => {
     const data: CostMap = {
       ...map,
       "scaleway/example": row("scaleway", "2026-10-01"),
@@ -226,7 +226,10 @@ describe("provider deprecation history", () => {
     expect(cells("Azure OpenAI")[1].textContent).toBe("2");
     expect(cells("Azure OpenAI")[2].textContent).toBe("Every 30 minutes");
     expect(cells("Scaleway")[2].textContent).toBe("By hand");
-    expect(cells("Scaleway")[3].textContent).toBe("–");
+    expect(
+      [...tracked.querySelectorAll("thead th")].map((th) => th.textContent),
+    ).toEqual(["API provider", "Dated listings", "Checked"]);
+    expect(tracked.querySelector("a")).toBeNull();
     expect(
       tracked.querySelector("tbody tr")?.firstElementChild?.textContent,
     ).toBe("Azure OpenAI");
