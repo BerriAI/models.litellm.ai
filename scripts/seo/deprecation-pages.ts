@@ -17,6 +17,86 @@ const noticeLink = (url: string | undefined): string =>
     ? `<a class="ref" href="${esc(url)}" rel="noopener" target="_blank">${esc(noticeLabel(url))}</a>`
     : "–";
 
+const TABLE_HEAD =
+  "<thead><tr><th>Effective date</th><th>Model</th><th>API provider</th><th>Affected listings</th><th>Replacement</th><th>Reference</th></tr></thead>";
+const SEARCH_LIMIT = 100;
+
+/** What the in-page search reads from /deprecated-models.json: one row per grouped deprecation. */
+export type DeprecationSearchRow = {
+  id: string;
+  n: string;
+  s: string;
+  p: string;
+  pn: string;
+  d: string;
+  dt: string;
+  ids: string[];
+  r?: string;
+  ref?: string;
+  rl?: string;
+};
+
+export function deprecationSearchIndex(
+  entries: Deprecation[],
+): DeprecationSearchRow[] {
+  return entries.map((entry) => ({
+    id: entry.id,
+    n: entry.name,
+    s: entry.slug,
+    p: entry.provider,
+    pn: entry.providerName,
+    d: entry.date,
+    dt: shortDate(entry.date),
+    ids: [...new Set(entry.listings.map((row) => row.modelId))],
+    ...(entry.successor ? { r: entry.successor } : {}),
+    ...(entry.reference
+      ? { ref: entry.reference, rl: noticeLabel(entry.reference) }
+      : {}),
+  }));
+}
+
+function deprecationFilters(entries: Deprecation[], month?: string): string {
+  const providers = [
+    ...new Map(
+      entries.map((entry) => [entry.provider, entry.providerName]),
+    ).entries(),
+  ].sort((a, b) => a[1].localeCompare(b[1]));
+  return `<form class="dep-filter" role="search" data-dep-filter${month ? ` data-month="${esc(month)}"` : ""}><label>Search<input type="search" name="q" placeholder="Model name or id, e.g. azure/gpt-4o" autocomplete="off" spellcheck="false"></label><label>API provider<select name="provider"><option value="">All API providers</option>${providers.map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("")}</select></label></form><p class="note" data-dep-status aria-live="polite" hidden></p><div data-dep-results hidden></div>`;
+}
+
+/** Filters /deprecated-models.json in the browser, fetched on first use so the page stays the same size as the list grows. */
+export const DEPRECATION_SEARCH_JS = `<script>(function(){
+var form=document.querySelector("[data-dep-filter]");if(!form)return;
+var q=form.querySelector('[name="q"]'),sel=form.querySelector('[name="provider"]'),month=form.getAttribute("data-month")||"";
+var out=document.querySelector("[data-dep-results]"),status=document.querySelector("[data-dep-status]"),def=document.querySelector("[data-dep-default]");
+var rows=null,loading=null,matches=0,MONTHS="/deprecated-models/",MODELS="/models/",timer=null,MAX=${SEARCH_LIMIT};
+var esc=function(v){return String(v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
+function load(){if(!loading)loading=fetch("/deprecated-models.json").then(function(r){return r.json()}).then(function(d){rows=Array.isArray(d)?d:[]},function(e){loading=null;throw e});return loading}
+function row(e){var ids=e.ids.map(function(m){return"<code>"+esc(m)+"</code>"});return'<tr><td><a href="'+MONTHS+esc(e.d.slice(0,7))+"#"+esc(e.id)+'"><time datetime="'+esc(e.d)+'">'+esc(e.dt)+'</time></a></td><td><a href="'+MODELS+esc(e.s)+'">'+esc(e.n)+"</a></td><td>"+esc(e.pn)+'</td><td class="affected-routes">'+(ids.length===1?ids[0]:"<details><summary>"+ids.length+" listings</summary><ul>"+ids.map(function(c){return"<li>"+c+"</li>"}).join("")+"</ul></details>")+"</td><td>"+(e.r?"<code>"+esc(e.r)+"</code>":"–")+"</td><td>"+(e.ref?'<a class="ref" href="'+esc(e.ref)+'" rel="noopener" target="_blank">'+esc(e.rl||e.ref)+"</a>":"–")+"</td></tr>"}
+function sync(text,p){var u=new URLSearchParams(location.search);if(text)u.set("q",text);else u.delete("q");if(p)u.set("provider",p);else u.delete("provider");var s=u.toString();history.replaceState(null,"",location.pathname+(s?"?"+s:"")+location.hash)}
+function apply(){
+  var text=q.value.trim(),p=sel.value;sync(text,p);
+  if(!text&&!p){out.hidden=true;out.innerHTML="";status.hidden=true;if(def)def.hidden=false;return Promise.resolve()}
+  return load().then(function(){
+    if(q.value.trim()!==text||sel.value!==p)return;
+    var terms=text.toLowerCase().split(/\\s+/).filter(Boolean);
+    var hits=rows.filter(function(e){if(month&&e.d.slice(0,7)!==month)return false;if(p&&e.p!==p)return false;var h=(e.n+" "+e.pn+" "+e.ids.join(" ")+" "+(e.r||"")).toLowerCase();return terms.every(function(t){return h.indexOf(t)>=0})});
+    matches=hits.length;if(def)def.hidden=true;status.hidden=false;out.hidden=!hits.length;
+    status.textContent=!hits.length?"No deprecations match.":hits.length>MAX?"Showing the first "+MAX+" of "+hits.length+" matching deprecations.":hits.length+(hits.length===1?" matching deprecation.":" matching deprecations.");
+    out.innerHTML=hits.length?'<div class="tbl"><table>${TABLE_HEAD}<tbody>'+hits.slice(0,MAX).map(row).join("")+"</tbody></table></div>":"";
+  },function(){status.hidden=false;status.textContent="Search could not load. Reload the page to try again."});
+}
+function track(){if((q.value.trim()||sel.value)&&window.litellmTrack)litellmTrack("deprecations_filtered",{provider:sel.value||null,has_query:!!q.value.trim(),matches:matches,page_kind:month?"deprecated-models-month":"deprecated-models"})}
+form.addEventListener("submit",function(e){e.preventDefault()});
+q.addEventListener("focus",function(){load().catch(function(){})});
+q.addEventListener("input",function(){clearTimeout(timer);apply().then(function(){timer=setTimeout(track,1000)})});
+sel.addEventListener("change",function(){clearTimeout(timer);apply().then(track)});
+var start=new URLSearchParams(location.search),sp=start.get("provider");
+if(start.get("q"))q.value=start.get("q");
+if(sp&&sel.querySelector('option[value="'+sp.replace(/[^a-z0-9_-]/g,"")+'"]'))sel.value=sp;
+if(q.value||sel.value)apply();
+})()</script>`;
+
 /** One row per API provider with dated listings: how many, how often LiteLLM re-reads it, and where to check. */
 export function trackedProvidersTable(entries: Deprecation[]): string {
   const byProvider = new Map<
@@ -57,7 +137,7 @@ export function trackedProvidersTable(entries: Deprecation[]): string {
 export function deprecationTable(entries: Deprecation[]): string {
   if (!entries.length)
     return '<p class="note">No deprecations recorded for this period.</p>';
-  return `<div class="tbl"><table><thead><tr><th>Effective date</th><th>Model</th><th>API provider</th><th>Affected listings</th><th>Replacement</th><th>Reference</th></tr></thead><tbody>${entries
+  return `<div class="tbl"><table>${TABLE_HEAD}<tbody>${entries
     .map((entry) => {
       const routes = [...new Set(entry.listings.map((row) => row.modelId))];
       const listing = (route: string) => `<code>${esc(route)}</code>`;
@@ -89,9 +169,10 @@ export function deprecationBody(
 <h1>${esc(heading)}</h1><p class="answer">Model deprecations by provider, with effective dates and the exact listings affected. Other versions or providers may still be available.</p>
 ${modelUpdatesMeta("deprecated", today)}</div>
 ${modelUpdatesNav("deprecated")}
-<section><h2>${month ? "Deprecated this month" : "Recently deprecated"}</h2>${deprecationTable(month ? recent : recent.slice(0, 30))}</section>
+${deprecationFilters(entries, month)}
+<div data-dep-default><section><h2>${month ? "Deprecated this month" : "Recently deprecated"}</h2>${deprecationTable(month ? recent : recent.slice(0, 30))}</section>
 ${upcoming.length ? `<section><h2>Scheduled for deprecation</h2><p class="note">These dates are still ahead. Entries join the RSS feed when their effective date arrives.</p>${deprecationTable(month ? upcoming : upcoming.slice(0, 15))}</section>` : ""}
-${month ? "" : `<section><h2>Tracked providers</h2><p class="note">LiteLLM reads each provider's own retirement notice into its price file on the schedule below, and this site rebuilds within about 20 minutes of a price file change. Providers checked by hand get their dates recorded when a maintainer finds them.</p>${trackedProvidersTable(entries)}</section>`}
+${month ? "" : `<section><h2>Tracked providers</h2><p class="note">LiteLLM reads each provider's own retirement notice into its price file on the schedule below, and this site rebuilds within about 20 minutes of a price file change. Providers checked by hand get their dates recorded when a maintainer finds them.</p>${trackedProvidersTable(entries)}</section>`}</div>
 <section><h2>By month</h2><ul class="links">${byMonth}</ul></section>
 <p class="note">Dates come from <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">LiteLLM’s price file</a> and reflect provider listings, not announcement dates. History is backfilled from recorded dates; it may not include models removed before tracking began. Regional and pricing variants with the same provider and date are grouped together.</p>`;
 }
