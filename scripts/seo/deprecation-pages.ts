@@ -2,7 +2,7 @@ import type { Deprecation } from "../../src/deprecations";
 import { escapeHtml as esc, longDate, shortDate } from "./format";
 import { modelUpdatesMeta, modelUpdatesNav } from "./html";
 import { modelPath } from "./site";
-import { deprecationNotice, refreshCadence } from "./deprecation-sources";
+import { refreshCadence } from "./deprecation-sources";
 
 export const deprecationPath = (entry: Deprecation) =>
   `/deprecated-models/${entry.date.slice(0, 7)}#${entry.id}`;
@@ -12,24 +12,34 @@ const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 const noticeLabel = (url: string): string =>
   new URL(url).hostname.replace(/^www\./, "");
 
-const noticeLink = (provider: string): string => {
-  const url = deprecationNotice(provider);
-  return url
+const noticeLink = (url: string | undefined): string =>
+  url
     ? `<a class="ref" href="${esc(url)}" rel="noopener" target="_blank">${esc(noticeLabel(url))}</a>`
     : "–";
-};
 
 /** One row per API provider with dated listings: how many, how often LiteLLM re-reads it, and where to check. */
 export function trackedProvidersTable(entries: Deprecation[]): string {
-  const byProvider = new Map<string, { name: string; listings: number }>();
+  const byProvider = new Map<
+    string,
+    { name: string; listings: number; references: Map<string, number> }
+  >();
   for (const entry of entries) {
     const row = byProvider.get(entry.provider) ?? {
       name: entry.providerName,
       listings: 0,
+      references: new Map<string, number>(),
     };
     row.listings += entry.listings.length;
+    if (entry.reference)
+      row.references.set(
+        entry.reference,
+        (row.references.get(entry.reference) ?? 0) + entry.listings.length,
+      );
     byProvider.set(entry.provider, row);
   }
+  /** The notice most of the provider's dated listings cite. */
+  const mainReference = (references: Map<string, number>) =>
+    [...references.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
   const rows = [...byProvider.entries()].sort(
     (a, b) =>
       b[1].listings - a[1].listings || a[1].name.localeCompare(b[1].name),
@@ -39,7 +49,7 @@ export function trackedProvidersTable(entries: Deprecation[]): string {
   return `<div class="tbl"><table><thead><tr><th>API provider</th><th class="n">Dated listings</th><th>Checked</th><th>Reference</th></tr></thead><tbody>${rows
     .map(
       ([provider, row]) =>
-        `<tr><td>${esc(row.name)}</td><td class="n">${row.listings}</td><td>${esc(refreshCadence(provider))}</td><td>${noticeLink(provider)}</td></tr>`,
+        `<tr><td>${esc(row.name)}</td><td class="n">${row.listings}</td><td>${esc(refreshCadence(provider))}</td><td>${noticeLink(mainReference(row.references))}</td></tr>`,
     )
     .join("")}</tbody></table></div>`;
 }
@@ -51,7 +61,7 @@ export function deprecationTable(entries: Deprecation[]): string {
     .map((entry) => {
       const routes = [...new Set(entry.listings.map((row) => row.modelId))];
       const listing = (route: string) => `<code>${esc(route)}</code>`;
-      return `<tr id="${esc(entry.id)}"><td><a href="${deprecationPath(entry)}"><time datetime="${entry.date}">${shortDate(entry.date)}</time></a></td><td><a href="${modelPath(entry.slug)}">${esc(entry.name)}</a></td><td>${esc(entry.providerName)}</td><td class="affected-routes">${routes.length === 1 ? listing(routes[0]) : `<details><summary>${routes.length} listings</summary><ul>${routes.map((route) => `<li>${listing(route)}</li>`).join("")}</ul></details>`}</td><td>${entry.successor ? `<code>${esc(entry.successor)}</code>` : "–"}</td><td>${noticeLink(entry.provider)}</td></tr>`;
+      return `<tr id="${esc(entry.id)}"><td><a href="${deprecationPath(entry)}"><time datetime="${entry.date}">${shortDate(entry.date)}</time></a></td><td><a href="${modelPath(entry.slug)}">${esc(entry.name)}</a></td><td>${esc(entry.providerName)}</td><td class="affected-routes">${routes.length === 1 ? listing(routes[0]) : `<details><summary>${routes.length} listings</summary><ul>${routes.map((route) => `<li>${listing(route)}</li>`).join("")}</ul></details>`}</td><td>${entry.successor ? `<code>${esc(entry.successor)}</code>` : "–"}</td><td>${noticeLink(entry.reference)}</td></tr>`;
     })
     .join("")}</tbody></table></div>`;
 }
@@ -103,10 +113,8 @@ export function deprecationMarkdown(
       ...(entry.successor
         ? [`Replacement: \`${entry.successor.replace(/`/g, "")}\``]
         : []),
-      ...(deprecationNotice(entry.provider)
-        ? [
-            `Reference: [${noticeLabel(deprecationNotice(entry.provider) ?? "")}](${deprecationNotice(entry.provider)})`,
-          ]
+      ...(entry.reference
+        ? [`Reference: [${noticeLabel(entry.reference)}](${entry.reference})`]
         : []),
       "",
       ...entry.listings.map((row) => `- \`${row.modelId.replace(/`/g, "")}\``),

@@ -27,6 +27,8 @@ export type RowView = {
   source?: string;
   /** The provider's recommended replacement, from the price file's `successor_model`. */
   successor?: string;
+  /** Where the retirement date was read from, the price file's `deprecation_source`. */
+  reference?: string;
 };
 
 export type Capability = { label: string; supported: boolean };
@@ -240,6 +242,7 @@ export function buildModelView(
     const deprecation = typeof m.row.deprecation_date === "string" ? m.row.deprecation_date : undefined;
     const source = typeof m.row.source === "string" && m.row.source.startsWith("http") ? m.row.source : undefined;
     const successor = typeof m.row.successor_model === "string" && m.row.successor_model.trim() ? m.row.successor_model.trim() : undefined;
+    const reference = typeof m.row.deprecation_source === "string" && m.row.deprecation_source.startsWith("http") ? m.row.deprecation_source : undefined;
     return {
       key: m.key,
       provider: m.provider,
@@ -259,6 +262,7 @@ export function buildModelView(
       deprecation,
       source,
       successor,
+      reference,
     };
   });
   flagOutliers(rows);
