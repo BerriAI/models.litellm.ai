@@ -4,8 +4,8 @@ import {
   priceDelta,
   type CatalogUpdate,
   type FieldChange,
-} from "./discoveryChangelog";
-import { getProviderDisplayName } from "./providers";
+} from "./discoveryChangelog.js";
+import { getProviderDisplayName } from "./providerNames.js";
 
 export interface ChangelogItem extends CatalogUpdate {
   headline: string;
