@@ -7,8 +7,10 @@ import { describe, expect, it } from "vitest";
  * module graph under api/ is loaded by Node's ESM resolver at runtime: a
  * relative import needs its ".js" extension and a JSON import needs
  * `with { type: "json" }`, or the function fails on its first request.
+ * This test lives outside api/ because Vercel deploys every api/*.ts file.
  */
 const root = path.resolve(__dirname, "..");
+const apiDir = path.join(root, "api");
 const importPattern =
   /(?:import|export)\s[^"']*?from\s*["']([^"']+)["']([^;\n]*)/g;
 
@@ -48,7 +50,7 @@ function walk(file: string, seen: Set<string>, problems: string[]): void {
 }
 
 describe("api functions load under Node's ESM resolver", () => {
-  const functions = readdirSync(__dirname).filter(
+  const functions = readdirSync(apiDir).filter(
     (name) => name.endsWith(".ts") && !name.endsWith(".test.ts"),
   );
 
@@ -59,7 +61,7 @@ describe("api functions load under Node's ESM resolver", () => {
   for (const name of functions) {
     it(`${name} and everything it imports use explicit specifiers`, () => {
       const problems: string[] = [];
-      walk(path.join(__dirname, name), new Set(), problems);
+      walk(path.join(apiDir, name), new Set(), problems);
       expect(problems).toEqual([]);
     });
   }
