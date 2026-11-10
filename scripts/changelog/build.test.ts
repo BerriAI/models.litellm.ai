@@ -197,6 +197,22 @@ describe("automatic catalog changelog", () => {
     expect(
       filterChangelogItems(items, feedFilter(new URLSearchParams(""))),
     ).toEqual(items);
+    const metadata = { ...items[0], id: "meta", kind: "metadata" as const };
+    expect(
+      filterChangelogItems(
+        [...items, metadata],
+        feedFilter(new URLSearchParams("")),
+      ),
+    ).toEqual(items);
+    expect(
+      filterChangelogItems(
+        [...items, metadata],
+        feedFilter(new URLSearchParams("kind=metadata")),
+      ),
+    ).toEqual([metadata]);
+    expect(changelogRss([metadata], options.now).match(/<item>/g)).toHaveLength(
+      1,
+    );
     expect(feedQuery("all", "all")).toBe("");
     expect(feedQuery("price", "all")).toBe("?kind=price");
     expect(feedQuery("all", "bedrock_converse")).toBe(
