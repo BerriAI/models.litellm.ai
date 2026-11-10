@@ -1,4 +1,4 @@
-import providerLogos from "./providerLogos.json";
+import providerLogos from "./providerLogos.json" with { type: "json" };
 
 /**
  * Shared provider display names, logos and initials

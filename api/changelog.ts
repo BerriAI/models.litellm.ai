@@ -10,8 +10,8 @@ import {
   changelogRss,
   feedFilter,
   filterChangelogItems,
-} from "../src/changelogPresentation";
-import { selfHeaders } from "./og";
+} from "../src/changelogPresentation.js";
+import { selfHeaders } from "./og.js";
 
 const FEED_HEADERS = {
   "Content-Type": "application/rss+xml; charset=utf-8",

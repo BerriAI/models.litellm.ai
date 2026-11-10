@@ -1,5 +1,5 @@
-import { humanizeModelId } from "./modelMeta";
-import { getProviderDisplayName } from "./providers";
+import { humanizeModelId } from "./modelMeta.js";
+import { getProviderDisplayName } from "./providers.js";
 
 export type UpdateKind =
   | "price"
