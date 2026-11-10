@@ -319,4 +319,28 @@ describe("automatic catalog changelog", () => {
       40,
     );
   });
+  it("counts a new provider's models in the digest title and notes a regional alias once", () => {
+    const model = before["example/model"];
+    const prior = { "example/model": model, "example/eu/model": model };
+    const next = {
+      "example/model": after["example/model"],
+      "example/eu/model": after["example/model"],
+      "newprov/one": { ...model, litellm_provider: "newprov" },
+      "newprov/two": { ...model, litellm_provider: "newprov" },
+      "newprov/three": { ...model, litellm_provider: "newprov" },
+    };
+    const names = { example: "Example", newprov: "New Provider" };
+    const [digest] = digestFeedEntries(
+      changelogItems(catalogChanges(prior, next, commit, names), names),
+    );
+    expect(digest.title).toBe(
+      "3 models added, 1 updated on New Provider, Example",
+    );
+    expect(digest.body).toBe(
+      [
+        "• New Provider added with 3 models",
+        "• Model on Example: Input decreased $2 → $1 (−50%) / 1M tokens, Output increased $4 → $6 (+50%) / 1M tokens",
+      ].join("\n"),
+    );
+  });
 });

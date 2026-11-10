@@ -222,7 +222,7 @@ const kindRank: Record<string, number> = {
 };
 interface DigestBullet {
   text: string;
-  added: boolean;
+  added: number;
   providerName: string;
 }
 function digestBullets(items: ChangelogItem[]): DigestBullet[] {
@@ -234,23 +234,23 @@ function digestBullets(items: ChangelogItem[]): DigestBullet[] {
       const n = item.entries.length;
       bullets.set(`provider|${item.provider}`, {
         text: `${item.providerName} added with ${n} ${n === 1 ? "model" : "models"}`,
-        added: true,
+        added: n,
         providerName: item.providerName,
       });
       continue;
     }
-    for (const entry of item.entries) {
-      const key = `${item.provider}|${entry.name}`;
-      const note = item.kind === "model" ? "" : item.lines.join(", ");
+    const note = item.kind === "model" ? "" : item.lines.join(", ");
+    for (const name of new Set(item.entries.map((e) => e.name))) {
+      const key = `${item.provider}|${name}`;
       const match = bullets.get(key);
       if (match && note) match.text += `, ${note}`;
       else if (!match)
         bullets.set(key, {
           text:
             item.kind === "model"
-              ? `${entry.name} added on ${item.providerName}`
-              : `${entry.name} on ${item.providerName}: ${note}`,
-          added: item.kind === "model",
+              ? `${name} added on ${item.providerName}`
+              : `${name} on ${item.providerName}: ${note}`,
+          added: item.kind === "model" ? 1 : 0,
           providerName: item.providerName,
         });
     }
@@ -258,8 +258,8 @@ function digestBullets(items: ChangelogItem[]): DigestBullet[] {
   return [...bullets.values()];
 }
 function digestTitle(bullets: DigestBullet[]): string {
-  const added = bullets.filter((b) => b.added).length;
-  const updated = bullets.length - added;
+  const added = bullets.reduce((sum, b) => sum + b.added, 0);
+  const updated = bullets.filter((b) => !b.added).length;
   const providers = [...new Set(bullets.map((b) => b.providerName))];
   const where =
     providers.length > 3
