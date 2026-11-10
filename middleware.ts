@@ -6,12 +6,36 @@
  * rewrites, which is why neither can be a rewrite rule.
  * It also reports feed, markdown and llms.txt fetches to Mixpanel, since
  * feed readers and agents never run the page script.
+ * /changelog.xml?kind=…&providers=… is rebuilt here from /changelog.json with
+ * only the matching items, so a reader can subscribe to one slice of the catalog.
  */
+import {
+  changelogItems,
+  changelogRss,
+  feedFilter,
+  filterChangelogItems,
+} from "./src/changelogPresentation";
 export const config = {
-  matcher: ["/models/:path*", "/compare/:path*", "/rankings/:path*", "/new-models/:path*", "/deprecated-models/:path*", "/404", "/new-models.xml", "/deprecated-models.xml", "/changelog.xml", "/llms.txt", "/llms-full.txt"],
+  matcher: [
+    "/models/:path*",
+    "/compare/:path*",
+    "/rankings/:path*",
+    "/new-models/:path*",
+    "/deprecated-models/:path*",
+    "/404",
+    "/new-models.xml",
+    "/deprecated-models.xml",
+    "/changelog.xml",
+    "/llms.txt",
+    "/llms-full.txt",
+  ],
 };
 
-const INDEXES_WITHOUT_MARKDOWN = new Set(["/models", "/rankings", "/new-models"]);
+const INDEXES_WITHOUT_MARKDOWN = new Set([
+  "/models",
+  "/rankings",
+  "/new-models",
+]);
 
 /** A path with no file behind it: Vercel answers it with 404.html and a real 404 status. */
 export const NOT_FOUND_PATH = "/__not-found";
@@ -29,13 +53,25 @@ export function machineFetchEvent(path: string): string | undefined {
 }
 
 /** One anonymous id per client (hash of IP and user agent), so repeat fetches by one reader or agent line up. */
-async function trackFetch(request: Request, event: string, path: string, via: string): Promise<void> {
+async function trackFetch(
+  request: Request,
+  event: string,
+  path: string,
+  via: string,
+  extra: Record<string, unknown> = {},
+): Promise<void> {
   const token = process.env.VITE_MIXPANEL_TOKEN;
   if (!token) return;
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "";
   const userAgent = request.headers.get("user-agent") ?? "";
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${ip}|${userAgent}`));
-  const id = [...new Uint8Array(digest)].slice(0, 16).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(`${ip}|${userAgent}`),
+  );
+  const id = [...new Uint8Array(digest)]
+    .slice(0, 16)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
   await fetch("https://api.mixpanel.com/track", {
     method: "POST",
     headers: { "content-type": "application/json", accept: "text/plain" },
@@ -53,25 +89,68 @@ async function trackFetch(request: Request, event: string, path: string, via: st
           user_agent: userAgent,
           referrer: request.headers.get("referer") ?? "",
           surface: "server",
+          ...extra,
         },
       },
     ]),
   });
 }
 
-function report(request: Request, context: Context | undefined, event: string, path: string, via: string): void {
-  const sending = trackFetch(request, event, path, via).catch(() => undefined);
+function report(
+  request: Request,
+  context: Context | undefined,
+  event: string,
+  path: string,
+  via: string,
+  extra: Record<string, unknown> = {},
+): void {
+  const sending = trackFetch(request, event, path, via, extra).catch(
+    () => undefined,
+  );
   context?.waitUntil(sending);
 }
 
-export default function middleware(request: Request, context?: Context): Response | undefined {
+/** The static feed stays as built; a filtered one is rebuilt per request from the same data. Falls back to the static file if the data cannot be read. */
+async function filteredChangelog(page: URL): Promise<Response | undefined> {
+  const filter = feedFilter(page.searchParams);
+  if (!filter.kinds.length && !filter.providers.length) return undefined;
+  const data = await fetch(new URL("/changelog.json", page.origin))
+    .then((r) => (r.ok ? r.json() : null))
+    .catch(() => null);
+  if (!data?.updates) return undefined;
+  const items = filterChangelogItems(
+    changelogItems(data.updates, data.providerNames ?? {}),
+    filter,
+  );
+  return new Response(changelogRss(items, data.generatedAt, page.toString()), {
+    headers: {
+      "content-type": "application/rss+xml; charset=utf-8",
+      "cache-control": "public, max-age=0, must-revalidate",
+    },
+  });
+}
+
+export default function middleware(
+  request: Request,
+  context?: Context,
+): Response | Promise<Response | undefined> | undefined {
   const page = new URL(request.url);
   const fetched = machineFetchEvent(page.pathname);
+  if (page.pathname === "/changelog.xml" && page.search) {
+    const filter = feedFilter(page.searchParams);
+    report(request, context, "Feed Fetched", page.pathname, "url", {
+      kind: filter.kinds,
+      providers: filter.providers,
+    });
+    return filteredChangelog(page);
+  }
   if (fetched) report(request, context, fetched, page.pathname, "url");
   // /404 is a real file (the not-found page), so without this it would answer 200.
   if (page.pathname === "/404") {
     page.pathname = NOT_FOUND_PATH;
-    return new Response(null, { headers: { "x-middleware-rewrite": page.toString() } });
+    return new Response(null, {
+      headers: { "x-middleware-rewrite": page.toString() },
+    });
   }
   // One URL per comparison: the two model slugs in alphabetical order.
   const pair = /^\/compare\/(.+)-vs-(.+?)(\.md)?$/.exec(page.pathname);
@@ -79,9 +158,17 @@ export default function middleware(request: Request, context?: Context): Respons
     page.pathname = `/compare/${pair[2]}-vs-${pair[1]}${pair[3] ?? ""}`;
     return Response.redirect(page.toString(), 301);
   }
-  if (!(request.headers.get("accept") ?? "").includes("text/markdown")) return undefined;
-  if (INDEXES_WITHOUT_MARKDOWN.has(page.pathname.replace(/\/$/, "")) || (page.pathname.startsWith("/compare") && !pair) || /\.(md|json|xml|txt)$/.test(page.pathname)) return undefined;
+  if (!(request.headers.get("accept") ?? "").includes("text/markdown"))
+    return undefined;
+  if (
+    INDEXES_WITHOUT_MARKDOWN.has(page.pathname.replace(/\/$/, "")) ||
+    (page.pathname.startsWith("/compare") && !pair) ||
+    /\.(md|json|xml|txt)$/.test(page.pathname)
+  )
+    return undefined;
   page.pathname = `${page.pathname.replace(/\/$/, "")}.md`;
   report(request, context, "Markdown Fetched", page.pathname, "accept_header");
-  return new Response(null, { headers: { "x-middleware-rewrite": page.toString() } });
+  return new Response(null, {
+    headers: { "x-middleware-rewrite": page.toString() },
+  });
 }

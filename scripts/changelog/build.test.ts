@@ -6,6 +6,9 @@ import {
   changelogItems,
   changelogRss,
   changeLine,
+  feedFilter,
+  feedQuery,
+  filterChangelogItems,
 } from "../../src/changelogPresentation";
 const sha = "a".repeat(40),
   parent = "b".repeat(40);
@@ -160,5 +163,51 @@ describe("automatic catalog changelog", () => {
     expect(
       changeLine({ field: "max_input_tokens", before: 32000, after: 128000 }),
     ).toBe("Input context: 32,000 → 128,000");
+  });
+  it("filters feed items by kind and provider from the query string and points the feed at itself", () => {
+    const updates = [
+      ...catalogChanges(before, after, commit, { example: "Example" }),
+      ...catalogChanges({}, after, commit, { example: "Example" }).map((u) => ({
+        ...u,
+        provider: "other",
+      })),
+    ];
+    const items = changelogItems(updates, {
+      example: "Example",
+      other: "Other",
+    });
+    expect(items.map((i) => i.kind)).toEqual(["price", "provider"]);
+    const prices = filterChangelogItems(
+      items,
+      feedFilter(new URLSearchParams("kind=price")),
+    );
+    expect(prices.map((i) => i.kind)).toEqual(["price"]);
+    expect(
+      filterChangelogItems(
+        items,
+        feedFilter(new URLSearchParams("providers=Other,%20missing")),
+      ).map((i) => i.provider),
+    ).toEqual(["other"]);
+    expect(
+      filterChangelogItems(
+        items,
+        feedFilter(new URLSearchParams("kind=price&providers=other")),
+      ).length,
+    ).toBe(0);
+    expect(
+      filterChangelogItems(items, feedFilter(new URLSearchParams(""))),
+    ).toEqual(items);
+    expect(feedQuery("all", "all")).toBe("");
+    expect(feedQuery("price", "all")).toBe("?kind=price");
+    expect(feedQuery("all", "bedrock_converse")).toBe(
+      "?providers=bedrock_converse",
+    );
+    const self =
+      "https://models.litellm.ai/changelog.xml?kind=price&providers=example";
+    const rss = changelogRss(prices, options.now, self);
+    expect(rss).toContain(
+      `<atom:link href="${self.replace("&", "&amp;")}" rel="self"`,
+    );
+    expect(rss.match(/<item>/g)).toHaveLength(1);
   });
 });
