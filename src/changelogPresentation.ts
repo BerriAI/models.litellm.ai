@@ -196,12 +196,47 @@ const xml = (s: string) =>
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+export const FEED_URL = "https://models.litellm.ai/changelog.xml";
+export interface FeedFilter {
+  kinds: string[];
+  providers: string[];
+}
+const list = (value: string | null) =>
+  (value ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+/** `?kind=price,deprecation&providers=bedrock,openai` as the feed reads it. */
+export const feedFilter = (params: URLSearchParams): FeedFilter => ({
+  kinds: list(params.get("kind")),
+  providers: list(params.get("providers")),
+});
+/** The query string the page's RSS link carries for its current tab and provider. */
+export function feedQuery(kind: string, provider: string): string {
+  const params = new URLSearchParams();
+  if (kind !== "all") params.set("kind", kind);
+  if (provider !== "all") params.set("providers", provider);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+export function filterChangelogItems(
+  items: ChangelogItem[],
+  filter: FeedFilter,
+): ChangelogItem[] {
+  return items.filter(
+    (item) =>
+      (filter.kinds.length
+        ? filter.kinds.includes(item.kind)
+        : item.kind !== "metadata") &&
+      (!filter.providers.length || filter.providers.includes(item.provider)),
+  );
+}
 export function changelogRss(
   items: ChangelogItem[],
   generatedAt: string,
+  selfUrl = FEED_URL,
 ): string {
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>LiteLLM model changelog</title><link>https://models.litellm.ai/changelog</link><description>Model pricing, new models, providers, and capabilities from the LiteLLM catalog.</description><language>en-us</language><lastBuildDate>${new Date(generatedAt).toUTCString()}</lastBuildDate><atom:link href="https://models.litellm.ai/changelog.xml" rel="self" type="application/rss+xml"/>${items
-    .filter((i) => i.kind !== "metadata")
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>LiteLLM model changelog</title><link>https://models.litellm.ai/changelog</link><description>Model pricing, new models, providers, and capabilities from the LiteLLM catalog.</description><language>en-us</language><lastBuildDate>${new Date(generatedAt).toUTCString()}</lastBuildDate><atom:link href="${xml(selfUrl)}" rel="self" type="application/rss+xml"/>${items
     .map(
       (item) =>
         `<item><title>${xml(rssTitle(item))}</title><link>${xml(item.source)}</link><guid isPermaLink="false">${xml(item.id)}</guid><pubDate>${new Date(item.timestamp).toUTCString()}</pubDate><category>${xml(item.kind)}</category><description>${xml([...item.lines, ...item.entries.map((e) => e.modelId)].join("\n"))}</description></item>`,

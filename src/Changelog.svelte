@@ -8,7 +8,7 @@
     type CatalogUpdate,
     type UpdateKind,
   } from "./discoveryChangelog";
-  import { changelogItems } from "./changelogPresentation";
+  import { changelogItems, feedQuery } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
   let updates: CatalogUpdate[] = [];
   let providerNames: Record<string, string> = {};
@@ -85,7 +85,10 @@
   $: visible = filtered.slice(0, visibleCount);
   $: days = [...new Set(visible.map((item) => item.date))];
   function toggle(id: string) {
-    track(expanded.has(id) ? "Changelog Item Collapsed" : "Changelog Item Expanded", { item: id });
+    track(
+      expanded.has(id) ? "Changelog Item Collapsed" : "Changelog Item Expanded",
+      { item: id },
+    );
     expanded.has(id) ? expanded.delete(id) : expanded.add(id);
     expanded = new Set(expanded);
   }
@@ -105,7 +108,15 @@
     description="Model pricing, new models, and provider updates."
     variant="changelog"
   >
-    <a class="rss-link" href="/changelog.xml">RSS feed</a>
+    <a
+      class="rss-link"
+      href={`/changelog.xml${feedQuery(category, provider)}`}
+      on:click={() =>
+        track("Changelog Feed Link Clicked", { kind: category, provider })}
+      >{category !== "all" || provider !== "all"
+        ? "RSS feed for this view"
+        : "RSS feed"}</a
+    >
   </PageHero>
   <div class="tools">
     <input
@@ -119,7 +130,10 @@
       bind:value={provider}
       on:change={() => {
         visibleCount = 40;
-        track("Changelog Filter Changed", { filter: "provider", value: provider });
+        track("Changelog Filter Changed", {
+          filter: "provider",
+          value: provider,
+        });
       }}
       aria-label="Filter by provider"
       ><option value="all">All providers</option>{#each providers as id}<option
@@ -133,7 +147,10 @@
         on:click={() => {
           category = filter.id;
           visibleCount = 40;
-          track("Changelog Filter Changed", { filter: "category", value: filter.id });
+          track("Changelog Filter Changed", {
+            filter: "category",
+            value: filter.id,
+          });
         }}>{filter.label}</button
       >{/each}
   </nav>
@@ -214,8 +231,7 @@
         on:click={() => {
           visibleCount += 40;
           track("Changelog Load More", { visible: visibleCount });
-        }}
-        >Load older updates <span>↓</span></button
+        }}>Load older updates <span>↓</span></button
       >{/if}
   {/if}
   <footer>

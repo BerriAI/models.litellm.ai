@@ -17,7 +17,11 @@ import {
 } from "./build";
 import { providerName } from "../seo/providers";
 import { fetchText } from "../seo/fetch";
-import { changelogItems, changelogRss } from "../../src/changelogPresentation";
+import {
+  changelogItems,
+  changelogRss,
+  filterChangelogItems,
+} from "../../src/changelogPresentation";
 
 const file = "model_prices_and_context_window.json";
 const now = new Date();
@@ -118,7 +122,13 @@ try {
   const items = changelogItems(data.updates, data.providerNames);
   mkdirSync("public", { recursive: true });
   writeFileSync("public/changelog.json", JSON.stringify(data) + "\n");
-  writeFileSync("public/changelog.xml", changelogRss(items, data.generatedAt));
+  writeFileSync(
+    "public/changelog.xml",
+    changelogRss(
+      filterChangelogItems(items, { kinds: [], providers: [] }),
+      data.generatedAt,
+    ),
+  );
   console.log(
     `Changelog: ${commits.length} catalog commits, ${items.length} entries; JSON and RSS refreshed.`,
   );
