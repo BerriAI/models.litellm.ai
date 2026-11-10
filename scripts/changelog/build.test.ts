@@ -11,6 +11,8 @@ import {
   feedFilter,
   feedQuery,
   feedUrl,
+  listingKeys,
+  modelName,
   parseModelList,
   filterChangelogItems,
 } from "../../src/changelogPresentation";
@@ -447,6 +449,12 @@ describe("automatic catalog changelog", () => {
     expect(ids("models=GPT-5")).toEqual(["p1"]);
     expect(ids("models=Claude%20Sonnet%204.5")).toEqual(["p2"]);
     expect(ids("models=vertex_ai/claude-sonnet-4-5@20250929")).toEqual(["p2"]);
+    expect(ids("models=anthropic.claude-sonnet-4-5-20250929-v1:0")).toEqual([]);
+    expect(
+      ids(
+        `models=${modelName("bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0")}`,
+      ),
+    ).toEqual(["p2"]);
     const kimi = only("models=fireworks_ai/accounts/fireworks/models/kimi,glm");
     expect(kimi.map((i) => i.headline)).toEqual([
       "2 models added on Fireworks AI",
@@ -508,6 +516,27 @@ describe("automatic catalog changelog", () => {
       "claude-opus-4-5",
     ]);
     expect(parseModelList("   ")).toEqual([]);
+    expect(
+      [
+        "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0",
+        "vertex_ai/claude-sonnet-4-5@20250929",
+        "azure/gpt-5",
+        "Claude Sonnet 4.5",
+        "us.meta.llama3-1-70b-instruct-v1:0",
+      ].map(modelName),
+    ).toEqual([
+      "Claude Sonnet 4.5",
+      "Claude Sonnet 4.5",
+      "GPT-5",
+      "Claude Sonnet 4.5",
+      "Llama3 1 70B Instruct",
+    ]);
+    expect([
+      ...listingKeys({
+        modelId: "anthropic.claude-sonnet-4-5-20250929-v1:0",
+        name: "Claude Sonnet 4.5 v1",
+      } as never),
+    ]).toContain("claude-sonnet-4-5");
     expect(parseModelList('{"data": [ !!!')).toEqual([]);
     expect(parseModelList("gpt-5 !!! {x} o3")).toEqual(["gpt-5", "o3"]);
     expect(parseModelList("Claude Sonnet 4.5\nGPT-5, o3")).toEqual([

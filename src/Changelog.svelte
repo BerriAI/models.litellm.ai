@@ -16,6 +16,7 @@
     feedUrl,
     listingKeys,
     modelKey,
+    modelName,
     parseModelList,
   } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
@@ -51,7 +52,7 @@
   let kinds: string[] = [];
   let feedProviders: string[] = [];
   let providerQuery = "";
-  let autoTicked = new Set<string>();
+  let everyProvider = true;
   let pasted = "";
   let copied = "";
   let copyError = "";
@@ -114,6 +115,7 @@
         .filter(Boolean)
         .join("\n");
       digest = preset.digest;
+      everyProvider = preset.models.every((m) => modelName(m) === m);
       builderOpen = true;
     }
     void load();
@@ -150,22 +152,21 @@
     const q = providerQuery.trim().toLowerCase();
     return !q || id.includes(q) || providerName(id).toLowerCase().includes(q);
   });
-  $: pastedProviders = [...new Set(models.map((m) => m.split("/")[0]))];
-  $: if (
-    pastedProviders.length &&
-    pastedProviders.every((id) => providers.includes(id))
-  )
-    for (const id of pastedProviders) {
-      if (autoTicked.has(id)) continue;
-      autoTicked.add(id);
-      if (!feedProviders.includes(id)) feedProviders = [...feedProviders, id];
-    }
-  $: url = feedUrl({ kinds, providers: feedProviders, models, digest });
+  $: followed = everyProvider ? [...new Set(models.map(modelName))] : models;
+  $: url = feedUrl({
+    kinds,
+    providers: feedProviders,
+    models: followed,
+    digest,
+  });
   $: slackCommand = `/feed subscribe ${url}`;
   $: changedKeys = new Set(
     items.flatMap((item) => item.entries.flatMap((e) => [...listingKeys(e)])),
   );
-  $: seen = models.filter((id) => changedKeys.has(modelKey(id))).length;
+  $: seen = followed.filter((id) => changedKeys.has(modelKey(id))).length;
+  $: shownNames =
+    followed.slice(0, 6).join(", ") +
+    (followed.length > 6 ? ` +${followed.length - 6} more` : "");
   function selectProviders(ids: string[]) {
     feedProviders = [...new Set([...feedProviders, ...ids])];
     track("Changelog Feed Builder Changed", {
@@ -196,7 +197,7 @@
       digest,
       kind: kinds,
       providers: feedProviders,
-      models: models.length,
+      models: followed.length,
     });
   }
   function reset() {
@@ -304,8 +305,19 @@
           rows="4"
           placeholder="Paste your proxy's /model/info or /v1/models JSON, its config.yaml, or model ids and names one per line"
         ></textarea>
+        <label class="check"
+          ><input
+            type="checkbox"
+            bind:checked={everyProvider}
+            on:change={() =>
+              track("Changelog Feed Builder Changed", {
+                field: "everyProvider",
+                value: everyProvider,
+              })}
+          /> Follow these models on every provider</label
+        >
         <span class="hint"
-          >{#if models.length}{`${models.length} models, ${seen} changed in the last 30 days.`}{:else}Run
+          >{#if models.length}{`Following ${shownNames}${everyProvider ? " on every provider" : " as pasted"}, ${seen} changed in the last 30 days.`}{:else}Run
             <code>curl $PROXY/model/info -H "Authorization: Bearer $KEY"</code>
             and paste the response, or paste the model_list from your config.yaml.{/if}</span
         >
@@ -324,9 +336,12 @@
       </div>
       {#if copyError}<p class="hint" role="alert">{copyError}</p>{/if}
       <p class="hint">
-        Model ids match on their last path segment, so <code>azure/gpt-5</code>
-        follows the catalog's <code>gpt-5</code>. A time window posts once it
-        closes and the catalog has rebuilt, up to 15 minutes later.
+        With the switch on, each pasted id becomes its catalog name, so a
+        Bedrock <code>anthropic.claude-sonnet-4-5-20250929-v1:0</code> follows
+        Claude Sonnet 4.5 on Azure and Vertex too. Off, ids match on their last
+        path segment, so <code>azure/gpt-5</code> follows <code>gpt-5</code>. A
+        time window posts once it closes and the catalog has rebuilt, up to 15
+        minutes later.
       </p>
     </div>
   </details>

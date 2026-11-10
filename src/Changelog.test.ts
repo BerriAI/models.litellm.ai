@@ -5,6 +5,7 @@ import Changelog from "./Changelog.svelte";
 import Main from "./Main.svelte";
 import { track, trackPageView } from "./analytics";
 import snapshot from "../scripts/changelog/seed.json";
+import { modelName } from "./changelogPresentation";
 vi.mock("svelte", () =>
   vi.importActual<typeof import("svelte")>("svelte/internal"),
 );
@@ -169,23 +170,24 @@ describe("Changelog page", () => {
     const outputs = Array.from(document.querySelectorAll(".output code")).map(
       (c) => c.textContent,
     );
-    const knownProvider = known.split("/")[0];
+    const knownName = modelName(known);
     expect(outputs[0]).toBe(
-      `https://models.litellm.ai/changelog.xml?providers=${knownProvider},azure&models=${known},azure/never-changed&digest=1h`,
+      `https://models.litellm.ai/changelog.xml?models=${encodeURIComponent(knownName)},Never%20Changed&digest=1h`,
     );
-    expect(
-      Array.from(
-        document.querySelectorAll<HTMLInputElement>(
-          ".provider-grid input:checked",
-        ),
-      )
-        .map((i) => i.value)
-        .sort(),
-    ).toEqual([knownProvider, "azure"].sort());
-    expect(outputs[1]).toBe(`/feed subscribe ${outputs[0]}`);
     expect(document.body.textContent).toContain(
-      "2 models, 1 changed in the last 30 days",
+      `Following ${knownName}, Never Changed on every provider, 1 changed in the last 30 days.`,
     );
+    const everyProvider = document.querySelector<HTMLInputElement>(
+      ".paste input[type=checkbox]",
+    )!;
+    everyProvider.click();
+    await tick();
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      `https://models.litellm.ai/changelog.xml?models=${known},azure/never-changed&digest=1h`,
+    );
+    everyProvider.click();
+    await tick();
+    expect(outputs[1]).toBe(`/feed subscribe ${outputs[0]}`);
     Array.from(document.querySelectorAll<HTMLButtonElement>(".output button"))
       .find((b) => b.textContent === "Copy Slack command")!
       .click();
@@ -195,7 +197,7 @@ describe("Changelog page", () => {
       what: "slack",
       digest: "1h",
       kind: [],
-      providers: [knownProvider, "azure"],
+      providers: [],
       models: 2,
     });
   });
@@ -243,8 +245,8 @@ describe("Changelog page", () => {
     expect(document.querySelector("textarea")!.value).toContain(
       "model: azure/gpt-5",
     );
-    expect(document.querySelector(".output code")?.textContent).toContain(
-      "models=azure/gpt-5,bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0,vertex_ai/gemini-2.5-pro",
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml?models=GPT-5,Claude%20Sonnet%204.5,Gemini%202.5%20Pro",
     );
     expect(track).toHaveBeenCalledWith("Changelog Feed Example Shown", {
       format: "yaml",
