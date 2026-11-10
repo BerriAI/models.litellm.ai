@@ -423,19 +423,25 @@ const slug = (s: string) =>
 /**
  * What a `?models=` entry is compared on: the last path segment, slugged, so
  * `openai/gpt-5`, `gpt-5` and the proxy's `azure/gpt-5` all name the catalog's
- * `gpt-5`. The catalog id itself and the display name slug also count.
+ * `gpt-5`, and a Vertex `@20250929` version suffix is dropped the way
+ * `humanizeModelId` drops it. The catalog id itself and the display name slug
+ * also count.
  */
-export const modelKey = (id: string) => slug(id.split("/").pop() ?? id);
+export const modelKey = (id: string) =>
+  slug((id.split("/").pop() ?? id).replace(/@[^/]*$/, ""));
 export const listingKeys = (entry: ChangedListing) =>
   new Set([modelKey(entry.modelId), slug(entry.modelId), slug(entry.name)]);
 /**
  * Model ids out of whatever a user pastes from their proxy: the JSON of
  * `/model/info` (`litellm_params.model`) or `/v1/models` (`id`), a
- * `config.yaml` with `model:` lines, or ids separated by commas, spaces or
- * newlines. Order kept, duplicates dropped.
+ * `config.yaml` with `model:` lines, or ids and display names one per line or
+ * comma-separated. A line of several ids separated by spaces also works unless
+ * every word looks like an id, when it is read as one display name such as
+ * `Claude Sonnet 4.5`. Order kept, duplicates dropped.
  */
-/** A bare token that can be a model id, so junk in a plain list is skipped. */
 const MODEL_ID = /^[A-Za-z0-9][\w.\-:/@+]*$/;
+const DISPLAY_NAME = /^[A-Za-z0-9][\w.\-:/@+]*( [\w.\-:/@+]+)*$/;
+const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, "");
 
 export function parseModelList(text: string): string[] {
   const ids: string[] = [];
@@ -465,12 +471,17 @@ export function parseModelList(text: string): string[] {
     const yaml = [...text.matchAll(/^\s*-?\s*model:\s*["']?([^\s"'#]+)/gm)];
     for (const [, id] of yaml) add(id);
     if (!yaml.length)
-      text
-        .split(/[\s,]+/)
-        .filter((token) => MODEL_ID.test(token))
-        .forEach(add);
+      for (const line of text.split(/[\n,]+/).map(unquote)) {
+        if (DISPLAY_NAME.test(line)) add(line);
+        else
+          line
+            .split(/\s+/)
+            .map(unquote)
+            .filter((token) => MODEL_ID.test(token))
+            .forEach(add);
+      }
   }
-  return [...new Set(ids.map((id) => id.replace(/^["']|["']$/g, "")))];
+  return [...new Set(ids.map(unquote))];
 }
 /** The query string the page's RSS link carries for its current tab and provider. */
 export function feedQuery(kind: string, provider: string): string {

@@ -227,7 +227,7 @@
         <textarea
           bind:value={pasted}
           rows="4"
-          placeholder="Paste your proxy's /model/info or /v1/models JSON, its config.yaml, or model ids one per line"
+          placeholder="Paste your proxy's /model/info or /v1/models JSON, its config.yaml, or model ids and names one per line"
         ></textarea>
         {#if models.length}<span class="hint"
             >{models.length} models, {seen} changed in the last 30 days</span

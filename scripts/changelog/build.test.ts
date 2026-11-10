@@ -446,6 +446,7 @@ describe("automatic catalog changelog", () => {
     expect(ids("models=azure/gpt-5")).toEqual(["p1"]);
     expect(ids("models=GPT-5")).toEqual(["p1"]);
     expect(ids("models=Claude%20Sonnet%204.5")).toEqual(["p2"]);
+    expect(ids("models=vertex_ai/claude-sonnet-4-5@20250929")).toEqual(["p2"]);
     const kimi = only("models=fireworks_ai/accounts/fireworks/models/kimi,glm");
     expect(kimi.map((i) => i.headline)).toEqual([
       "2 models added on Fireworks AI",
@@ -501,7 +502,7 @@ describe("automatic catalog changelog", () => {
         ].join("\n"),
       ),
     ).toEqual(["openai/gpt-5", "bedrock/anthropic.claude-sonnet-4-5-v1:0"]);
-    expect(parseModelList("gpt-5, o3\nclaude-opus-4-5 gpt-5")).toEqual([
+    expect(parseModelList("gpt-5, o3\nclaude-opus-4-5, gpt-5")).toEqual([
       "gpt-5",
       "o3",
       "claude-opus-4-5",
@@ -509,6 +510,15 @@ describe("automatic catalog changelog", () => {
     expect(parseModelList("   ")).toEqual([]);
     expect(parseModelList('{"data": [ !!!')).toEqual([]);
     expect(parseModelList("gpt-5 !!! {x} o3")).toEqual(["gpt-5", "o3"]);
+    expect(parseModelList("Claude Sonnet 4.5\nGPT-5, o3")).toEqual([
+      "Claude Sonnet 4.5",
+      "GPT-5",
+      "o3",
+    ]);
+    expect(parseModelList("\"azure/gpt-5\", 'o3'")).toEqual([
+      "azure/gpt-5",
+      "o3",
+    ]);
     expect(
       parseModelList(
         JSON.stringify({
