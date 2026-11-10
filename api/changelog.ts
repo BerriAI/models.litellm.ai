@@ -3,8 +3,9 @@
  * /changelog.json, filtered by ?kind= and ?providers=. A function rather than a
  * static file because the CDN caches static files by path alone, so a filtered
  * URL would be answered with the unfiltered feed once either was cached.
- * ?digest=commit folds every change of one catalog commit into one item, the
- * shape a Slack channel subscription reads best.
+ * ?digest=commit folds every change of one catalog commit into one item, and
+ * ?digest=1h (30m, 4h, 1d) every change of one clock hour, the shapes a Slack
+ * channel subscription reads best.
  */
 import {
   FEED_URL,
@@ -42,7 +43,7 @@ export async function GET(request: Request): Promise<Response> {
     filter,
   );
   const entries = filter.digest
-    ? digestFeedEntries(items)
+    ? digestFeedEntries(items, filter.digest)
     : items.map(feedEntry);
   return new Response(
     changelogRss(entries, data.generatedAt, `${FEED_URL}${url.search}`),

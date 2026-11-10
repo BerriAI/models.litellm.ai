@@ -343,4 +343,43 @@ describe("automatic catalog changelog", () => {
       ].join("\n"),
     );
   });
+  it("folds a clock-aligned time window into one item and holds back a window still open", () => {
+    const at = (hhmm: string, suffix: string) => ({
+      ...commit,
+      sha: suffix.repeat(40),
+      timestamp: `2026-10-30T${hhmm}:00Z`,
+    });
+    const names = { example: "Example", other: "Other" };
+    const updates = [
+      ...catalogChanges(before, after, at("20:10", "c"), names),
+      ...catalogChanges(
+        {},
+        { "other/new": after["example/model"] },
+        at("20:40", "d"),
+        names,
+      ).map((u) => ({ ...u, provider: "other" })),
+      ...catalogChanges(after, before, at("21:05", "e"), names),
+    ];
+    const items = changelogItems(updates, names);
+    const hour = 3_600_000;
+    const mid = Date.parse("2026-10-30T21:30:00Z");
+    expect(feedFilter(new URLSearchParams("digest=1h")).digest).toBe("1h");
+    expect(feedFilter(new URLSearchParams("digest=90x")).digest).toBe("");
+    const [closed, ...open] = digestFeedEntries(items, "1h", mid);
+    expect(open).toEqual([]);
+    expect(closed.id).toBe("digest:1h:2026-10-30T20:00:00.000Z");
+    expect(closed.timestamp).toBe("2026-10-30T21:00:00.000Z");
+    expect(closed.link).toContain("https://models.litellm.ai/changelog?");
+    expect(closed.title).toBe("1 model added, 1 updated on Other, Example");
+    const later = digestFeedEntries(items, "1h", mid + hour);
+    expect(later.map((e) => e.id)).toEqual([
+      "digest:1h:2026-10-30T20:00:00.000Z",
+      "digest:1h:2026-10-30T21:00:00.000Z",
+    ]);
+    expect(later[1].link).toBe(
+      `https://github.com/BerriAI/litellm/commit/${"e".repeat(40)}`,
+    );
+    expect(digestFeedEntries(items, "1d", mid + hour)).toEqual([]);
+    expect(digestFeedEntries(items, "30m", mid)).toHaveLength(3);
+  });
 });

@@ -275,14 +275,44 @@ function digestTitle(bullets: DigestBullet[]): string {
   ].filter(Boolean);
   return `${counts.join(", ")} on ${where}`;
 }
-/** One feed item per catalog commit: a counts headline and a bullet per model, cut to fit a Slack post. */
-export function digestFeedEntries(items: ChangelogItem[]): FeedEntry[] {
-  const byCommit = new Map<string, ChangelogItem[]>();
-  for (const item of items)
-    byCommit.set(item.source, [...(byCommit.get(item.source) ?? []), item]);
-  return [...byCommit.values()].map((commitItems) => {
+const WINDOW_UNITS: Record<string, number> = {
+  m: 60_000,
+  h: 3_600_000,
+  d: 86_400_000,
+};
+/** `30m`, `1h`, `4h`, `1d`: the span of one time-window digest in milliseconds, null for `commit`. */
+export function digestWindow(digest: string): number | null {
+  const match = /^([1-9]\d*)([mhd])$/.exec(digest);
+  return match ? Number(match[1]) * WINDOW_UNITS[match[2]] : null;
+}
+const CHANGELOG_PAGE =
+  "https://models.litellm.ai/changelog?utm_source=rss&utm_medium=feed&utm_campaign=changelog";
+/**
+ * One feed item per catalog commit, or per clock-aligned time window when
+ * `digest` is a span like `1h`: a counts headline and a bullet per model, cut
+ * to fit a Slack post. A window still open at `now` is left out so readers
+ * never post a partial one.
+ */
+export function digestFeedEntries(
+  items: ChangelogItem[],
+  digest = "commit",
+  now = Date.now(),
+): FeedEntry[] {
+  const window = digestWindow(digest);
+  const groups = new Map<string, ChangelogItem[]>();
+  for (const item of items) {
+    const start = window
+      ? Math.floor(Date.parse(item.timestamp) / window) * window
+      : 0;
+    if (window && start + window > now) continue;
+    const key = window ? String(start) : item.source;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups].map(([key, commitItems]) => {
     const bullets = digestBullets(commitItems);
     const sha = commitItems[0].source.split("/").pop() ?? "";
+    const start = window ? Number(key) : 0;
+    const commits = new Set(commitItems.map((item) => item.source));
     const shown: string[] = [];
     let length = 0;
     for (const bullet of bullets) {
@@ -293,9 +323,13 @@ export function digestFeedEntries(items: ChangelogItem[]): FeedEntry[] {
     }
     const rest = bullets.length - shown.length;
     return {
-      id: `digest:${sha}`,
-      link: commitItems[0].source,
-      timestamp: commitItems[0].timestamp,
+      id: window
+        ? `digest:${digest}:${new Date(start).toISOString()}`
+        : `digest:${sha}`,
+      link: commits.size === 1 ? commitItems[0].source : CHANGELOG_PAGE,
+      timestamp: window
+        ? new Date(start + window).toISOString()
+        : commitItems[0].timestamp,
       category: "digest",
       title: bullets.length === 1 ? bullets[0].text : digestTitle(bullets),
       body: [...shown, ...(rest ? [`• +${rest} more`] : [])].join("\n"),
@@ -313,18 +347,21 @@ export const FEED_URL = "https://models.litellm.ai/changelog.xml";
 export interface FeedFilter {
   kinds: string[];
   providers: string[];
-  digest: boolean;
+  /** "" for one item per change, "commit" for one per commit, or a span like "1h". */
+  digest: string;
 }
 const list = (value: string | null) =>
   (value ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
+const digestOf = (value: string | null) =>
+  value === "commit" || digestWindow(value ?? "") ? (value as string) : "";
 /** `?kind=price,deprecation&providers=bedrock,openai&digest=commit` as the feed reads it. */
 export const feedFilter = (params: URLSearchParams): FeedFilter => ({
   kinds: list(params.get("kind")),
   providers: list(params.get("providers")),
-  digest: params.get("digest") === "commit",
+  digest: digestOf(params.get("digest")),
 });
 /** The query string the page's RSS link carries for its current tab and provider. */
 export function feedQuery(kind: string, provider: string): string {

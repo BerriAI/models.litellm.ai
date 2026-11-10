@@ -115,7 +115,7 @@ export default function middleware(
     report(request, context, fetched, page.pathname, "url", {
       ...(filter.kinds.length ? { kind: filter.kinds } : {}),
       ...(filter.providers.length ? { providers: filter.providers } : {}),
-      ...(filter.digest ? { digest: "commit" } : {}),
+      ...(filter.digest ? { digest: filter.digest } : {}),
     });
   }
   // /404 is a real file (the not-found page), so without this it would answer 200.

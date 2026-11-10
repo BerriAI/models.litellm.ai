@@ -77,6 +77,10 @@ describe("/changelog.xml function", () => {
       items(await (await feed("?kind=metadata")).text()).map((i) => i.body),
     ).toEqual([expect.stringContaining("gpt-meta")]);
     expect(items(await (await feed("?providers=nobody")).text())).toEqual([]);
+    const hourly = items(await (await feed("?digest=1h")).text());
+    expect(hourly.map((i) => i.kind)).toEqual(["digest"]);
+    expect(hourly[0].body).toContain("• gpt on OpenAI");
+    expect(items(await (await feed("?digest=bogus")).text())).toHaveLength(3);
     const digest = items(await (await feed("?digest=commit")).text());
     expect(digest).toEqual([
       {
