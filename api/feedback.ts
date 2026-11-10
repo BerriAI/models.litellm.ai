@@ -1,12 +1,60 @@
 const reply = (status: number, ok = false) =>
   Response.json({ ok }, { status, headers: { "Cache-Control": "no-store" } });
 
-export async function POST(request: Request): Promise<Response> {
-  // Accept browser submissions only from the deployment serving the form.
-  const origin = new URL(request.url).origin;
-  if (request.headers.get("origin") !== origin) return reply(403);
-  if (request.headers.get("content-type")?.split(";")[0] !== "application/json")
-    return reply(415);
+export function createFeedbackHandler(now = Date.now) {
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const clients = new Map<string, number[]>();
+  let global: number[] = [];
+
+  return async (request: Request): Promise<Response> => {
+    const origin = new URL(request.url).origin;
+    if (request.headers.get("origin") !== origin) return reply(403);
+    if (
+      request.headers.get("content-type")?.split(";")[0] !== "application/json"
+    )
+      return reply(415);
+
+    const time = now();
+    for (const [ip, times] of clients) {
+      const active = times.filter((at) => at > time - day);
+      if (active.length) clients.set(ip, active);
+      else clients.delete(ip);
+    }
+    global = global.filter((at) => at > time - hour);
+    const ip =
+      ["x-vercel-forwarded-for", "x-forwarded-for", "x-real-ip"]
+        .map((header) => request.headers.get(header)?.split(",")[0].trim())
+        .find(Boolean) || "unknown";
+    const daily = clients.get(ip) || [];
+    const recent = daily.filter((at) => at > time - 10 * minute);
+    const waits = [
+      recent.length >= 3 ? recent[0] + 10 * minute - time : 0,
+      daily.length >= 10 ? daily[0] + day - time : 0,
+      global.length >= 30 ? global[0] + hour - time : 0,
+    ];
+    const retryAfter = Math.ceil(Math.max(...waits) / 1000);
+    if (retryAfter > 0)
+      return Response.json(
+        { ok: false },
+        {
+          status: 429,
+          headers: {
+            "Cache-Control": "no-store",
+            "Retry-After": String(retryAfter),
+          },
+        },
+      );
+    clients.set(ip, [...daily, time]);
+    global.push(time);
+    return submit(request);
+  };
+}
+
+export const POST = createFeedbackHandler();
+
+async function submit(request: Request): Promise<Response> {
   const raw = await request.text();
   if (raw.length > 24000) return reply(413);
   let body: unknown;

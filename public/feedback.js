@@ -41,7 +41,9 @@ export function installFeedback(doc, send = fetch) {
     const trigger = event.target.closest?.("[data-feedback-open]");
     if (!trigger || dialog.open) return;
     opener = trigger;
-    doc.defaultView?.litellmTrack?.("Feedback Opened", { page: doc.location.pathname });
+    doc.defaultView?.litellmTrack?.("Feedback Opened", {
+      page: doc.location.pathname,
+    });
     if (!pending) {
       form.hidden = false;
       success.hidden = true;
@@ -84,6 +86,7 @@ export function installFeedback(doc, send = fetch) {
     contact.readOnly = true;
     submit.textContent = "Sending…";
     status.textContent = "";
+    let responseStatus;
     try {
       const response = await send("/api/feedback", {
         method: "POST",
@@ -96,6 +99,8 @@ export function installFeedback(doc, send = fetch) {
         }),
         signal: AbortSignal.timeout(15000),
       });
+      responseStatus = response.status;
+      if (response.status === 429) throw new Error("Rate limited");
       const result = await response.json();
       if (!response.ok || result.ok !== true) throw new Error("Not accepted");
       doc.defaultView?.litellmTrack?.("Feedback Submitted", {
@@ -112,7 +117,14 @@ export function installFeedback(doc, send = fetch) {
       if (dialog.open) dialog.querySelector(".feedback-done").focus();
     } catch {
       status.textContent =
-        "Couldn’t send your feedback. Your text is still here. Please try again.";
+        responseStatus === 429
+          ? "Too many submissions, try again later. Your text is still here."
+          : "Couldn’t send your feedback. Your text is still here. Please try again.";
+      doc.defaultView?.litellmTrack?.("Feedback Failed", {
+        page: doc.location.pathname,
+        reason: responseStatus === 429 ? "rate_limited" : "delivery_failed",
+        status: responseStatus ?? 0,
+      });
     } finally {
       pending = false;
       submit.disabled = false;

@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Window } from "happy-dom";
-import { POST } from "../api/feedback";
+import { createFeedbackHandler } from "../api/feedback";
 import { installFeedback } from "../public/feedback.js";
 
 const request = (body: unknown, origin = "https://example.com") =>
@@ -15,6 +15,10 @@ afterEach(() => {
 });
 
 describe("feedback delivery", () => {
+  let POST: ReturnType<typeof createFeedbackHandler>;
+  beforeEach(() => {
+    POST = createFeedbackHandler();
+  });
   it("does not report success when the destination is unconfigured", async () => {
     vi.stubEnv("FEEDBACK_WEBHOOK_URL", "");
     expect(
@@ -39,7 +43,7 @@ describe("feedback delivery", () => {
       { message: "hello", page: "/", contact: 123 },
       { message: "hello", page: "/", contact: "x".repeat(501) },
     ]) {
-      expect((await POST(request(body))).status).toBe(400);
+      expect((await createFeedbackHandler()(request(body))).status).toBe(400);
     }
     expect(
       (
@@ -101,6 +105,100 @@ describe("feedback delivery", () => {
   });
 });
 
+describe("feedback rate limits", () => {
+  let time: number;
+  let post: ReturnType<typeof createFeedbackHandler>;
+  let send: ReturnType<typeof vi.fn>;
+  const submit = (
+    ip?: string,
+    header = "x-vercel-forwarded-for",
+    body: unknown = { message: "hello", page: "/" },
+  ) => {
+    const req = request(body);
+    if (ip !== undefined) req.headers.set(header, ip);
+    return post(req);
+  };
+  beforeEach(() => {
+    time = 0;
+    post = createFeedbackHandler(() => time);
+    vi.stubEnv(
+      "FEEDBACK_WEBHOOK_URL",
+      "https://hooks.zapier.com/example-not-a-real-webhook",
+    );
+    send = vi.fn().mockResolvedValue(new Response("accepted"));
+    vi.stubGlobal("fetch", send);
+  });
+  it("limits one IP for ten minutes without blocking another IP", async () => {
+    for (let i = 0; i < 3; i++)
+      expect((await submit("192.0.2.1")).status).toBe(200);
+    const limited = await submit("192.0.2.1");
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("600");
+    expect(send).toHaveBeenCalledTimes(3);
+    expect((await submit("192.0.2.2")).status).toBe(200);
+    time = 600_000;
+    expect((await submit("192.0.2.1")).status).toBe(200);
+  });
+  it("limits an IP to ten attempts per rolling day and expires old entries", async () => {
+    for (let i = 0; i < 10; i++) {
+      time = i * 600_000;
+      expect((await submit("192.0.2.1")).status).toBe(200);
+    }
+    const limited = await submit("192.0.2.1");
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("81000");
+    time = 86_400_000;
+    expect((await submit("192.0.2.1")).status).toBe(200);
+  });
+  it("caps all clients at thirty attempts per rolling hour", async () => {
+    for (let i = 0; i < 30; i++)
+      expect((await submit(`192.0.2.${i}`)).status).toBe(200);
+    const limited = await submit("198.51.100.1");
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBe("3600");
+    expect(send).toHaveBeenCalledTimes(30);
+    time = 3_600_000;
+    expect((await submit("198.51.100.1")).status).toBe(200);
+  });
+  it.each(["x-forwarded-for", "x-real-ip"])(
+    "falls back to %s and uses only the first IP",
+    async (header) => {
+      for (let i = 0; i < 3; i++)
+        expect(
+          (await submit(`192.0.2.1, 192.0.2.${i + 2}`, header)).status,
+        ).toBe(200);
+      expect((await submit("192.0.2.1", header)).status).toBe(429);
+    },
+  );
+  it("prefers the Vercel IP over other headers", async () => {
+    for (let i = 0; i < 4; i++) {
+      const req = request({ message: "hello", page: "/" });
+      req.headers.set("x-vercel-forwarded-for", "192.0.2.1");
+      req.headers.set("x-forwarded-for", `198.51.100.${i}`);
+      req.headers.set("x-real-ip", `203.0.113.${i}`);
+      expect((await post(req)).status).toBe(i < 3 ? 200 : 429);
+    }
+  });
+  it("shares an unknown bucket and counts invalid payloads without forwarding them", async () => {
+    for (let i = 0; i < 3; i++)
+      expect((await submit(undefined, undefined, null)).status).toBe(400);
+    expect((await submit()).status).toBe(429);
+    expect(send).not.toHaveBeenCalled();
+  });
+  it("rejects origin and content type before consuming quota", async () => {
+    for (let i = 0; i < 4; i++) {
+      expect(
+        (await post(request({}, "https://other.example.com"))).status,
+      ).toBe(403);
+      const req = request({});
+      req.headers.set("content-type", "text/plain");
+      expect((await post(req)).status).toBe(415);
+    }
+    expect((await submit()).status).toBe(200);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("feedback modal", () => {
   function setup(send: typeof fetch) {
     const window = new Window({
@@ -122,6 +220,31 @@ describe("feedback modal", () => {
       contact: doc.querySelector<HTMLInputElement>('[name="contact"]')!,
     };
   }
+  it("shows a rate limit message, retains the draft, and tracks a safe failure reason", async () => {
+    const { window, doc, form, message } = setup(
+      vi.fn().mockResolvedValue(new Response("limited", { status: 429 })),
+    );
+    const track = vi.fn();
+    Object.assign(window, { litellmTrack: track });
+    message.value = "Private feedback";
+    form.dispatchEvent(new window.Event("submit", { cancelable: true }));
+    await vi.waitFor(() =>
+      expect(doc.querySelector('[role="status"]')?.textContent).toContain(
+        "Too many submissions, try again later",
+      ),
+    );
+    expect(message.value).toBe("Private feedback");
+    expect(form.hidden).toBe(false);
+    expect(
+      doc.querySelector<HTMLButtonElement>('[type="submit"]')?.disabled,
+    ).toBe(false);
+    expect(track).toHaveBeenCalledWith("Feedback Failed", {
+      page: "/models/test",
+      reason: "rate_limited",
+      status: 429,
+    });
+    await window.happyDOM.close();
+  });
   it("keeps the draft on failure and sends no query parameters", async () => {
     const send = vi
       .fn()
