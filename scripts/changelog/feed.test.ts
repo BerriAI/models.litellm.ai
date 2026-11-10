@@ -81,6 +81,14 @@ describe("/changelog.xml function", () => {
     expect(hourly.map((i) => i.kind)).toEqual(["digest"]);
     expect(hourly[0].body).toContain("• gpt on OpenAI");
     expect(items(await (await feed("?digest=bogus")).text())).toHaveLength(3);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ ...data, generatedAt: "2026-11-09T00:59:00Z" }),
+      ),
+    );
+    expect(items(await (await feed("?digest=1h")).text())).toEqual([]);
+    expect(items(await (await feed("?digest=commit")).text())).toHaveLength(1);
     const digest = items(await (await feed("?digest=commit")).text());
     expect(digest).toEqual([
       {

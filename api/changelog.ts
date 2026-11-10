@@ -5,7 +5,9 @@
  * URL would be answered with the unfiltered feed once either was cached.
  * ?digest=commit folds every change of one catalog commit into one item, and
  * ?digest=1h (30m, 4h, 1d) every change of one clock hour, the shapes a Slack
- * channel subscription reads best.
+ * channel subscription reads best. A window counts as closed by the time the
+ * changelog was built, not the clock, so a commit the next build will add is
+ * never missing from a window a reader has already posted.
  */
 import {
   FEED_URL,
@@ -43,7 +45,7 @@ export async function GET(request: Request): Promise<Response> {
     filter,
   );
   const entries = filter.digest
-    ? digestFeedEntries(items, filter.digest)
+    ? digestFeedEntries(items, filter.digest, Date.parse(data.generatedAt))
     : items.map(feedEntry);
   return new Response(
     changelogRss(entries, data.generatedAt, `${FEED_URL}${url.search}`),

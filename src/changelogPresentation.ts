@@ -290,8 +290,8 @@ const CHANGELOG_PAGE =
 /**
  * One feed item per catalog commit, or per clock-aligned time window when
  * `digest` is a span like `1h`: a counts headline and a bullet per model, cut
- * to fit a Slack post. A window still open at `now` is left out so readers
- * never post a partial one.
+ * to fit a Slack post. A window still open at `now` (the time the catalog
+ * snapshot was taken) is left out so readers never post a partial one.
  */
 export function digestFeedEntries(
   items: ChangelogItem[],
