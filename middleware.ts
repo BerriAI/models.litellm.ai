@@ -6,15 +6,9 @@
  * rewrites, which is why neither can be a rewrite rule.
  * It also reports feed, markdown and llms.txt fetches to Mixpanel, since
  * feed readers and agents never run the page script.
- * /changelog.xml?kind=…&providers=… is rebuilt here from /changelog.json with
- * only the matching items, so a reader can subscribe to one slice of the catalog.
+ * A /changelog.xml fetch also reports the ?kind= and ?providers= it asked for.
  */
-import {
-  changelogItems,
-  changelogRss,
-  feedFilter,
-  filterChangelogItems,
-} from "./src/changelogPresentation";
+import { feedFilter } from "./src/changelogPresentation";
 export const config = {
   matcher: [
     "/models/:path*",
@@ -110,41 +104,19 @@ function report(
   context?.waitUntil(sending);
 }
 
-/** The static feed stays as built; a filtered one is rebuilt per request from the same data. Falls back to the static file if the data cannot be read. */
-async function filteredChangelog(page: URL): Promise<Response | undefined> {
-  const filter = feedFilter(page.searchParams);
-  if (!filter.kinds.length && !filter.providers.length) return undefined;
-  const data = await fetch(new URL("/changelog.json", page.origin))
-    .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null);
-  if (!data?.updates) return undefined;
-  const items = filterChangelogItems(
-    changelogItems(data.updates, data.providerNames ?? {}),
-    filter,
-  );
-  return new Response(changelogRss(items, data.generatedAt, page.toString()), {
-    headers: {
-      "content-type": "application/rss+xml; charset=utf-8",
-      "cache-control": "public, max-age=0, must-revalidate",
-    },
-  });
-}
-
 export default function middleware(
   request: Request,
   context?: Context,
-): Response | Promise<Response | undefined> | undefined {
+): Response | undefined {
   const page = new URL(request.url);
   const fetched = machineFetchEvent(page.pathname);
-  if (page.pathname === "/changelog.xml" && page.search) {
+  if (fetched) {
     const filter = feedFilter(page.searchParams);
-    report(request, context, "Feed Fetched", page.pathname, "url", {
-      kind: filter.kinds,
-      providers: filter.providers,
+    report(request, context, fetched, page.pathname, "url", {
+      ...(filter.kinds.length ? { kind: filter.kinds } : {}),
+      ...(filter.providers.length ? { providers: filter.providers } : {}),
     });
-    return filteredChangelog(page);
   }
-  if (fetched) report(request, context, fetched, page.pathname, "url");
   // /404 is a real file (the not-found page), so without this it would answer 200.
   if (page.pathname === "/404") {
     page.pathname = NOT_FOUND_PATH;

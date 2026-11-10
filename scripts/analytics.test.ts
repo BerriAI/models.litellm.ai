@@ -92,119 +92,39 @@ describe("machine fetch tracking", () => {
     }
   });
 
-  it("rebuilds /changelog.xml from /changelog.json when the query filters it, and reports the filter", async () => {
+  it("reports the kind and providers a /changelog.xml fetch asked for", async () => {
     vi.stubEnv("VITE_MIXPANEL_TOKEN", "test-token");
-    const updates = [
-      {
-        id: "s:price:bedrock",
-        date: "2026-11-09",
-        timestamp: "2026-11-09T00:00:00Z",
-        kind: "price",
-        provider: "bedrock",
-        title: "",
-        description: "",
-        source: "https://github.com/BerriAI/litellm/commit/s",
-        sourceLabel: "",
-        entries: [
-          {
-            modelId: "bedrock/a",
-            name: "A",
-            changes: [
-              { field: "input_cost_per_token", before: 1e-6, after: 2e-6 },
-            ],
-          },
-        ],
-      },
-      {
-        id: "s:price:openai",
-        date: "2026-11-09",
-        timestamp: "2026-11-09T00:00:00Z",
-        kind: "price",
-        provider: "openai",
-        title: "",
-        description: "",
-        source: "https://github.com/BerriAI/litellm/commit/s",
-        sourceLabel: "",
-        entries: [
-          {
-            modelId: "gpt",
-            name: "GPT",
-            changes: [
-              { field: "input_cost_per_token", before: 1e-6, after: 2e-6 },
-            ],
-          },
-        ],
-      },
-      {
-        id: "s:deprecation:bedrock",
-        date: "2026-11-09",
-        timestamp: "2026-11-09T00:00:00Z",
-        kind: "deprecation",
-        provider: "bedrock",
-        title: "",
-        description: "",
-        source: "https://github.com/BerriAI/litellm/commit/s",
-        sourceLabel: "",
-        entries: [
-          {
-            modelId: "bedrock/b",
-            name: "B",
-            changes: [
-              { field: "deprecation_date", before: null, after: "2027-01-01" },
-            ],
-          },
-        ],
-      },
-    ];
-    const sent = vi.fn(async (url: string | URL) =>
-      String(url).endsWith("/changelog.json")
-        ? new Response(
-            JSON.stringify({
-              generatedAt: "2026-11-09T01:00:00Z",
-              providerNames: {},
-              updates,
-            }),
-            { headers: { "content-type": "application/json" } },
-          )
-        : new Response("1"),
-    );
+    const sent = vi.fn().mockResolvedValue(new Response("1"));
     vi.stubGlobal("fetch", sent);
     try {
       const pending: Promise<unknown>[] = [];
       const context = { waitUntil: (p: Promise<unknown>) => pending.push(p) };
-      const url =
-        "https://models.litellm.ai/changelog.xml?kind=price&providers=bedrock,databricks";
-      const response = await middleware(new Request(url), context);
-      expect(response?.headers.get("content-type")).toBe(
-        "application/rss+xml; charset=utf-8",
-      );
-      const xml = await response!.text();
-      expect(xml.match(/<item>/g)).toHaveLength(1);
-      expect(xml).toContain("bedrock/a");
-      expect(xml).not.toContain("gpt");
-      expect(xml).toContain(
-        '<atom:link href="https://models.litellm.ai/changelog.xml?kind=price&amp;providers=bedrock,databricks" rel="self"',
-      );
-      await Promise.all(pending);
-      const track = sent.mock.calls.find(([u]) =>
-        String(u).includes("mixpanel"),
-      );
-      const [event] = JSON.parse((track![1] as RequestInit).body as string);
-      expect(event.event).toBe("Feed Fetched");
-      expect(event.properties.kind).toEqual(["price"]);
-      expect(event.properties.providers).toEqual(["bedrock", "databricks"]);
       expect(
-        await middleware(
+        middleware(
+          new Request(
+            "https://models.litellm.ai/changelog.xml?kind=price&providers=bedrock,databricks",
+          ),
+          context,
+        ),
+      ).toBeUndefined();
+      expect(
+        middleware(
           new Request("https://models.litellm.ai/changelog.xml"),
           context,
         ),
       ).toBeUndefined();
-      expect(
-        await middleware(
-          new Request("https://models.litellm.ai/changelog.xml?utm_source=x"),
-          context,
-        ),
-      ).toBeUndefined();
+      await Promise.all(pending);
+      const events = sent.mock.calls.map(
+        ([, init]) => JSON.parse((init as RequestInit).body as string)[0],
+      );
+      expect(events.map((e) => e.event)).toEqual([
+        "Feed Fetched",
+        "Feed Fetched",
+      ]);
+      expect(events[0].properties.kind).toEqual(["price"]);
+      expect(events[0].properties.providers).toEqual(["bedrock", "databricks"]);
+      expect(events[1].properties).not.toHaveProperty("kind");
+      expect(events[1].properties).not.toHaveProperty("providers");
     } finally {
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();

@@ -25,4 +25,3 @@ dist-ssr
 
 # Regenerated on every build from catalog history
 public/changelog.json
-public/changelog.xml
