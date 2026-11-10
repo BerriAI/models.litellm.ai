@@ -225,7 +225,9 @@ export function filterChangelogItems(
 ): ChangelogItem[] {
   return items.filter(
     (item) =>
-      (!filter.kinds.length || filter.kinds.includes(item.kind)) &&
+      (filter.kinds.length
+        ? filter.kinds.includes(item.kind)
+        : item.kind !== "metadata") &&
       (!filter.providers.length || filter.providers.includes(item.provider)),
   );
 }
@@ -235,7 +237,6 @@ export function changelogRss(
   selfUrl = FEED_URL,
 ): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>LiteLLM model changelog</title><link>https://models.litellm.ai/changelog</link><description>Model pricing, new models, providers, and capabilities from the LiteLLM catalog.</description><language>en-us</language><lastBuildDate>${new Date(generatedAt).toUTCString()}</lastBuildDate><atom:link href="${xml(selfUrl)}" rel="self" type="application/rss+xml"/>${items
-    .filter((i) => i.kind !== "metadata")
     .map(
       (item) =>
         `<item><title>${xml(rssTitle(item))}</title><link>${xml(item.source)}</link><guid isPermaLink="false">${xml(item.id)}</guid><pubDate>${new Date(item.timestamp).toUTCString()}</pubDate><category>${xml(item.kind)}</category><description>${xml([...item.lines, ...item.entries.map((e) => e.modelId)].join("\n"))}</description></item>`,
