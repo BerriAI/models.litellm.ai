@@ -3,11 +3,13 @@ import {
   fieldValue,
   priceDelta,
   type CatalogUpdate,
+  type ChangedListing,
   type FieldChange,
 } from "./discoveryChangelog.js";
 import { getProviderDisplayName } from "./providerNames.js";
 
 export interface ChangelogItem extends CatalogUpdate {
+  providerName: string;
   headline: string;
   lines: string[];
 }
@@ -24,6 +26,8 @@ const labels: Record<string, string> = {
   supports_parallel_function_calling: "Parallel tool calling",
   supports_vision: "Vision",
   supports_reasoning: "Reasoning",
+  supports_web_search: "Web search",
+  supports_tool_choice: "Tool choice",
   supports_prompt_caching: "Prompt caching",
   deprecation_date: "Deprecation date",
   catalog_listing: "Listing",
@@ -109,6 +113,30 @@ export function changeLine(change: FieldChange): string {
     : `${label}: ${value(before)} → ${value(after)}`;
 }
 
+function additionText(
+  kind: "model" | "provider",
+  entries: ChangedListing[],
+  provider: string,
+): { headline: string; lines: string[] } {
+  const n = entries.length;
+  const headline =
+    kind === "provider"
+      ? `${provider} added with ${n} ${n === 1 ? "model" : "models"}`
+      : n === 1
+        ? `${entries[0].name} added on ${provider}`
+        : `${n} models added on ${provider}`;
+  const lines =
+    n === 1
+      ? []
+      : [
+          entries
+            .slice(0, 3)
+            .map((e) => e.name)
+            .join(", ") + (n > 3 ? ` +${n - 3} more` : ""),
+        ];
+  return { headline, lines };
+}
+
 export function changelogItems(
   updates: CatalogUpdate[],
   names: Record<string, string>,
@@ -128,25 +156,14 @@ export function changelogItems(
       newProviders.has(`${update.source}:${update.provider}`)
     )
       return [];
-    if (update.kind === "model" || update.kind === "provider") {
-      const n = update.entries.length;
-      const headline =
-        update.kind === "provider"
-          ? `${provider} added with ${n} ${n === 1 ? "model" : "models"}`
-          : n === 1
-            ? `${update.entries[0].name} added on ${provider}`
-            : `${n} models added on ${provider}`;
-      const lines =
-        n === 1
-          ? []
-          : [
-              update.entries
-                .slice(0, 3)
-                .map((e) => e.name)
-                .join(", ") + (n > 3 ? ` +${n - 3} more` : ""),
-            ];
-      return [{ ...update, headline, lines }];
-    }
+    if (update.kind === "model" || update.kind === "provider")
+      return [
+        {
+          ...update,
+          providerName: provider,
+          ...additionText(update.kind, update.entries, provider),
+        },
+      ];
     return update.entries.map((entry) => {
       const ordered = [...entry.changes].sort((a, b) => {
         const rank = (field: string) =>
@@ -160,6 +177,7 @@ export function changelogItems(
       return {
         ...update,
         id: `${update.id}:${encodeURIComponent(entry.modelId)}`,
+        providerName: provider,
         entries: [entry],
         headline: `${entry.name} on ${provider}`,
         lines: ordered.map(changeLine),
@@ -189,6 +207,149 @@ export const rssTitle = (item: ChangelogItem) =>
   item.lines.length && item.kind !== "model" && item.kind !== "provider"
     ? `${item.headline}: ${item.lines[0]}`
     : item.headline;
+/** One RSS `<item>`, however many catalog changes it stands for. */
+export interface FeedEntry {
+  id: string;
+  link: string;
+  timestamp: string;
+  category: string;
+  title: string;
+  body: string;
+}
+export const feedEntry = (item: ChangelogItem): FeedEntry => ({
+  id: item.id,
+  link: item.source,
+  timestamp: item.timestamp,
+  category: item.kind,
+  title: rssTitle(item),
+  body: [...item.lines, ...item.entries.map((e) => e.modelId)].join("\n"),
+});
+/** Slack's RSS app cuts an item body around 500 characters, so a digest stops listing before that. */
+export const DIGEST_BODY_LIMIT = 480;
+const kindRank: Record<string, number> = {
+  provider: 0,
+  model: 0,
+  price: 1,
+  capability: 2,
+  deprecation: 3,
+  metadata: 4,
+};
+interface DigestBullet {
+  text: string;
+  added: number;
+  providerName: string;
+}
+function digestBullets(items: ChangelogItem[]): DigestBullet[] {
+  const bullets = new Map<string, DigestBullet>();
+  for (const item of [...items].sort(
+    (a, b) => kindRank[a.kind] - kindRank[b.kind],
+  )) {
+    if (item.kind === "provider") {
+      const n = item.entries.length;
+      bullets.set(`provider|${item.provider}`, {
+        text: `${item.providerName} added with ${n} ${n === 1 ? "model" : "models"}`,
+        added: n,
+        providerName: item.providerName,
+      });
+      continue;
+    }
+    const note = item.kind === "model" ? "" : item.lines.join(", ");
+    for (const name of new Set(item.entries.map((e) => e.name))) {
+      const key = `${item.provider}|${name}`;
+      const match = bullets.get(key);
+      if (match && note) match.text += `, ${note}`;
+      else if (!match)
+        bullets.set(key, {
+          text:
+            item.kind === "model"
+              ? `${name} added on ${item.providerName}`
+              : `${name} on ${item.providerName}: ${note}`,
+          added: item.kind === "model" ? 1 : 0,
+          providerName: item.providerName,
+        });
+    }
+  }
+  return [...bullets.values()];
+}
+function digestTitle(bullets: DigestBullet[]): string {
+  const added = bullets.reduce((sum, b) => sum + b.added, 0);
+  const updated = bullets.filter((b) => !b.added).length;
+  const providers = [...new Set(bullets.map((b) => b.providerName))];
+  const where =
+    providers.length > 3
+      ? `${providers.length} providers`
+      : providers.join(", ");
+  const counts = [
+    added ? `${added} ${added === 1 ? "model" : "models"} added` : "",
+    updated
+      ? added
+        ? `${updated} updated`
+        : `${updated} ${updated === 1 ? "model" : "models"} updated`
+      : "",
+  ].filter(Boolean);
+  return `${counts.join(", ")} on ${where}`;
+}
+const WINDOW_UNITS: Record<string, number> = {
+  m: 60_000,
+  h: 3_600_000,
+  d: 86_400_000,
+};
+/** `30m`, `1h`, `4h`, `1d`: the span of one time-window digest in milliseconds, null for `commit`. */
+export function digestWindow(digest: string): number | null {
+  const match = /^([1-9]\d*)([mhd])$/.exec(digest);
+  return match ? Number(match[1]) * WINDOW_UNITS[match[2]] : null;
+}
+const CHANGELOG_PAGE =
+  "https://models.litellm.ai/changelog?utm_source=rss&utm_medium=feed&utm_campaign=changelog";
+/**
+ * One feed item per catalog commit, or per clock-aligned time window when
+ * `digest` is a span like `1h`: a counts headline and a bullet per model, cut
+ * to fit a Slack post. A window still open at `now` (the time the catalog
+ * snapshot was taken) is left out so readers never post a partial one.
+ */
+export function digestFeedEntries(
+  items: ChangelogItem[],
+  digest = "commit",
+  now = Date.now(),
+): FeedEntry[] {
+  const window = digestWindow(digest);
+  const groups = new Map<string, ChangelogItem[]>();
+  for (const item of items) {
+    const start = window
+      ? Math.floor(Date.parse(item.timestamp) / window) * window
+      : 0;
+    if (window && start + window > now) continue;
+    const key = window ? String(start) : item.source;
+    groups.set(key, [...(groups.get(key) ?? []), item]);
+  }
+  return [...groups].map(([key, commitItems]) => {
+    const bullets = digestBullets(commitItems);
+    const sha = commitItems[0].source.split("/").pop() ?? "";
+    const start = window ? Number(key) : 0;
+    const commits = new Set(commitItems.map((item) => item.source));
+    const shown: string[] = [];
+    let length = 0;
+    for (const bullet of bullets) {
+      const line = `• ${bullet.text}`;
+      if (shown.length && length + line.length + 1 > DIGEST_BODY_LIMIT) break;
+      shown.push(line);
+      length += line.length + 1;
+    }
+    const rest = bullets.length - shown.length;
+    return {
+      id: window
+        ? `digest:${digest}:${new Date(start).toISOString()}`
+        : `digest:${sha}`,
+      link: commits.size === 1 ? commitItems[0].source : CHANGELOG_PAGE,
+      timestamp: window
+        ? new Date(start + window).toISOString()
+        : commitItems[0].timestamp,
+      category: "digest",
+      title: bullets.length === 1 ? bullets[0].text : digestTitle(bullets),
+      body: [...shown, ...(rest ? [`• +${rest} more`] : [])].join("\n"),
+    };
+  });
+}
 const xml = (s: string) =>
   s
     .replace(/&/g, "&amp;")
@@ -200,17 +361,128 @@ export const FEED_URL = "https://models.litellm.ai/changelog.xml";
 export interface FeedFilter {
   kinds: string[];
   providers: string[];
+  /** Catalog ids or display names, each matched by `modelKey`. */
+  models: string[];
+  /** "" for one item per change, "commit" for one per commit, or a span like "1h". */
+  digest: string;
 }
+/** The digest choices the subscribe builder offers, in the order it shows them. */
+export const DIGEST_OPTIONS = [
+  { value: "", label: "Every change" },
+  { value: "commit", label: "One post per catalog commit" },
+  { value: "30m", label: "Every 30 minutes" },
+  { value: "1h", label: "Hourly" },
+  { value: "4h", label: "Every 4 hours" },
+  { value: "1d", label: "Daily" },
+];
 const list = (value: string | null) =>
   (value ?? "")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
-/** `?kind=price,deprecation&providers=bedrock,openai` as the feed reads it. */
+const digestOf = (value: string | null) =>
+  value === "commit" || digestWindow(value ?? "") ? (value as string) : "";
+/** `?kind=price,deprecation&providers=bedrock,openai&models=gpt-5&digest=commit` as the feed reads it. */
 export const feedFilter = (params: URLSearchParams): FeedFilter => ({
   kinds: list(params.get("kind")),
   providers: list(params.get("providers")),
+  models: list(params.get("models")),
+  digest: digestOf(params.get("digest")),
 });
+export const EMPTY_FILTER: FeedFilter = {
+  kinds: [],
+  providers: [],
+  models: [],
+  digest: "",
+};
+/**
+ * The feed URL for a filter, the one the subscribe builder shows and the one
+ * a proxy's model list resolves to. Empty parts are left off so the plain
+ * feed stays `/changelog.xml`.
+ */
+export function feedUrl(filter: FeedFilter): string {
+  const part = (key: string, values: string[]) =>
+    values.length
+      ? [
+          `${key}=${values.map((v) => encodeURIComponent(v).replace(/%2F/gi, "/").replace(/%3A/gi, ":").replace(/%40/gi, "@")).join(",")}`,
+        ]
+      : [];
+  const query = [
+    ...part("kind", filter.kinds),
+    ...part("providers", filter.providers),
+    ...part("models", filter.models),
+    ...part("digest", filter.digest ? [filter.digest] : []),
+  ].join("&");
+  return query ? `${FEED_URL}?${query}` : FEED_URL;
+}
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+/**
+ * What a `?models=` entry is compared on: the last path segment, slugged, so
+ * `openai/gpt-5`, `gpt-5` and the proxy's `azure/gpt-5` all name the catalog's
+ * `gpt-5`, and a Vertex `@20250929` version suffix is dropped the way
+ * `humanizeModelId` drops it. The catalog id itself and the display name slug
+ * also count.
+ */
+export const modelKey = (id: string) =>
+  slug((id.split("/").pop() ?? id).replace(/@[^/]*$/, ""));
+export const listingKeys = (entry: ChangedListing) =>
+  new Set([modelKey(entry.modelId), slug(entry.modelId), slug(entry.name)]);
+/**
+ * Model ids out of whatever a user pastes from their proxy: the JSON of
+ * `/model/info` (`litellm_params.model`) or `/v1/models` (`id`), a
+ * `config.yaml` with `model:` lines, or ids and display names one per line or
+ * comma-separated. A line of several ids separated by spaces also works unless
+ * every word looks like an id, when it is read as one display name such as
+ * `Claude Sonnet 4.5`. Order kept, duplicates dropped.
+ */
+const MODEL_ID = /^[A-Za-z0-9][\w.\-:/@+]*$/;
+const DISPLAY_NAME = /^[A-Za-z0-9][\w.\-:/@+]*( [\w.\-:/@+]+)*$/;
+const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, "");
+
+export function parseModelList(text: string): string[] {
+  const ids: string[] = [];
+  const add = (value: unknown) => {
+    if (typeof value === "string" && value.trim()) ids.push(value.trim());
+  };
+  try {
+    const json = JSON.parse(text) as unknown;
+    const rows = Array.isArray(json)
+      ? json
+      : Array.isArray((json as { data?: unknown })?.data)
+        ? (json as { data: unknown[] }).data
+        : [json];
+    for (const row of rows) {
+      if (typeof row === "string") add(row);
+      else if (row && typeof row === "object") {
+        const r = row as {
+          litellm_params?: { model?: unknown };
+          model_name?: unknown;
+          id?: unknown;
+        };
+        add(r.litellm_params?.model ?? r.model_name ?? r.id);
+      }
+    }
+  } catch {
+    if (/^\s*[[{]/.test(text)) return [];
+    const yaml = [...text.matchAll(/^\s*-?\s*model:\s*["']?([^\s"'#]+)/gm)];
+    for (const [, id] of yaml) add(id);
+    if (!yaml.length)
+      for (const line of text.split(/[\n,]+/).map(unquote)) {
+        if (DISPLAY_NAME.test(line)) add(line);
+        else
+          line
+            .split(/\s+/)
+            .map(unquote)
+            .filter((token) => MODEL_ID.test(token))
+            .forEach(add);
+      }
+  }
+  return [...new Set(ids.map(unquote))];
+}
 /** The query string the page's RSS link carries for its current tab and provider. */
 export function feedQuery(kind: string, provider: string): string {
   const params = new URLSearchParams();
@@ -223,23 +495,43 @@ export function filterChangelogItems(
   items: ChangelogItem[],
   filter: FeedFilter,
 ): ChangelogItem[] {
-  return items.filter(
-    (item) =>
+  const wanted = new Set(filter.models.map(modelKey));
+  return items.flatMap((item) => {
+    if (
       (filter.kinds.length
-        ? filter.kinds.includes(item.kind)
-        : item.kind !== "metadata") &&
-      (!filter.providers.length || filter.providers.includes(item.provider)),
-  );
+        ? !filter.kinds.includes(item.kind)
+        : item.kind === "metadata") ||
+      (filter.providers.length && !filter.providers.includes(item.provider))
+    )
+      return [];
+    if (!wanted.size) return [item];
+    const entries = item.entries.filter((entry) =>
+      [...listingKeys(entry)].some((key) => wanted.has(key)),
+    );
+    if (!entries.length) return [];
+    // A new provider narrowed to the models a reader follows reads as those
+    // models being added, not as the whole provider arriving.
+    if (item.kind === "model" || item.kind === "provider")
+      return [
+        {
+          ...item,
+          kind: "model" as const,
+          entries,
+          ...additionText("model", entries, item.providerName),
+        },
+      ];
+    return [{ ...item, entries }];
+  });
 }
 export function changelogRss(
-  items: ChangelogItem[],
+  items: FeedEntry[],
   generatedAt: string,
   selfUrl = FEED_URL,
 ): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>LiteLLM model changelog</title><link>https://models.litellm.ai/changelog</link><description>Model pricing, new models, providers, and capabilities from the LiteLLM catalog.</description><language>en-us</language><lastBuildDate>${new Date(generatedAt).toUTCString()}</lastBuildDate><atom:link href="${xml(selfUrl)}" rel="self" type="application/rss+xml"/>${items
     .map(
       (item) =>
-        `<item><title>${xml(rssTitle(item))}</title><link>${xml(item.source)}</link><guid isPermaLink="false">${xml(item.id)}</guid><pubDate>${new Date(item.timestamp).toUTCString()}</pubDate><category>${xml(item.kind)}</category><description>${xml([...item.lines, ...item.entries.map((e) => e.modelId)].join("\n"))}</description></item>`,
+        `<item><title>${xml(item.title)}</title><link>${xml(item.link)}</link><guid isPermaLink="false">${xml(item.id)}</guid><pubDate>${new Date(item.timestamp).toUTCString()}</pubDate><category>${xml(item.category)}</category><description>${xml(item.body)}</description></item>`,
     )
     .join("")}</channel></rss>\n`;
 }

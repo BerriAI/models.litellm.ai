@@ -8,7 +8,16 @@
     type CatalogUpdate,
     type UpdateKind,
   } from "./discoveryChangelog";
-  import { changelogItems, feedQuery } from "./changelogPresentation";
+  import {
+    DIGEST_OPTIONS,
+    changelogItems,
+    feedFilter,
+    feedQuery,
+    feedUrl,
+    listingKeys,
+    modelKey,
+    parseModelList,
+  } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
   let updates: CatalogUpdate[] = [];
   let providerNames: Record<string, string> = {};
@@ -20,6 +29,14 @@
   let query = "";
   let visibleCount = 40;
   let expanded = new Set<string>();
+  let builderOpen = false;
+  let digest = "";
+  let kinds: string[] = [];
+  let feedProviders: string[] = [];
+  let providerToAdd = "";
+  let pasted = "";
+  let copied = "";
+  let copyError = "";
   const filters: { id: UpdateKind | "all"; label: string }[] = [
     { id: "all", label: "Highlights" },
     { id: "price", label: "Prices" },
@@ -63,6 +80,24 @@
     }
   }
   onMount(() => {
+    const params = new URLSearchParams(window.location.search);
+    const preset = feedFilter(params);
+    if (
+      preset.kinds.length ||
+      preset.providers.length ||
+      preset.models.length ||
+      preset.digest
+    ) {
+      kinds = preset.kinds;
+      feedProviders = preset.providers;
+      pasted = (params.get("models") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join("\n");
+      digest = preset.digest;
+      builderOpen = true;
+    }
     void load();
   });
   $: items = changelogItems(updates, providerNames);
@@ -92,6 +127,36 @@
     expanded.has(id) ? expanded.delete(id) : expanded.add(id);
     expanded = new Set(expanded);
   }
+  $: models = parseModelList(pasted);
+  $: url = feedUrl({ kinds, providers: feedProviders, models, digest });
+  $: slackCommand = `/feed subscribe ${url}`;
+  $: changedKeys = new Set(
+    items.flatMap((item) => item.entries.flatMap((e) => [...listingKeys(e)])),
+  );
+  $: seen = models.filter((id) => changedKeys.has(modelKey(id))).length;
+  function addProvider() {
+    if (providerToAdd && !feedProviders.includes(providerToAdd))
+      feedProviders = [...feedProviders, providerToAdd];
+    providerToAdd = "";
+  }
+  async function copy(what: "url" | "slack") {
+    copyError = "";
+    try {
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(what === "url" ? url : slackCommand);
+      copied = what;
+      setTimeout(() => (copied = ""), 1500);
+    } catch {
+      copyError = "Couldn't copy. Select and copy the text instead.";
+    }
+    track("Changelog Feed Copied", {
+      what,
+      digest,
+      kind: kinds,
+      providers: feedProviders,
+      models: models.length,
+    });
+  }
   function reset() {
     track("Filters Reset", { page: "changelog", query });
     category = "all";
@@ -118,6 +183,81 @@
         : "RSS feed"}</a
     >
   </PageHero>
+  <details
+    class="subscribe"
+    bind:open={builderOpen}
+    on:toggle={() => builderOpen && track("Changelog Feed Builder Opened")}
+  >
+    <summary>Build a feed for the models you run</summary>
+    <div class="builder">
+      <label
+        >Post
+        <select
+          bind:value={digest}
+          on:change={() =>
+            track("Changelog Feed Builder Changed", {
+              field: "digest",
+              value: digest,
+            })}
+          >{#each DIGEST_OPTIONS as option}<option value={option.value}
+              >{option.label}</option
+            >{/each}</select
+        ></label
+      >
+      <fieldset>
+        <legend>Change types <span>(none means highlights)</span></legend>
+        {#each filters.slice(1) as filter}<label class="check"
+            ><input type="checkbox" bind:group={kinds} value={filter.id} />
+            {filter.label}</label
+          >{/each}
+      </fieldset>
+      <label
+        >Providers
+        <select bind:value={providerToAdd} on:change={addProvider}
+          ><option value="">Add a provider…</option
+          >{#each providers as id}<option value={id}>{providerName(id)}</option
+            >{/each}</select
+        ></label
+      >
+      {#if feedProviders.length}<div class="chips">
+          {#each feedProviders as id}<button
+              type="button"
+              on:click={() =>
+                (feedProviders = feedProviders.filter((p) => p !== id))}
+              >{providerName(id)} ×</button
+            >{/each}
+        </div>{/if}
+      <label class="paste"
+        >Models
+        <textarea
+          bind:value={pasted}
+          rows="4"
+          placeholder="Paste your proxy's /model/info or /v1/models JSON, its config.yaml, or model ids and names one per line"
+        ></textarea>
+        {#if models.length}<span class="hint"
+            >{models.length} models, {seen} changed in the last 30 days</span
+          >{/if}</label
+      >
+      <div class="output">
+        <code>{url}</code><button type="button" on:click={() => copy("url")}
+          >{copied === "url" ? "Copied" : "Copy URL"}</button
+        >
+      </div>
+      <div class="output">
+        <code>{slackCommand}</code><button
+          type="button"
+          on:click={() => copy("slack")}
+          >{copied === "slack" ? "Copied" : "Copy Slack command"}</button
+        >
+      </div>
+      {#if copyError}<p class="hint" role="alert">{copyError}</p>{/if}
+      <p class="hint">
+        Model ids match on their last path segment, so <code>azure/gpt-5</code>
+        follows the catalog's <code>gpt-5</code>. A time window posts once it
+        closes and the catalog has rebuilt, up to 15 minutes later.
+      </p>
+    </div>
+  </details>
   <div class="tools">
     <input
       type="search"
@@ -277,6 +417,109 @@
   .rss-link {
     font-size: 13px;
     color: var(--hf-accent);
+  }
+  .subscribe {
+    margin-top: 20px;
+    border: 1px solid var(--hf-line);
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .subscribe summary {
+    cursor: pointer;
+    padding: 12px 14px;
+    font-weight: 600;
+  }
+  .builder {
+    display: grid;
+    gap: 12px;
+    padding: 0 14px 14px;
+  }
+  .builder label,
+  .builder legend {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--hf-muted);
+  }
+  .builder fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+  .builder legend span {
+    font-weight: 400;
+  }
+  .builder legend {
+    display: block;
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  .builder .check {
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+    color: var(--hf-ink);
+    font-size: 13px;
+  }
+  .builder .check input {
+    min-height: 0;
+    padding: 0;
+    width: auto;
+  }
+  .builder textarea {
+    font: inherit;
+    font-size: 12px;
+    color: inherit;
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    padding: 10px 14px;
+    background: var(--hf-bg);
+    resize: vertical;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .chips button {
+    border: 1px solid var(--hf-line);
+    border-radius: 999px;
+    background: var(--hf-faint);
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+  .output {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .output code {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 12px;
+    padding: 8px 10px;
+    background: var(--hf-faint);
+    border-radius: 4px;
+  }
+  .output button {
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    background: var(--hf-bg);
+    font-size: 12px;
+    padding: 8px 12px;
+    white-space: nowrap;
+  }
+  .hint {
+    font-size: 11px;
+    color: var(--hf-muted);
+    margin: 0;
+  }
+  .hint code {
+    font-size: 11px;
   }
   .tools {
     display: flex;

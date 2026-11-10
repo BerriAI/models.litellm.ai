@@ -6,7 +6,7 @@
  * rewrites, which is why neither can be a rewrite rule.
  * It also reports feed, markdown and llms.txt fetches to Mixpanel, since
  * feed readers and agents never run the page script.
- * A /changelog.xml fetch also reports the ?kind= and ?providers= it asked for.
+ * A /changelog.xml fetch also reports the ?kind=, ?providers=, ?models= and ?digest= it asked for.
  */
 import { feedFilter } from "./src/changelogPresentation";
 export const config = {
@@ -115,6 +115,8 @@ export default function middleware(
     report(request, context, fetched, page.pathname, "url", {
       ...(filter.kinds.length ? { kind: filter.kinds } : {}),
       ...(filter.providers.length ? { providers: filter.providers } : {}),
+      ...(filter.models.length ? { models: filter.models } : {}),
+      ...(filter.digest ? { digest: filter.digest } : {}),
     });
   }
   // /404 is a real file (the not-found page), so without this it would answer 200.

@@ -6,8 +6,12 @@ import {
   changelogItems,
   changelogRss,
   changeLine,
+  digestFeedEntries,
+  feedEntry,
   feedFilter,
   feedQuery,
+  feedUrl,
+  parseModelList,
   filterChangelogItems,
 } from "../../src/changelogPresentation";
 const sha = "a".repeat(40),
@@ -128,7 +132,7 @@ describe("automatic catalog changelog", () => {
     const updates = catalogChanges(before, after, commit);
     updates[0].entries[0].name = 'Model <A> & "B"';
     const items = changelogItems(updates, { example: "A&B" });
-    const rss = changelogRss(items, options.now);
+    const rss = changelogRss(items.map(feedEntry), options.now);
     const window = new Window();
     const doc = new window.DOMParser().parseFromString(rss, "text/xml");
     expect(doc.querySelector("parsererror")).toBeNull();
@@ -139,9 +143,9 @@ describe("automatic catalog changelog", () => {
       "Output increased $4 → $6 (+50%)",
     );
     expect(doc.querySelector("item guid")?.textContent).toBe(items[0].id);
-    expect(changelogRss(items, "2026-11-01T00:00:00Z")).toContain(
-      `<guid isPermaLink="false">${items[0].id}</guid>`,
-    );
+    expect(
+      changelogRss(items.map(feedEntry), "2026-11-01T00:00:00Z"),
+    ).toContain(`<guid isPermaLink="false">${items[0].id}</guid>`);
     expect(doc.querySelector("item link")?.textContent).toBe(
       `https://github.com/BerriAI/litellm/commit/${sha}`,
     );
@@ -210,9 +214,9 @@ describe("automatic catalog changelog", () => {
         feedFilter(new URLSearchParams("kind=metadata")),
       ),
     ).toEqual([metadata]);
-    expect(changelogRss([metadata], options.now).match(/<item>/g)).toHaveLength(
-      1,
-    );
+    expect(
+      changelogRss([feedEntry(metadata)], options.now).match(/<item>/g),
+    ).toHaveLength(1);
     expect(feedQuery("all", "all")).toBe("");
     expect(feedQuery("price", "all")).toBe("?kind=price");
     expect(feedQuery("all", "bedrock_converse")).toBe(
@@ -220,10 +224,328 @@ describe("automatic catalog changelog", () => {
     );
     const self =
       "https://models.litellm.ai/changelog.xml?kind=price&providers=example";
-    const rss = changelogRss(prices, options.now, self);
+    const rss = changelogRss(prices.map(feedEntry), options.now, self);
     expect(rss).toContain(
       `<atom:link href="${self.replace("&", "&amp;")}" rel="self"`,
     );
     expect(rss.match(/<item>/g)).toHaveLength(1);
+  });
+  it("folds every change of one commit into one digest item with a counts headline and a bullet per model", () => {
+    const priced = catalogChanges(before, after, commit, {
+      example: "Example",
+    });
+    const added = catalogChanges({}, after, commit, { other: "Other" }).map(
+      (u) => ({ ...u, provider: "other" }),
+    );
+    const items = changelogItems([...priced, ...added], {
+      example: "Example",
+      other: "Other",
+    });
+    expect(items.length).toBeGreaterThan(1);
+    const [digest, ...others] = digestFeedEntries(items);
+    expect(others).toEqual([]);
+    expect(digest.id).toBe(`digest:${sha}`);
+    expect(digest.link).toBe(
+      `https://github.com/BerriAI/litellm/commit/${sha}`,
+    );
+    expect(digest.title).toBe("1 model added, 1 updated on Other, Example");
+    expect(digest.body.split("\n")).toEqual([
+      "• Other added with 1 model",
+      `• ${items[0].entries[0].name} on Example: Input decreased $2 → $1 (−50%) / 1M tokens, Output increased $4 → $6 (+50%) / 1M tokens`,
+    ]);
+    expect(digest.body).not.toContain("example/");
+    const rss = changelogRss([digest], options.now);
+    const doc = new new Window().DOMParser().parseFromString(rss, "text/xml");
+    expect(doc.querySelector("parsererror")).toBeNull();
+    expect(doc.querySelector("item category")?.textContent).toBe("digest");
+    expect(doc.querySelector("item description")?.textContent).toBe(
+      digest.body,
+    );
+    const twoCommits = [
+      ...items,
+      ...items.map((i) => ({
+        ...i,
+        id: `${i.id}:again`,
+        source: i.source.replace(/a+$/, "c".repeat(40)),
+      })),
+    ];
+    expect(digestFeedEntries(twoCommits).map((d) => d.id)).toEqual([
+      `digest:${sha}`,
+      `digest:${"c".repeat(40)}`,
+    ]);
+    const lone = digestFeedEntries(items.filter((i) => i.kind === "price"));
+    expect(lone[0].title).toBe(lone[0].body.slice(2));
+    const vertex = { ...after["example/model"], litellm_provider: "vertex_ai" };
+    const [regions] = digestFeedEntries(
+      changelogItems(
+        catalogChanges(
+          { "vertex_ai/other": vertex },
+          {
+            "vertex_ai/other": vertex,
+            "vertex_ai/claude": vertex,
+            "vertex_ai/us/claude": vertex,
+          },
+          commit,
+        ),
+        { vertex_ai: "Vertex" },
+      ),
+    );
+    expect(regions.title).toBe("Claude added on Vertex");
+    expect(regions.body).toBe("• Claude added on Vertex");
+  });
+  it("stops a digest body before Slack's cut and counts the rest", () => {
+    const wide = Object.fromEntries(
+      Array.from({ length: 40 }, (_, i) => [
+        `example/model-number-${i}`,
+        { litellm_provider: "example", input_cost_per_token: 1e-6 },
+      ]),
+    );
+    const items = filterChangelogItems(
+      changelogItems(
+        catalogChanges(
+          { "example/old": wide["example/model-number-0"] },
+          wide,
+          commit,
+        ),
+        { example: "Example" },
+      ),
+      feedFilter(new URLSearchParams("digest=commit")),
+    );
+    const [digest] = digestFeedEntries(items);
+    expect(digest.title).toBe("40 models added on Example");
+    const lines = digest.body.split("\n");
+    expect(lines.at(-1)).toMatch(/^• \+\d+ more$/);
+    expect(lines.length).toBeLessThan(40);
+    expect(lines.slice(0, -1).join("\n").length).toBeLessThanOrEqual(480);
+    expect(Number(/\d+/.exec(lines.at(-1) ?? "")?.[0]) + lines.length - 1).toBe(
+      40,
+    );
+  });
+  it("counts a new provider's models in the digest title and notes a regional alias once", () => {
+    const model = before["example/model"];
+    const prior = { "example/model": model, "example/eu/model": model };
+    const next = {
+      "example/model": after["example/model"],
+      "example/eu/model": after["example/model"],
+      "newprov/one": { ...model, litellm_provider: "newprov" },
+      "newprov/two": { ...model, litellm_provider: "newprov" },
+      "newprov/three": { ...model, litellm_provider: "newprov" },
+    };
+    const names = { example: "Example", newprov: "New Provider" };
+    const [digest] = digestFeedEntries(
+      changelogItems(catalogChanges(prior, next, commit, names), names),
+    );
+    expect(digest.title).toBe(
+      "3 models added, 1 updated on New Provider, Example",
+    );
+    expect(digest.body).toBe(
+      [
+        "• New Provider added with 3 models",
+        "• Model on Example: Input decreased $2 → $1 (−50%) / 1M tokens, Output increased $4 → $6 (+50%) / 1M tokens",
+      ].join("\n"),
+    );
+  });
+  it("folds a clock-aligned time window into one item and holds back a window still open", () => {
+    const at = (hhmm: string, suffix: string) => ({
+      ...commit,
+      sha: suffix.repeat(40),
+      timestamp: `2026-10-30T${hhmm}:00Z`,
+    });
+    const names = { example: "Example", other: "Other" };
+    const updates = [
+      ...catalogChanges(before, after, at("20:10", "c"), names),
+      ...catalogChanges(
+        {},
+        { "other/new": after["example/model"] },
+        at("20:40", "d"),
+        names,
+      ).map((u) => ({ ...u, provider: "other" })),
+      ...catalogChanges(after, before, at("21:05", "e"), names),
+    ];
+    const items = changelogItems(updates, names);
+    const hour = 3_600_000;
+    const mid = Date.parse("2026-10-30T21:30:00Z");
+    expect(feedFilter(new URLSearchParams("digest=1h")).digest).toBe("1h");
+    expect(feedFilter(new URLSearchParams("digest=90x")).digest).toBe("");
+    const [closed, ...open] = digestFeedEntries(items, "1h", mid);
+    expect(open).toEqual([]);
+    expect(closed.id).toBe("digest:1h:2026-10-30T20:00:00.000Z");
+    expect(closed.timestamp).toBe("2026-10-30T21:00:00.000Z");
+    expect(closed.link).toContain("https://models.litellm.ai/changelog?");
+    expect(closed.title).toBe("1 model added, 1 updated on Other, Example");
+    const later = digestFeedEntries(items, "1h", mid + hour);
+    expect(later.map((e) => e.id)).toEqual([
+      "digest:1h:2026-10-30T20:00:00.000Z",
+      "digest:1h:2026-10-30T21:00:00.000Z",
+    ]);
+    expect(later[1].link).toBe(
+      `https://github.com/BerriAI/litellm/commit/${"e".repeat(40)}`,
+    );
+    expect(digestFeedEntries(items, "1d", mid + hour)).toEqual([]);
+    expect(digestFeedEntries(items, "30m", mid)).toHaveLength(3);
+  });
+  it("narrows the feed to the models a reader names, however their proxy spells them", () => {
+    const listing = (modelId: string, name: string) => ({
+      modelId,
+      name,
+      changes: [{ field: "input_cost_per_token", before: 1e-6, after: 2e-6 }],
+    });
+    const base = {
+      date: "2026-11-09",
+      timestamp: "2026-11-09T00:00:00Z",
+      title: "",
+      description: "",
+      source: "https://github.com/BerriAI/litellm/commit/s",
+      sourceLabel: "",
+    };
+    const items = changelogItems(
+      [
+        {
+          ...base,
+          id: "p1",
+          kind: "price",
+          provider: "openai",
+          entries: [listing("gpt-5", "GPT-5")],
+        },
+        {
+          ...base,
+          id: "p2",
+          kind: "price",
+          provider: "vertex_ai",
+          entries: [
+            listing("vertex_ai/claude-sonnet-4-5", "Claude Sonnet 4.5"),
+          ],
+        },
+        {
+          ...base,
+          id: "m1",
+          kind: "model",
+          provider: "fireworks_ai",
+          entries: [
+            listing("fireworks_ai/accounts/fireworks/models/kimi", "Kimi"),
+            listing("fireworks_ai/accounts/fireworks/models/glm", "GLM"),
+            listing("fireworks_ai/accounts/fireworks/models/qwen", "Qwen"),
+          ],
+        },
+        {
+          ...base,
+          id: "n1",
+          kind: "provider",
+          provider: "newco",
+          entries: [
+            listing("newco/alpha", "Alpha"),
+            listing("newco/beta", "Beta"),
+          ],
+        },
+      ],
+      { openai: "OpenAI", vertex_ai: "Vertex", fireworks_ai: "Fireworks AI" },
+    );
+    const only = (query: string) =>
+      filterChangelogItems(items, feedFilter(new URLSearchParams(query)));
+    const ids = (query: string) => only(query).map((i) => i.id.split(":")[0]);
+    expect(ids("models=azure/gpt-5")).toEqual(["p1"]);
+    expect(ids("models=GPT-5")).toEqual(["p1"]);
+    expect(ids("models=Claude%20Sonnet%204.5")).toEqual(["p2"]);
+    expect(ids("models=vertex_ai/claude-sonnet-4-5@20250929")).toEqual(["p2"]);
+    const kimi = only("models=fireworks_ai/accounts/fireworks/models/kimi,glm");
+    expect(kimi.map((i) => i.headline)).toEqual([
+      "2 models added on Fireworks AI",
+    ]);
+    expect(kimi[0].entries.map((e) => e.name)).toEqual(["Kimi", "GLM"]);
+    const alpha = only("models=newco/alpha");
+    expect(alpha.map((i) => [i.kind, i.headline])).toEqual([
+      ["model", "Alpha added on Newco"],
+    ]);
+    expect(only("models=nobody")).toEqual([]);
+    expect(only("models=gpt-5&providers=vertex_ai")).toEqual([]);
+    expect(only("models=gpt-5&kind=model")).toEqual([]);
+    expect(
+      filterChangelogItems(items, feedFilter(new URLSearchParams(""))).length,
+    ).toBe(4);
+  });
+  it("builds the subscribe URL a proxy's pasted model list resolves to", () => {
+    const modelInfo = JSON.stringify({
+      data: [
+        { model_name: "fast", litellm_params: { model: "azure/gpt-5" } },
+        { model_name: "fast", litellm_params: { model: "azure/gpt-5" } },
+        {
+          model_name: "claude",
+          litellm_params: { model: "vertex_ai/claude-sonnet-4-5@20250929" },
+        },
+        { model_name: "bare" },
+      ],
+    });
+    expect(parseModelList(modelInfo)).toEqual([
+      "azure/gpt-5",
+      "vertex_ai/claude-sonnet-4-5@20250929",
+      "bare",
+    ]);
+    expect(
+      parseModelList(
+        JSON.stringify({
+          object: "list",
+          data: [{ id: "gpt-5" }, { id: "o3" }],
+        }),
+      ),
+    ).toEqual(["gpt-5", "o3"]);
+    expect(
+      parseModelList(
+        [
+          "model_list:",
+          "  - model_name: fast",
+          "    litellm_params:",
+          '      model: "openai/gpt-5" # prod',
+          "      api_key: os.environ/OPENAI_API_KEY",
+          "  - model_name: slow",
+          "    litellm_params:",
+          "      model: bedrock/anthropic.claude-sonnet-4-5-v1:0",
+        ].join("\n"),
+      ),
+    ).toEqual(["openai/gpt-5", "bedrock/anthropic.claude-sonnet-4-5-v1:0"]);
+    expect(parseModelList("gpt-5, o3\nclaude-opus-4-5, gpt-5")).toEqual([
+      "gpt-5",
+      "o3",
+      "claude-opus-4-5",
+    ]);
+    expect(parseModelList("   ")).toEqual([]);
+    expect(parseModelList('{"data": [ !!!')).toEqual([]);
+    expect(parseModelList("gpt-5 !!! {x} o3")).toEqual(["gpt-5", "o3"]);
+    expect(parseModelList("Claude Sonnet 4.5\nGPT-5, o3")).toEqual([
+      "Claude Sonnet 4.5",
+      "GPT-5",
+      "o3",
+    ]);
+    expect(parseModelList("\"azure/gpt-5\", 'o3'")).toEqual([
+      "azure/gpt-5",
+      "o3",
+    ]);
+    expect(
+      parseModelList(
+        JSON.stringify({
+          data: [{ id: "gpt-5" }, { id: "Claude Sonnet 4.5 & co" }],
+        }),
+      ),
+    ).toEqual(["gpt-5", "Claude Sonnet 4.5 & co"]);
+    expect(feedUrl({ kinds: [], providers: [], models: [], digest: "" })).toBe(
+      "https://models.litellm.ai/changelog.xml",
+    );
+    const url = feedUrl({
+      kinds: ["price", "deprecation"],
+      providers: ["azure", "vertex_ai"],
+      models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
+      digest: "1h",
+    });
+    expect(url).toBe(
+      "https://models.litellm.ai/changelog.xml?kind=price,deprecation&providers=azure,vertex_ai&models=azure/gpt-5,vertex_ai/claude-sonnet-4-5@20250929&digest=1h",
+    );
+    expect(feedFilter(new URL(url).searchParams)).toEqual({
+      kinds: ["price", "deprecation"],
+      providers: ["azure", "vertex_ai"],
+      models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
+      digest: "1h",
+    });
+    expect(
+      feedUrl({ kinds: [], providers: [], models: ["a b&c"], digest: "" }),
+    ).toBe("https://models.litellm.ai/changelog.xml?models=a%20b%26c");
   });
 });

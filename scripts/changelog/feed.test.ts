@@ -77,6 +77,31 @@ describe("/changelog.xml function", () => {
       items(await (await feed("?kind=metadata")).text()).map((i) => i.body),
     ).toEqual([expect.stringContaining("gpt-meta")]);
     expect(items(await (await feed("?providers=nobody")).text())).toEqual([]);
+    const hourly = items(await (await feed("?digest=1h")).text());
+    expect(hourly.map((i) => i.kind)).toEqual(["digest"]);
+    expect(hourly[0].body).toContain("• gpt on OpenAI");
+    expect(items(await (await feed("?digest=bogus")).text())).toHaveLength(3);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({ ...data, generatedAt: "2026-11-09T00:59:00Z" }),
+      ),
+    );
+    expect(items(await (await feed("?digest=1h")).text())).toEqual([]);
+    expect(items(await (await feed("?digest=commit")).text())).toHaveLength(1);
+    const digest = items(await (await feed("?digest=commit")).text());
+    expect(digest).toEqual([
+      {
+        kind: "digest",
+        body: expect.stringContaining("• bedrock/a on Amazon Bedrock"),
+      },
+    ]);
+    expect(digest[0].body).toContain("• gpt on OpenAI");
+    expect(digest[0].body).toContain("• bedrock/b on Amazon Bedrock");
+    expect(digest[0].body).not.toContain("gpt-meta");
+    expect(
+      items(await (await feed("?digest=commit&kind=price")).text())[0].body,
+    ).not.toContain("bedrock/b");
   });
   it("answers 503 without caching when the changelog data cannot be read", async () => {
     vi.stubGlobal(
@@ -86,5 +111,23 @@ describe("/changelog.xml function", () => {
     const res = await feed("?kind=price");
     expect(res.status).toBe(503);
     expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+  it("follows only the models a reader names, in the plain and digest feeds", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(data)),
+    );
+    expect(
+      items(await (await feed("?models=openai/gpt,missing")).text()).map(
+        (i) => i.body,
+      ),
+    ).toEqual([expect.stringContaining("gpt")]);
+    const digest = items(
+      await (await feed("?digest=commit&models=bedrock/a")).text(),
+    );
+    expect(digest).toHaveLength(1);
+    expect(digest[0].body).toContain("bedrock/a on");
+    expect(digest[0].body).not.toContain("bedrock/b");
+    expect(items(await (await feed("?models=nobody")).text())).toEqual([]);
   });
 });
