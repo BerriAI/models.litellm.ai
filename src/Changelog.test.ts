@@ -193,7 +193,7 @@ describe("Changelog page", () => {
     window.history.replaceState(
       {},
       "",
-      "/changelog?models=azure/gpt-5,o3&providers=azure&digest=4h&kind=price",
+      "/changelog?models=azure/gpt-5,Claude%20Sonnet%204.5&providers=azure&digest=4h&kind=price",
     );
     component = new Changelog({ target: document.body });
     await vi.waitFor(() =>
@@ -203,7 +203,7 @@ describe("Changelog page", () => {
       true,
     );
     expect(document.querySelector(".output code")?.textContent).toBe(
-      "https://models.litellm.ai/changelog.xml?kind=price&providers=azure&models=azure/gpt-5,o3&digest=4h",
+      "https://models.litellm.ai/changelog.xml?kind=price&providers=azure&models=azure/gpt-5,Claude%20Sonnet%204.5&digest=4h",
     );
   });
 });

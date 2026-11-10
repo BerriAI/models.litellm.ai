@@ -80,7 +80,8 @@
     }
   }
   onMount(() => {
-    const preset = feedFilter(new URLSearchParams(window.location.search));
+    const params = new URLSearchParams(window.location.search);
+    const preset = feedFilter(params);
     if (
       preset.kinds.length ||
       preset.providers.length ||
@@ -89,7 +90,11 @@
     ) {
       kinds = preset.kinds;
       feedProviders = preset.providers;
-      pasted = preset.models.join("\n");
+      pasted = (params.get("models") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join("\n");
       digest = preset.digest;
       builderOpen = true;
     }
