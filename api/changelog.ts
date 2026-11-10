@@ -1,6 +1,6 @@
 /**
  * Serves /changelog.xml (rewritten here in vercel.json) from the build's
- * /changelog.json, filtered by ?kind= and ?providers=. A function rather than a
+ * /changelog.json, filtered by ?kind=, ?providers= and ?models=. A function rather than a
  * static file because the CDN caches static files by path alone, so a filtered
  * URL would be answered with the unfiltered feed once either was cached.
  * ?digest=commit folds every change of one catalog commit into one item, and

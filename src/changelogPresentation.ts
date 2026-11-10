@@ -3,6 +3,7 @@ import {
   fieldValue,
   priceDelta,
   type CatalogUpdate,
+  type ChangedListing,
   type FieldChange,
 } from "./discoveryChangelog.js";
 import { getProviderDisplayName } from "./providerNames.js";
@@ -112,6 +113,30 @@ export function changeLine(change: FieldChange): string {
     : `${label}: ${value(before)} → ${value(after)}`;
 }
 
+function additionText(
+  kind: "model" | "provider",
+  entries: ChangedListing[],
+  provider: string,
+): { headline: string; lines: string[] } {
+  const n = entries.length;
+  const headline =
+    kind === "provider"
+      ? `${provider} added with ${n} ${n === 1 ? "model" : "models"}`
+      : n === 1
+        ? `${entries[0].name} added on ${provider}`
+        : `${n} models added on ${provider}`;
+  const lines =
+    n === 1
+      ? []
+      : [
+          entries
+            .slice(0, 3)
+            .map((e) => e.name)
+            .join(", ") + (n > 3 ? ` +${n - 3} more` : ""),
+        ];
+  return { headline, lines };
+}
+
 export function changelogItems(
   updates: CatalogUpdate[],
   names: Record<string, string>,
@@ -131,25 +156,14 @@ export function changelogItems(
       newProviders.has(`${update.source}:${update.provider}`)
     )
       return [];
-    if (update.kind === "model" || update.kind === "provider") {
-      const n = update.entries.length;
-      const headline =
-        update.kind === "provider"
-          ? `${provider} added with ${n} ${n === 1 ? "model" : "models"}`
-          : n === 1
-            ? `${update.entries[0].name} added on ${provider}`
-            : `${n} models added on ${provider}`;
-      const lines =
-        n === 1
-          ? []
-          : [
-              update.entries
-                .slice(0, 3)
-                .map((e) => e.name)
-                .join(", ") + (n > 3 ? ` +${n - 3} more` : ""),
-            ];
-      return [{ ...update, providerName: provider, headline, lines }];
-    }
+    if (update.kind === "model" || update.kind === "provider")
+      return [
+        {
+          ...update,
+          providerName: provider,
+          ...additionText(update.kind, update.entries, provider),
+        },
+      ];
     return update.entries.map((entry) => {
       const ordered = [...entry.changes].sort((a, b) => {
         const rank = (field: string) =>
@@ -347,9 +361,20 @@ export const FEED_URL = "https://models.litellm.ai/changelog.xml";
 export interface FeedFilter {
   kinds: string[];
   providers: string[];
+  /** Catalog ids or display names, each matched by `modelKey`. */
+  models: string[];
   /** "" for one item per change, "commit" for one per commit, or a span like "1h". */
   digest: string;
 }
+/** The digest choices the subscribe builder offers, in the order it shows them. */
+export const DIGEST_OPTIONS = [
+  { value: "", label: "Every change" },
+  { value: "commit", label: "One post per catalog commit" },
+  { value: "30m", label: "Every 30 minutes" },
+  { value: "1h", label: "Hourly" },
+  { value: "4h", label: "Every 4 hours" },
+  { value: "1d", label: "Daily" },
+];
 const list = (value: string | null) =>
   (value ?? "")
     .split(",")
@@ -357,12 +382,88 @@ const list = (value: string | null) =>
     .filter(Boolean);
 const digestOf = (value: string | null) =>
   value === "commit" || digestWindow(value ?? "") ? (value as string) : "";
-/** `?kind=price,deprecation&providers=bedrock,openai&digest=commit` as the feed reads it. */
+/** `?kind=price,deprecation&providers=bedrock,openai&models=gpt-5&digest=commit` as the feed reads it. */
 export const feedFilter = (params: URLSearchParams): FeedFilter => ({
   kinds: list(params.get("kind")),
   providers: list(params.get("providers")),
+  models: list(params.get("models")),
   digest: digestOf(params.get("digest")),
 });
+export const EMPTY_FILTER: FeedFilter = {
+  kinds: [],
+  providers: [],
+  models: [],
+  digest: "",
+};
+/**
+ * The feed URL for a filter, the one the subscribe builder shows and the one
+ * a proxy's model list resolves to. Empty parts are left off so the plain
+ * feed stays `/changelog.xml`.
+ */
+export function feedUrl(filter: FeedFilter): string {
+  const part = (key: string, values: string[]) =>
+    values.length
+      ? [
+          `${key}=${values.map((v) => encodeURIComponent(v).replace(/%2F/gi, "/").replace(/%3A/gi, ":").replace(/%40/gi, "@")).join(",")}`,
+        ]
+      : [];
+  const query = [
+    ...part("kind", filter.kinds),
+    ...part("providers", filter.providers),
+    ...part("models", filter.models),
+    ...part("digest", filter.digest ? [filter.digest] : []),
+  ].join("&");
+  return query ? `${FEED_URL}?${query}` : FEED_URL;
+}
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+/**
+ * What a `?models=` entry is compared on: the last path segment, slugged, so
+ * `openai/gpt-5`, `gpt-5` and the proxy's `azure/gpt-5` all name the catalog's
+ * `gpt-5`. The catalog id itself and the display name slug also count.
+ */
+export const modelKey = (id: string) => slug(id.split("/").pop() ?? id);
+export const listingKeys = (entry: ChangedListing) =>
+  new Set([modelKey(entry.modelId), slug(entry.modelId), slug(entry.name)]);
+/**
+ * Model ids out of whatever a user pastes from their proxy: the JSON of
+ * `/model/info` (`litellm_params.model`) or `/v1/models` (`id`), a
+ * `config.yaml` with `model:` lines, or ids separated by commas, spaces or
+ * newlines. Order kept, duplicates dropped.
+ */
+export function parseModelList(text: string): string[] {
+  const ids: string[] = [];
+  const add = (value: unknown) => {
+    if (typeof value === "string" && value.trim()) ids.push(value.trim());
+  };
+  try {
+    const json = JSON.parse(text) as unknown;
+    const rows = Array.isArray(json)
+      ? json
+      : Array.isArray((json as { data?: unknown })?.data)
+        ? (json as { data: unknown[] }).data
+        : [json];
+    for (const row of rows) {
+      if (typeof row === "string") add(row);
+      else if (row && typeof row === "object") {
+        const r = row as {
+          litellm_params?: { model?: unknown };
+          model_name?: unknown;
+          id?: unknown;
+        };
+        add(r.litellm_params?.model ?? r.model_name ?? r.id);
+      }
+    }
+  } catch {
+    const yaml = [...text.matchAll(/^\s*-?\s*model:\s*["']?([^\s"'#]+)/gm)];
+    for (const [, id] of yaml) add(id);
+    if (!yaml.length) text.split(/[\s,]+/).forEach(add);
+  }
+  return [...new Set(ids.map((id) => id.replace(/^["']|["']$/g, "")))];
+}
 /** The query string the page's RSS link carries for its current tab and provider. */
 export function feedQuery(kind: string, provider: string): string {
   const params = new URLSearchParams();
@@ -375,13 +476,33 @@ export function filterChangelogItems(
   items: ChangelogItem[],
   filter: FeedFilter,
 ): ChangelogItem[] {
-  return items.filter(
-    (item) =>
+  const wanted = new Set(filter.models.map(modelKey));
+  return items.flatMap((item) => {
+    if (
       (filter.kinds.length
-        ? filter.kinds.includes(item.kind)
-        : item.kind !== "metadata") &&
-      (!filter.providers.length || filter.providers.includes(item.provider)),
-  );
+        ? !filter.kinds.includes(item.kind)
+        : item.kind === "metadata") ||
+      (filter.providers.length && !filter.providers.includes(item.provider))
+    )
+      return [];
+    if (!wanted.size) return [item];
+    const entries = item.entries.filter((entry) =>
+      [...listingKeys(entry)].some((key) => wanted.has(key)),
+    );
+    if (!entries.length) return [];
+    // A new provider narrowed to the models a reader follows reads as those
+    // models being added, not as the whole provider arriving.
+    if (item.kind === "model" || item.kind === "provider")
+      return [
+        {
+          ...item,
+          kind: "model" as const,
+          entries,
+          ...additionText("model", entries, item.providerName),
+        },
+      ];
+    return [{ ...item, entries }];
+  });
 }
 export function changelogRss(
   items: FeedEntry[],

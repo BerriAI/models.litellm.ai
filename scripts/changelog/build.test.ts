@@ -10,6 +10,8 @@ import {
   feedEntry,
   feedFilter,
   feedQuery,
+  feedUrl,
+  parseModelList,
   filterChangelogItems,
 } from "../../src/changelogPresentation";
 const sha = "a".repeat(40),
@@ -381,5 +383,150 @@ describe("automatic catalog changelog", () => {
     );
     expect(digestFeedEntries(items, "1d", mid + hour)).toEqual([]);
     expect(digestFeedEntries(items, "30m", mid)).toHaveLength(3);
+  });
+  it("narrows the feed to the models a reader names, however their proxy spells them", () => {
+    const listing = (modelId: string, name: string) => ({
+      modelId,
+      name,
+      changes: [{ field: "input_cost_per_token", before: 1e-6, after: 2e-6 }],
+    });
+    const base = {
+      date: "2026-11-09",
+      timestamp: "2026-11-09T00:00:00Z",
+      title: "",
+      description: "",
+      source: "https://github.com/BerriAI/litellm/commit/s",
+      sourceLabel: "",
+    };
+    const items = changelogItems(
+      [
+        {
+          ...base,
+          id: "p1",
+          kind: "price",
+          provider: "openai",
+          entries: [listing("gpt-5", "GPT-5")],
+        },
+        {
+          ...base,
+          id: "p2",
+          kind: "price",
+          provider: "vertex_ai",
+          entries: [
+            listing("vertex_ai/claude-sonnet-4-5", "Claude Sonnet 4.5"),
+          ],
+        },
+        {
+          ...base,
+          id: "m1",
+          kind: "model",
+          provider: "fireworks_ai",
+          entries: [
+            listing("fireworks_ai/accounts/fireworks/models/kimi", "Kimi"),
+            listing("fireworks_ai/accounts/fireworks/models/glm", "GLM"),
+            listing("fireworks_ai/accounts/fireworks/models/qwen", "Qwen"),
+          ],
+        },
+        {
+          ...base,
+          id: "n1",
+          kind: "provider",
+          provider: "newco",
+          entries: [
+            listing("newco/alpha", "Alpha"),
+            listing("newco/beta", "Beta"),
+          ],
+        },
+      ],
+      { openai: "OpenAI", vertex_ai: "Vertex", fireworks_ai: "Fireworks AI" },
+    );
+    const only = (query: string) =>
+      filterChangelogItems(items, feedFilter(new URLSearchParams(query)));
+    const ids = (query: string) => only(query).map((i) => i.id.split(":")[0]);
+    expect(ids("models=azure/gpt-5")).toEqual(["p1"]);
+    expect(ids("models=GPT-5")).toEqual(["p1"]);
+    expect(ids("models=Claude%20Sonnet%204.5")).toEqual(["p2"]);
+    const kimi = only("models=fireworks_ai/accounts/fireworks/models/kimi,glm");
+    expect(kimi.map((i) => i.headline)).toEqual([
+      "2 models added on Fireworks AI",
+    ]);
+    expect(kimi[0].entries.map((e) => e.name)).toEqual(["Kimi", "GLM"]);
+    const alpha = only("models=newco/alpha");
+    expect(alpha.map((i) => [i.kind, i.headline])).toEqual([
+      ["model", "Alpha added on Newco"],
+    ]);
+    expect(only("models=nobody")).toEqual([]);
+    expect(only("models=gpt-5&providers=vertex_ai")).toEqual([]);
+    expect(only("models=gpt-5&kind=model")).toEqual([]);
+    expect(
+      filterChangelogItems(items, feedFilter(new URLSearchParams(""))).length,
+    ).toBe(4);
+  });
+  it("builds the subscribe URL a proxy's pasted model list resolves to", () => {
+    const modelInfo = JSON.stringify({
+      data: [
+        { model_name: "fast", litellm_params: { model: "azure/gpt-5" } },
+        { model_name: "fast", litellm_params: { model: "azure/gpt-5" } },
+        {
+          model_name: "claude",
+          litellm_params: { model: "vertex_ai/claude-sonnet-4-5@20250929" },
+        },
+        { model_name: "bare" },
+      ],
+    });
+    expect(parseModelList(modelInfo)).toEqual([
+      "azure/gpt-5",
+      "vertex_ai/claude-sonnet-4-5@20250929",
+      "bare",
+    ]);
+    expect(
+      parseModelList(
+        JSON.stringify({
+          object: "list",
+          data: [{ id: "gpt-5" }, { id: "o3" }],
+        }),
+      ),
+    ).toEqual(["gpt-5", "o3"]);
+    expect(
+      parseModelList(
+        [
+          "model_list:",
+          "  - model_name: fast",
+          "    litellm_params:",
+          '      model: "openai/gpt-5" # prod',
+          "      api_key: os.environ/OPENAI_API_KEY",
+          "  - model_name: slow",
+          "    litellm_params:",
+          "      model: bedrock/anthropic.claude-sonnet-4-5-v1:0",
+        ].join("\n"),
+      ),
+    ).toEqual(["openai/gpt-5", "bedrock/anthropic.claude-sonnet-4-5-v1:0"]);
+    expect(parseModelList("gpt-5, o3\nclaude-opus-4-5 gpt-5")).toEqual([
+      "gpt-5",
+      "o3",
+      "claude-opus-4-5",
+    ]);
+    expect(parseModelList("   ")).toEqual([]);
+    expect(feedUrl({ kinds: [], providers: [], models: [], digest: "" })).toBe(
+      "https://models.litellm.ai/changelog.xml",
+    );
+    const url = feedUrl({
+      kinds: ["price", "deprecation"],
+      providers: ["azure", "vertex_ai"],
+      models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
+      digest: "1h",
+    });
+    expect(url).toBe(
+      "https://models.litellm.ai/changelog.xml?kind=price,deprecation&providers=azure,vertex_ai&models=azure/gpt-5,vertex_ai/claude-sonnet-4-5@20250929&digest=1h",
+    );
+    expect(feedFilter(new URL(url).searchParams)).toEqual({
+      kinds: ["price", "deprecation"],
+      providers: ["azure", "vertex_ai"],
+      models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
+      digest: "1h",
+    });
+    expect(
+      feedUrl({ kinds: [], providers: [], models: ["a b&c"], digest: "" }),
+    ).toBe("https://models.litellm.ai/changelog.xml?models=a%20b%26c");
   });
 });

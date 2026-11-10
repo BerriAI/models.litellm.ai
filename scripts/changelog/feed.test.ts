@@ -112,4 +112,22 @@ describe("/changelog.xml function", () => {
     expect(res.status).toBe(503);
     expect(res.headers.get("cache-control")).toBe("no-store");
   });
+  it("follows only the models a reader names, in the plain and digest feeds", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(data)),
+    );
+    expect(
+      items(await (await feed("?models=openai/gpt,missing")).text()).map(
+        (i) => i.body,
+      ),
+    ).toEqual([expect.stringContaining("gpt")]);
+    const digest = items(
+      await (await feed("?digest=commit&models=bedrock/a")).text(),
+    );
+    expect(digest).toHaveLength(1);
+    expect(digest[0].body).toContain("bedrock/a on");
+    expect(digest[0].body).not.toContain("bedrock/b");
+    expect(items(await (await feed("?models=nobody")).text())).toEqual([]);
+  });
 });

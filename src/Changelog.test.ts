@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { tick } from "svelte";
 import Changelog from "./Changelog.svelte";
 import Main from "./Main.svelte";
-import { trackPageView } from "./analytics";
+import { track, trackPageView } from "./analytics";
 import snapshot from "../scripts/changelog/seed.json";
 vi.mock("svelte", () =>
   vi.importActual<typeof import("svelte")>("svelte/internal"),
@@ -89,7 +89,9 @@ describe("Changelog page", () => {
     input.dispatchEvent(new Event("input"));
     await tick();
     expect(document.body.textContent).toContain("Input decreased $2.5");
-    const select = document.querySelector<HTMLSelectElement>("select")!;
+    const select = document.querySelector<HTMLSelectElement>(
+      'select[aria-label="Filter by provider"]',
+    )!;
     select.selectedIndex = Array.from(select.options).findIndex(
       (option) => option.value === "together_ai",
     );
@@ -135,6 +137,73 @@ describe("Changelog page", () => {
       .click();
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+    );
+  });
+  it("builds a feed URL and Slack command from a pasted proxy model list", async () => {
+    const writeText = vi.fn(async () => undefined);
+    vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
+    component = new Changelog({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+    );
+    const known = snapshot.updates[0].entries[0].modelId;
+    const textarea = document.querySelector("textarea")!;
+    textarea.value = JSON.stringify({
+      data: [
+        { model_name: "a", litellm_params: { model: known } },
+        { model_name: "b", litellm_params: { model: "azure/never-changed" } },
+      ],
+    });
+    textarea.dispatchEvent(new Event("input"));
+    await tick();
+    const digest =
+      document.querySelector<HTMLSelectElement>(".builder select")!;
+    digest.value = "1h";
+    const querySelector = digest.querySelector.bind(digest);
+    digest.querySelector = ((selector: string) =>
+      selector === ":checked"
+        ? digest.selectedOptions[0] ?? null
+        : querySelector(selector)) as typeof digest.querySelector;
+    digest.dispatchEvent(new Event("change"));
+    await tick();
+    const outputs = Array.from(document.querySelectorAll(".output code")).map(
+      (c) => c.textContent,
+    );
+    expect(outputs[0]).toBe(
+      `https://models.litellm.ai/changelog.xml?models=${known},azure/never-changed&digest=1h`,
+    );
+    expect(outputs[1]).toBe(`/feed subscribe ${outputs[0]}`);
+    expect(document.body.textContent).toContain(
+      "2 models, 1 changed in the last 30 days",
+    );
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".output button"))
+      .find((b) => b.textContent === "Copy Slack command")!
+      .click();
+    await tick();
+    expect(writeText).toHaveBeenCalledWith(outputs[1]);
+    expect(track).toHaveBeenCalledWith("Changelog Feed Copied", {
+      what: "slack",
+      digest: "1h",
+      kind: [],
+      providers: [],
+      models: 2,
+    });
+  });
+  it("opens the builder prefilled from a shared link's query string", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/changelog?models=azure/gpt-5,o3&providers=azure&digest=4h&kind=price",
+    );
+    component = new Changelog({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+    );
+    expect(document.querySelector<HTMLDetailsElement>(".subscribe")!.open).toBe(
+      true,
+    );
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml?kind=price&providers=azure&models=azure/gpt-5,o3&digest=4h",
     );
   });
 });
