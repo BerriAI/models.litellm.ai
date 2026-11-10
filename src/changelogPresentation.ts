@@ -5,7 +5,7 @@ import {
   type CatalogUpdate,
   type FieldChange,
 } from "./discoveryChangelog.js";
-import { getProviderDisplayName } from "./providers.js";
+import { getProviderDisplayName } from "./providerNames.js";
 
 export interface ChangelogItem extends CatalogUpdate {
   headline: string;
