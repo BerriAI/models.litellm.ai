@@ -507,6 +507,8 @@ describe("automatic catalog changelog", () => {
       "claude-opus-4-5",
     ]);
     expect(parseModelList("   ")).toEqual([]);
+    expect(parseModelList('{"data": [ !!!')).toEqual([]);
+    expect(parseModelList("gpt-5 !!! {x} o3")).toEqual(["gpt-5", "o3"]);
     expect(feedUrl({ kinds: [], providers: [], models: [], digest: "" })).toBe(
       "https://models.litellm.ai/changelog.xml",
     );

@@ -434,6 +434,9 @@ export const listingKeys = (entry: ChangedListing) =>
  * `config.yaml` with `model:` lines, or ids separated by commas, spaces or
  * newlines. Order kept, duplicates dropped.
  */
+/** A catalog id or proxy model string: letters, digits and the punctuation ids use. */
+const MODEL_ID = /^[A-Za-z0-9][\w.\-:/@+]*$/;
+
 export function parseModelList(text: string): string[] {
   const ids: string[] = [];
   const add = (value: unknown) => {
@@ -458,11 +461,18 @@ export function parseModelList(text: string): string[] {
       }
     }
   } catch {
+    if (/^\s*[[{]/.test(text)) return [];
     const yaml = [...text.matchAll(/^\s*-?\s*model:\s*["']?([^\s"'#]+)/gm)];
     for (const [, id] of yaml) add(id);
     if (!yaml.length) text.split(/[\s,]+/).forEach(add);
   }
-  return [...new Set(ids.map((id) => id.replace(/^["']|["']$/g, "")))];
+  return [
+    ...new Set(
+      ids
+        .map((id) => id.replace(/^["']|["']$/g, ""))
+        .filter((id) => MODEL_ID.test(id)),
+    ),
+  ];
 }
 /** The query string the page's RSS link carries for its current tab and provider. */
 export function feedQuery(kind: string, provider: string): string {
