@@ -6,6 +6,8 @@ import {
   changelogItems,
   changelogRss,
   changeLine,
+  digestFeedEntries,
+  feedEntry,
   feedFilter,
   feedQuery,
   filterChangelogItems,
@@ -128,7 +130,7 @@ describe("automatic catalog changelog", () => {
     const updates = catalogChanges(before, after, commit);
     updates[0].entries[0].name = 'Model <A> & "B"';
     const items = changelogItems(updates, { example: "A&B" });
-    const rss = changelogRss(items, options.now);
+    const rss = changelogRss(items.map(feedEntry), options.now);
     const window = new Window();
     const doc = new window.DOMParser().parseFromString(rss, "text/xml");
     expect(doc.querySelector("parsererror")).toBeNull();
@@ -139,9 +141,9 @@ describe("automatic catalog changelog", () => {
       "Output increased $4 → $6 (+50%)",
     );
     expect(doc.querySelector("item guid")?.textContent).toBe(items[0].id);
-    expect(changelogRss(items, "2026-11-01T00:00:00Z")).toContain(
-      `<guid isPermaLink="false">${items[0].id}</guid>`,
-    );
+    expect(
+      changelogRss(items.map(feedEntry), "2026-11-01T00:00:00Z"),
+    ).toContain(`<guid isPermaLink="false">${items[0].id}</guid>`);
     expect(doc.querySelector("item link")?.textContent).toBe(
       `https://github.com/BerriAI/litellm/commit/${sha}`,
     );
@@ -210,9 +212,9 @@ describe("automatic catalog changelog", () => {
         feedFilter(new URLSearchParams("kind=metadata")),
       ),
     ).toEqual([metadata]);
-    expect(changelogRss([metadata], options.now).match(/<item>/g)).toHaveLength(
-      1,
-    );
+    expect(
+      changelogRss([feedEntry(metadata)], options.now).match(/<item>/g),
+    ).toHaveLength(1);
     expect(feedQuery("all", "all")).toBe("");
     expect(feedQuery("price", "all")).toBe("?kind=price");
     expect(feedQuery("all", "bedrock_converse")).toBe(
@@ -220,10 +222,101 @@ describe("automatic catalog changelog", () => {
     );
     const self =
       "https://models.litellm.ai/changelog.xml?kind=price&providers=example";
-    const rss = changelogRss(prices, options.now, self);
+    const rss = changelogRss(prices.map(feedEntry), options.now, self);
     expect(rss).toContain(
       `<atom:link href="${self.replace("&", "&amp;")}" rel="self"`,
     );
     expect(rss.match(/<item>/g)).toHaveLength(1);
+  });
+  it("folds every change of one commit into one digest item with a counts headline and a bullet per model", () => {
+    const priced = catalogChanges(before, after, commit, {
+      example: "Example",
+    });
+    const added = catalogChanges({}, after, commit, { other: "Other" }).map(
+      (u) => ({ ...u, provider: "other" }),
+    );
+    const items = changelogItems([...priced, ...added], {
+      example: "Example",
+      other: "Other",
+    });
+    expect(items.length).toBeGreaterThan(1);
+    const [digest, ...others] = digestFeedEntries(items);
+    expect(others).toEqual([]);
+    expect(digest.id).toBe(`digest:${sha}`);
+    expect(digest.link).toBe(
+      `https://github.com/BerriAI/litellm/commit/${sha}`,
+    );
+    expect(digest.title).toBe("1 model added, 1 updated on Other, Example");
+    expect(digest.body.split("\n")).toEqual([
+      "• Other added with 1 model",
+      `• ${items[0].entries[0].name} on Example: Input decreased $2 → $1 (−50%) / 1M tokens, Output increased $4 → $6 (+50%) / 1M tokens`,
+    ]);
+    expect(digest.body).not.toContain("example/");
+    const rss = changelogRss([digest], options.now);
+    const doc = new new Window().DOMParser().parseFromString(rss, "text/xml");
+    expect(doc.querySelector("parsererror")).toBeNull();
+    expect(doc.querySelector("item category")?.textContent).toBe("digest");
+    expect(doc.querySelector("item description")?.textContent).toBe(
+      digest.body,
+    );
+    const twoCommits = [
+      ...items,
+      ...items.map((i) => ({
+        ...i,
+        id: `${i.id}:again`,
+        source: i.source.replace(/a+$/, "c".repeat(40)),
+      })),
+    ];
+    expect(digestFeedEntries(twoCommits).map((d) => d.id)).toEqual([
+      `digest:${sha}`,
+      `digest:${"c".repeat(40)}`,
+    ]);
+    const lone = digestFeedEntries(items.filter((i) => i.kind === "price"));
+    expect(lone[0].title).toBe(lone[0].body.slice(2));
+    const vertex = { ...after["example/model"], litellm_provider: "vertex_ai" };
+    const [regions] = digestFeedEntries(
+      changelogItems(
+        catalogChanges(
+          { "vertex_ai/other": vertex },
+          {
+            "vertex_ai/other": vertex,
+            "vertex_ai/claude": vertex,
+            "vertex_ai/us/claude": vertex,
+          },
+          commit,
+        ),
+        { vertex_ai: "Vertex" },
+      ),
+    );
+    expect(regions.title).toBe("Claude added on Vertex");
+    expect(regions.body).toBe("• Claude added on Vertex");
+  });
+  it("stops a digest body before Slack's cut and counts the rest", () => {
+    const wide = Object.fromEntries(
+      Array.from({ length: 40 }, (_, i) => [
+        `example/model-number-${i}`,
+        { litellm_provider: "example", input_cost_per_token: 1e-6 },
+      ]),
+    );
+    const items = filterChangelogItems(
+      changelogItems(
+        catalogChanges(
+          { "example/old": wide["example/model-number-0"] },
+          wide,
+          commit,
+        ),
+        { example: "Example" },
+      ),
+      feedFilter(new URLSearchParams("digest=commit")),
+    );
+    const [digest] = digestFeedEntries(items);
+    expect(digest.title).toBe("40 models added on Example");
+    const lines = digest.body.split("\n");
+    expect(lines.at(-1)).toMatch(/^• \+\d+ more$/);
+    expect(lines.length).toBeLessThan(40);
+    expect(lines.slice(0, -1).join("\n").length).toBeLessThanOrEqual(480);
+    expect(Number(/\d+/.exec(lines.at(-1) ?? "")?.[0]) + lines.length - 1).toBe(
+      40,
+    );
   });
 });

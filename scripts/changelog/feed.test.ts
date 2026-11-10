@@ -77,6 +77,19 @@ describe("/changelog.xml function", () => {
       items(await (await feed("?kind=metadata")).text()).map((i) => i.body),
     ).toEqual([expect.stringContaining("gpt-meta")]);
     expect(items(await (await feed("?providers=nobody")).text())).toEqual([]);
+    const digest = items(await (await feed("?digest=commit")).text());
+    expect(digest).toEqual([
+      {
+        kind: "digest",
+        body: expect.stringContaining("• bedrock/a on Amazon Bedrock"),
+      },
+    ]);
+    expect(digest[0].body).toContain("• gpt on OpenAI");
+    expect(digest[0].body).toContain("• bedrock/b on Amazon Bedrock");
+    expect(digest[0].body).not.toContain("gpt-meta");
+    expect(
+      items(await (await feed("?digest=commit&kind=price")).text())[0].body,
+    ).not.toContain("bedrock/b");
   });
   it("answers 503 without caching when the changelog data cannot be read", async () => {
     vi.stubGlobal(
