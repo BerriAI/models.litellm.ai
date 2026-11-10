@@ -113,8 +113,9 @@
       href={`/changelog.xml${feedQuery(category, provider)}`}
       on:click={() =>
         track("Changelog Feed Link Clicked", { kind: category, provider })}
-      >RSS feed{#if category !== "all" || provider !== "all"}
-        for this view{/if}</a
+      >{category !== "all" || provider !== "all"
+        ? "RSS feed for this view"
+        : "RSS feed"}</a
     >
   </PageHero>
   <div class="tools">
