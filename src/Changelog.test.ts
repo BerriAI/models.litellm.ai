@@ -169,9 +169,19 @@ describe("Changelog page", () => {
     const outputs = Array.from(document.querySelectorAll(".output code")).map(
       (c) => c.textContent,
     );
+    const knownProvider = known.split("/")[0];
     expect(outputs[0]).toBe(
-      `https://models.litellm.ai/changelog.xml?models=${known},azure/never-changed&digest=1h`,
+      `https://models.litellm.ai/changelog.xml?providers=${knownProvider},azure&models=${known},azure/never-changed&digest=1h`,
     );
+    expect(
+      Array.from(
+        document.querySelectorAll<HTMLInputElement>(
+          ".provider-grid input:checked",
+        ),
+      )
+        .map((i) => i.value)
+        .sort(),
+    ).toEqual([knownProvider, "azure"].sort());
     expect(outputs[1]).toBe(`/feed subscribe ${outputs[0]}`);
     expect(document.body.textContent).toContain(
       "2 models, 1 changed in the last 30 days",
@@ -185,8 +195,59 @@ describe("Changelog page", () => {
       what: "slack",
       digest: "1h",
       kind: [],
-      providers: [],
+      providers: [knownProvider, "azure"],
       models: 2,
+    });
+  });
+  it("picks providers from a filterable checklist and fills the Models box from an example", async () => {
+    component = new Changelog({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+    );
+    const all = document.querySelectorAll(".provider-grid input").length;
+    expect(all).toBeGreaterThan(1);
+    const filter = document.querySelector<HTMLInputElement>(
+      ".provider-tools input",
+    )!;
+    filter.value = "vertex";
+    filter.dispatchEvent(new Event("input"));
+    await tick();
+    const shown = Array.from(
+      document.querySelectorAll<HTMLInputElement>(".provider-grid input"),
+    ).map((i) => i.value);
+    expect(shown.length).toBeGreaterThan(0);
+    expect(shown.length).toBeLessThan(all);
+    expect(shown.every((id) => id.includes("vertex"))).toBe(true);
+    const buttons = () =>
+      Array.from(
+        document.querySelectorAll<HTMLButtonElement>(".provider-tools button"),
+      );
+    expect(buttons()[0].textContent).toBe("Select shown");
+    buttons()[0].click();
+    await tick();
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      `https://models.litellm.ai/changelog.xml?providers=${shown.join(",")}`,
+    );
+    expect(document.body.textContent).toContain(
+      `${shown.length} of ${all} selected`,
+    );
+    buttons()[1].click();
+    await tick();
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml",
+    );
+    Array.from(document.querySelectorAll<HTMLButtonElement>(".examples button"))
+      .find((b) => b.textContent === "config.yaml")!
+      .click();
+    await tick();
+    expect(document.querySelector("textarea")!.value).toContain(
+      "model: azure/gpt-5",
+    );
+    expect(document.querySelector(".output code")?.textContent).toContain(
+      "models=azure/gpt-5,bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0,vertex_ai/gemini-2.5-pro",
+    );
+    expect(track).toHaveBeenCalledWith("Changelog Feed Example Shown", {
+      format: "yaml",
     });
   });
   it("opens the builder prefilled from a shared link's query string", async () => {
