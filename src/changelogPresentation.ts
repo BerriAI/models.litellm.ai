@@ -430,12 +430,13 @@ const slug = (s: string) =>
  */
 export const modelKey = (id: string) =>
   slug((id.split("/").pop() ?? id).replace(/@[^/]*$/, ""));
-const VERSION_TAG = /-v\d+(?::\d+)?$/i;
+const VERSION_TAG = /-v\d+:\d+$/i;
 /**
  * The catalog display name a pasted id stands for, so one entry follows the
  * model on every provider: `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`
  * and `vertex_ai/claude-sonnet-4-5@20250929` both give `Claude Sonnet 4.5`.
- * Bedrock's `-v1:0` tag is dropped first. Text with spaces is already a name.
+ * Bedrock's `-v1:0` tag (always with its `:M` revision, so `deepseek-v3` keeps
+ * its version) is dropped first. Text with spaces is already a name.
  */
 export const modelName = (id: string) =>
   /\s/.test(id.trim())

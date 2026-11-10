@@ -523,6 +523,8 @@ describe("automatic catalog changelog", () => {
         "azure/gpt-5",
         "Claude Sonnet 4.5",
         "us.meta.llama3-1-70b-instruct-v1:0",
+        "deepseek-v3",
+        "whisper-large-v3",
       ].map(modelName),
     ).toEqual([
       "Claude Sonnet 4.5",
@@ -530,7 +532,11 @@ describe("automatic catalog changelog", () => {
       "GPT-5",
       "Claude Sonnet 4.5",
       "Llama3 1 70B Instruct",
+      modelName("deepseek-v3"),
+      modelName("whisper-large-v3"),
     ]);
+    expect(modelName("deepseek-v3")).not.toBe(modelName("deepseek-v2"));
+    expect(modelName("whisper-large-v3")).toMatch(/v3$/i);
     expect([
       ...listingKeys({
         modelId: "anthropic.claude-sonnet-4-5-20250929-v1:0",
