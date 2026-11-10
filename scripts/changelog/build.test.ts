@@ -509,6 +509,13 @@ describe("automatic catalog changelog", () => {
     expect(parseModelList("   ")).toEqual([]);
     expect(parseModelList('{"data": [ !!!')).toEqual([]);
     expect(parseModelList("gpt-5 !!! {x} o3")).toEqual(["gpt-5", "o3"]);
+    expect(
+      parseModelList(
+        JSON.stringify({
+          data: [{ id: "gpt-5" }, { id: "Claude Sonnet 4.5 & co" }],
+        }),
+      ),
+    ).toEqual(["gpt-5", "Claude Sonnet 4.5 & co"]);
     expect(feedUrl({ kinds: [], providers: [], models: [], digest: "" })).toBe(
       "https://models.litellm.ai/changelog.xml",
     );
