@@ -115,7 +115,7 @@
         .filter(Boolean)
         .join("\n");
       digest = preset.digest;
-      everyProvider = preset.models.every((m) => modelName(m) === m);
+      everyProvider = parseModelList(pasted).every((m) => modelName(m) === m);
       builderOpen = true;
     }
     void load();

@@ -268,5 +268,27 @@ describe("Changelog page", () => {
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml?kind=price&providers=azure&models=azure/gpt-5,Claude%20Sonnet%204.5&digest=4h",
     );
+    expect(
+      document.querySelector<HTMLInputElement>(".paste input[type=checkbox]")!
+        .checked,
+    ).toBe(false);
+    component.$destroy();
+    document.body.innerHTML = "";
+    window.history.replaceState(
+      {},
+      "",
+      "/changelog?models=Claude%20Sonnet%204.5,GPT-5&digest=1h",
+    );
+    component = new Changelog({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+    );
+    expect(
+      document.querySelector<HTMLInputElement>(".paste input[type=checkbox]")!
+        .checked,
+    ).toBe(true);
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml?models=Claude%20Sonnet%204.5,GPT-5&digest=1h",
+    );
   });
 });
