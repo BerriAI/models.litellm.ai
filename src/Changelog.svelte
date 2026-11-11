@@ -212,18 +212,18 @@
   $: if (listOpen && active >= 0)
     tick().then(() =>
       document
-        .getElementById(optionId(modelMatches.options[active]))
+        .getElementById(optionId(active))
         ?.scrollIntoView({ block: "nearest" }),
     );
   const rowLabel = (name: string) =>
     name.includes("*") ? `All matching ${name}` : name;
-  const optionId = (name: string) =>
-    `model-option-${modelKey(name).replace(/[^a-z0-9]/g, "-")}`;
+  const optionId = (index: number) => `model-option-${index}`;
   function togglePick(name: string) {
     picked = picked.includes(name)
       ? picked.filter((n) => n !== name)
       : [...picked, name];
     modelQuery = "";
+    active = -1;
     pickedChanged();
   }
   function unpick(name: string) {
@@ -244,8 +244,8 @@
       event.preventDefault();
       listOpen = true;
       if (!n) return;
-      const step = event.key === "ArrowDown" ? 1 : -1;
-      active = (active + step + n) % n;
+      if (event.key === "ArrowDown") active = (active + 1) % n;
+      else active = active < 0 ? n - 1 : (active - 1 + n) % n;
     } else if (event.key === "Enter") {
       if (!listOpen || active < 0 || active >= n) return;
       event.preventDefault();
@@ -431,9 +431,7 @@
               aria-expanded={listOpen}
               aria-controls="model-options"
               aria-autocomplete="list"
-              aria-activedescendant={active >= 0
-                ? optionId(modelMatches.options[active])
-                : undefined}
+              aria-activedescendant={active >= 0 ? optionId(active) : undefined}
               placeholder={picked.length ? "" : "Select models"}
               autocomplete="off"
               bind:value={modelQuery}
@@ -454,7 +452,7 @@
                 <li class="group" role="presentation">Wildcards</li>
                 <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
                 <li
-                  id={optionId(pattern)}
+                  id={optionId(0)}
                   role="option"
                   data-value={pattern}
                   aria-selected={picked.includes(pattern)}
@@ -470,7 +468,7 @@
                 {#each modelMatches.options.slice(pattern ? 1 : 0) as name, i (name)}
                   <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
                   <li
-                    id={optionId(name)}
+                    id={optionId(i + (pattern ? 1 : 0))}
                     role="option"
                     data-value={name}
                     aria-selected={picked.includes(name)}

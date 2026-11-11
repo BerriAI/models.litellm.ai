@@ -273,9 +273,19 @@ describe("Changelog page", () => {
     expect(
       wild.slice(1).every((n) => n.toLowerCase().startsWith("gpt-6")),
     ).toBe(true);
+    expect(new Set(options().map((o) => o.id)).size).toBe(options().length);
+    filter.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowUp" }));
+    await tick();
+    expect(filter.getAttribute("aria-activedescendant")).toBe(
+      options()[options().length - 1].id,
+    );
     filter.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
     await tick();
     expect(filter.getAttribute("aria-activedescendant")).toBe(options()[0].id);
+    filter.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await tick();
+    expect(chips()).toEqual(["All matching gpt-6*"]);
+    expect(filter.getAttribute("aria-activedescendant")).toBeNull();
     filter.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
     await tick();
     expect(chips()).toEqual(["All matching gpt-6*"]);
