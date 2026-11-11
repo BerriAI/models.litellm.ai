@@ -29,7 +29,7 @@ export function initAnalytics() {
     // Static pages persist their id in the shared visitor storage.
     mixpanel.unregister('page_id');
     mixpanel.register({ surface: 'app' });
-    // Static scripts (feedback widget) report through this hook on every surface.
+    // Shared static scripts report through this hook on every surface.
     window.litellmTrack = track;
     window.addEventListener('pagehide', () => trackPageLeave('sendBeacon'));
     document.addEventListener('click', trackOutboundClick, true);
