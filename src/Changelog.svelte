@@ -16,10 +16,10 @@
     feedUrl,
     listingKeys,
     modelKey,
-    modelName,
-    parseModelList,
   } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
+  import { loadCatalogData } from "./catalogData";
+  import { humanizeModelId } from "./modelMeta";
   let updates: CatalogUpdate[] = [];
   let providerNames: Record<string, string> = {};
   let generatedAt = "";
@@ -31,29 +31,15 @@
   let visibleCount = 40;
   let expanded = new Set<string>();
   let builderOpen = false;
-  const EXAMPLES = {
-    json: `{"data": [
-  {"model_name": "gpt-5", "litellm_params": {"model": "azure/gpt-5"}},
-  {"model_name": "claude", "litellm_params": {"model": "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0"}},
-  {"model_name": "gemini", "litellm_params": {"model": "vertex_ai/gemini-2.5-pro"}}
-]}`,
-    yaml: `model_list:
-  - model_name: gpt-5
-    litellm_params:
-      model: azure/gpt-5
-  - model_name: claude
-    litellm_params:
-      model: bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0
-  - model_name: gemini
-    litellm_params:
-      model: vertex_ai/gemini-2.5-pro`,
-  };
+  const SHOWN_MODELS = 200;
   let digest = "";
   let kinds: string[] = [];
   let feedProviders: string[] = [];
   let providerQuery = "";
-  let everyProvider = true;
-  let pasted = "";
+  let modelQuery = "";
+  let picked: string[] = [];
+  let catalogModels: { name: string; provider: string }[] = [];
+  let catalogState: "idle" | "loading" | "ready" | "failed" = "idle";
   let copied = "";
   let copyError = "";
   const filters: { id: UpdateKind | "all"; label: string }[] = [
@@ -109,17 +95,42 @@
     ) {
       kinds = preset.kinds;
       feedProviders = preset.providers;
-      pasted = (params.get("models") ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join("\n");
+      picked = [
+        ...new Set(
+          (params.get("models") ?? "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+      ];
       digest = preset.digest;
-      everyProvider = parseModelList(pasted).every((m) => modelName(m) === m);
       builderOpen = true;
+      void loadCatalog();
     }
     void load();
   });
+  async function loadCatalog() {
+    if (catalogState !== "idle" && catalogState !== "failed") return;
+    catalogState = "loading";
+    try {
+      const { items } = await loadCatalogData(false, "");
+      catalogModels = items.map((item) => ({
+        name: humanizeModelId(item.name),
+        provider:
+          typeof item.litellm_provider === "string"
+            ? item.litellm_provider
+            : "",
+      }));
+      catalogState = "ready";
+    } catch {
+      catalogState = "failed";
+    }
+  }
+  function openBuilder() {
+    if (!builderOpen) return;
+    track("Changelog Feed Builder Opened");
+    void loadCatalog();
+  }
   $: items = changelogItems(updates, providerNames);
   $: providers = [...new Set(updates.map((u) => u.provider))].sort((a, b) =>
     providerName(a).localeCompare(providerName(b)),
@@ -147,12 +158,43 @@
     expanded.has(id) ? expanded.delete(id) : expanded.add(id);
     expanded = new Set(expanded);
   }
-  $: models = parseModelList(pasted);
   $: providerMatches = providers.filter((id) => {
     const q = providerQuery.trim().toLowerCase();
     return !q || id.includes(q) || providerName(id).toLowerCase().includes(q);
   });
-  $: followed = everyProvider ? [...new Set(models.map(modelName))] : models;
+  $: modelProviders = (() => {
+    const map = new Map<string, Set<string>>();
+    const add = (name: string, provider: string) => {
+      if (!name) return;
+      if (!map.has(name)) map.set(name, new Set());
+      if (provider) map.get(name)!.add(provider);
+    };
+    for (const update of updates)
+      for (const entry of update.entries) add(entry.name, update.provider);
+    for (const model of catalogModels) add(model.name, model.provider);
+    return map;
+  })();
+  $: modelMatches = (() => {
+    const q = modelQuery.trim().toLowerCase();
+    const onProviders = (name: string) =>
+      !feedProviders.length ||
+      [...(modelProviders.get(name) ?? [])].some((p) =>
+        feedProviders.includes(p),
+      );
+    const rest = [...modelProviders.keys()]
+      .filter(
+        (name) =>
+          !picked.includes(name) &&
+          onProviders(name) &&
+          (!q || name.toLowerCase().includes(q)),
+      )
+      .sort((a, b) => a.localeCompare(b));
+    return {
+      names: [...picked, ...rest.slice(0, SHOWN_MODELS)],
+      hidden: Math.max(0, rest.length - SHOWN_MODELS),
+    };
+  })();
+  $: followed = picked;
   $: url = feedUrl({
     kinds,
     providers: feedProviders,
@@ -178,9 +220,15 @@
     feedProviders = [];
     track("Changelog Feed Builder Changed", { field: "providers", value: 0 });
   }
-  function showExample(format: keyof typeof EXAMPLES) {
-    pasted = EXAMPLES[format];
-    track("Changelog Feed Example Shown", { format });
+  function pickedChanged() {
+    track("Changelog Feed Builder Changed", {
+      field: "models",
+      value: picked.length,
+    });
+  }
+  function clearPicked() {
+    picked = [];
+    pickedChanged();
   }
   async function copy(what: "url" | "slack") {
     copyError = "";
@@ -226,11 +274,7 @@
         : "RSS feed"}</a
     >
   </PageHero>
-  <details
-    class="subscribe"
-    bind:open={builderOpen}
-    on:toggle={() => builderOpen && track("Changelog Feed Builder Opened")}
-  >
+  <details class="subscribe" bind:open={builderOpen} on:toggle={openBuilder}>
     <summary>Build a feed for the models you run</summary>
     <div class="builder">
       <label
@@ -287,41 +331,47 @@
             >{/if}
         </div>
       </fieldset>
-      <div class="paste">
-        <div class="paste-head">
-          <label for="feed-models">Models</label>
-          <span class="examples"
-            >Example: <button type="button" on:click={() => showExample("json")}
-              >/model/info JSON</button
-            >
-            <button type="button" on:click={() => showExample("yaml")}
-              >config.yaml</button
-            ></span
+      <fieldset class="models">
+        <legend>Models <span>(none means all)</span></legend>
+        <div class="provider-tools">
+          <input
+            type="search"
+            bind:value={modelQuery}
+            placeholder="Filter models"
+            aria-label="Filter models"
+          />
+          <button type="button" disabled={!picked.length} on:click={clearPicked}
+            >Clear</button
+          >
+          <span class="hint"
+            >{picked.length} selected{catalogState === "loading"
+              ? ", loading the catalog…"
+              : ""}</span
           >
         </div>
-        <textarea
-          id="feed-models"
-          bind:value={pasted}
-          rows="4"
-          placeholder="Paste your proxy's /model/info or /v1/models JSON, its config.yaml, or model ids and names one per line"
-        ></textarea>
-        <label class="check"
-          ><input
-            type="checkbox"
-            bind:checked={everyProvider}
-            on:change={() =>
-              track("Changelog Feed Builder Changed", {
-                field: "everyProvider",
-                value: everyProvider,
-              })}
-          /> Follow these models on every provider</label
-        >
+        <div class="model-grid">
+          {#each modelMatches.names as name (name)}<label class="check"
+              ><input
+                type="checkbox"
+                bind:group={picked}
+                value={name}
+                on:change={pickedChanged}
+              />
+              {name}</label
+            >{/each}
+          {#if modelMatches.hidden}<span class="hint"
+              >+{modelMatches.hidden} more, type to narrow</span
+            >{/if}
+          {#if !modelMatches.names.length}<span class="hint"
+              >No model matches "{modelQuery}"</span
+            >{/if}
+        </div>
         <span class="hint"
-          >{#if models.length}{`Following ${shownNames}${everyProvider ? " on every provider" : " as pasted"}, ${seen} changed in the last 30 days.`}{:else}Run
-            <code>curl $PROXY/model/info -H "Authorization: Bearer $KEY"</code>
-            and paste the response, or paste the model_list from your config.yaml.{/if}</span
+          >{picked.length
+            ? `Following ${shownNames}, ${seen} changed in the last 30 days.`
+            : "Pick the models you run. A name follows the model on every provider that lists it."}</span
         >
-      </div>
+      </fieldset>
       <div class="output">
         <code>{url}</code><button type="button" on:click={() => copy("url")}
           >{copied === "url" ? "Copied" : "Copy URL"}</button
@@ -336,11 +386,7 @@
       </div>
       {#if copyError}<p class="hint" role="alert">{copyError}</p>{/if}
       <p class="hint">
-        With the switch on, each pasted id becomes its catalog name, so a
-        Bedrock <code>anthropic.claude-sonnet-4-5-20250929-v1:0</code> follows
-        Claude Sonnet 4.5 on Azure and Vertex too. Off, ids match on their last
-        path segment, so <code>azure/gpt-5</code> follows <code>gpt-5</code>. A
-        time window posts once it closes and the catalog has rebuilt, up to 15
+        A time window posts once it closes and the catalog has rebuilt, up to 15
         minutes later.
       </p>
     </div>
@@ -556,17 +602,8 @@
     padding: 0;
     width: auto;
   }
-  .builder textarea {
-    font: inherit;
-    font-size: 12px;
-    color: inherit;
-    border: 1px solid var(--hf-line);
-    border-radius: var(--control-radius);
-    padding: 10px 14px;
-    background: var(--hf-bg);
-    resize: vertical;
-  }
-  .builder .providers {
+  .builder .providers,
+  .builder .models {
     display: grid;
     gap: 8px;
   }
@@ -593,7 +630,8 @@
   .provider-tools button:disabled {
     opacity: 0.5;
   }
-  .provider-grid {
+  .provider-grid,
+  .model-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 4px 12px;
@@ -603,28 +641,6 @@
     border: 1px solid var(--hf-line);
     border-radius: var(--control-radius);
     background: var(--hf-bg);
-  }
-  .builder .paste {
-    display: grid;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--hf-muted);
-  }
-  .paste-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .examples button {
-    border: 0;
-    background: none;
-    padding: 0;
-    font: inherit;
-    font-size: 12px;
-    color: var(--hf-accent);
-    text-decoration: underline;
-    cursor: pointer;
   }
   .output {
     display: flex;
@@ -652,9 +668,6 @@
     font-size: 11px;
     color: var(--hf-muted);
     margin: 0;
-  }
-  .hint code {
-    font-size: 11px;
   }
   .tools {
     display: flex;

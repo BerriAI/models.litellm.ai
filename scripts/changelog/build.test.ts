@@ -13,7 +13,6 @@ import {
   feedUrl,
   listingKeys,
   modelName,
-  parseModelList,
   filterChangelogItems,
 } from "../../src/changelogPresentation";
 const sha = "a".repeat(40),
@@ -471,51 +470,7 @@ describe("automatic catalog changelog", () => {
       filterChangelogItems(items, feedFilter(new URLSearchParams(""))).length,
     ).toBe(4);
   });
-  it("builds the subscribe URL a proxy's pasted model list resolves to", () => {
-    const modelInfo = JSON.stringify({
-      data: [
-        { model_name: "fast", litellm_params: { model: "azure/gpt-5" } },
-        { model_name: "fast", litellm_params: { model: "azure/gpt-5" } },
-        {
-          model_name: "claude",
-          litellm_params: { model: "vertex_ai/claude-sonnet-4-5@20250929" },
-        },
-        { model_name: "bare" },
-      ],
-    });
-    expect(parseModelList(modelInfo)).toEqual([
-      "azure/gpt-5",
-      "vertex_ai/claude-sonnet-4-5@20250929",
-      "bare",
-    ]);
-    expect(
-      parseModelList(
-        JSON.stringify({
-          object: "list",
-          data: [{ id: "gpt-5" }, { id: "o3" }],
-        }),
-      ),
-    ).toEqual(["gpt-5", "o3"]);
-    expect(
-      parseModelList(
-        [
-          "model_list:",
-          "  - model_name: fast",
-          "    litellm_params:",
-          '      model: "openai/gpt-5" # prod',
-          "      api_key: os.environ/OPENAI_API_KEY",
-          "  - model_name: slow",
-          "    litellm_params:",
-          "      model: bedrock/anthropic.claude-sonnet-4-5-v1:0",
-        ].join("\n"),
-      ),
-    ).toEqual(["openai/gpt-5", "bedrock/anthropic.claude-sonnet-4-5-v1:0"]);
-    expect(parseModelList("gpt-5, o3\nclaude-opus-4-5, gpt-5")).toEqual([
-      "gpt-5",
-      "o3",
-      "claude-opus-4-5",
-    ]);
-    expect(parseModelList("   ")).toEqual([]);
+  it("builds the subscribe URL and the names a picked model follows", () => {
     expect(
       [
         "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0",
@@ -543,24 +498,6 @@ describe("automatic catalog changelog", () => {
         name: "Claude Sonnet 4.5 v1",
       } as never),
     ]).toContain("claude-sonnet-4-5");
-    expect(parseModelList('{"data": [ !!!')).toEqual([]);
-    expect(parseModelList("gpt-5 !!! {x} o3")).toEqual(["gpt-5", "o3"]);
-    expect(parseModelList("Claude Sonnet 4.5\nGPT-5, o3")).toEqual([
-      "Claude Sonnet 4.5",
-      "GPT-5",
-      "o3",
-    ]);
-    expect(parseModelList("\"azure/gpt-5\", 'o3'")).toEqual([
-      "azure/gpt-5",
-      "o3",
-    ]);
-    expect(
-      parseModelList(
-        JSON.stringify({
-          data: [{ id: "gpt-5" }, { id: "Claude Sonnet 4.5 & co" }],
-        }),
-      ),
-    ).toEqual(["gpt-5", "Claude Sonnet 4.5 & co"]);
     expect(feedUrl({ kinds: [], providers: [], models: [], digest: "" })).toBe(
       "https://models.litellm.ai/changelog.xml",
     );

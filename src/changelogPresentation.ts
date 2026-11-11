@@ -449,58 +449,6 @@ export const listingKeys = (entry: ChangedListing) =>
     slug(entry.name),
     slug(modelName(entry.modelId)),
   ]);
-/**
- * Model ids out of whatever a user pastes from their proxy: the JSON of
- * `/model/info` (`litellm_params.model`) or `/v1/models` (`id`), a
- * `config.yaml` with `model:` lines, or ids and display names one per line or
- * comma-separated. A line of several ids separated by spaces also works unless
- * every word looks like an id, when it is read as one display name such as
- * `Claude Sonnet 4.5`. Order kept, duplicates dropped.
- */
-const MODEL_ID = /^[A-Za-z0-9][\w.\-:/@+]*$/;
-const DISPLAY_NAME = /^[A-Za-z0-9][\w.\-:/@+]*( [\w.\-:/@+]+)*$/;
-const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, "");
-
-export function parseModelList(text: string): string[] {
-  const ids: string[] = [];
-  const add = (value: unknown) => {
-    if (typeof value === "string" && value.trim()) ids.push(value.trim());
-  };
-  try {
-    const json = JSON.parse(text) as unknown;
-    const rows = Array.isArray(json)
-      ? json
-      : Array.isArray((json as { data?: unknown })?.data)
-        ? (json as { data: unknown[] }).data
-        : [json];
-    for (const row of rows) {
-      if (typeof row === "string") add(row);
-      else if (row && typeof row === "object") {
-        const r = row as {
-          litellm_params?: { model?: unknown };
-          model_name?: unknown;
-          id?: unknown;
-        };
-        add(r.litellm_params?.model ?? r.model_name ?? r.id);
-      }
-    }
-  } catch {
-    if (/^\s*[[{]/.test(text)) return [];
-    const yaml = [...text.matchAll(/^\s*-?\s*model:\s*["']?([^\s"'#]+)/gm)];
-    for (const [, id] of yaml) add(id);
-    if (!yaml.length)
-      for (const line of text.split(/[\n,]+/).map(unquote)) {
-        if (DISPLAY_NAME.test(line)) add(line);
-        else
-          line
-            .split(/\s+/)
-            .map(unquote)
-            .filter((token) => MODEL_ID.test(token))
-            .forEach(add);
-      }
-  }
-  return [...new Set(ids.map(unquote))];
-}
 /** The query string the page's RSS link carries for its current tab and provider. */
 export function feedQuery(kind: string, provider: string): string {
   const params = new URLSearchParams();

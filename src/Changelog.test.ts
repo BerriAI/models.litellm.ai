@@ -5,7 +5,12 @@ import Changelog from "./Changelog.svelte";
 import Main from "./Main.svelte";
 import { track, trackPageView } from "./analytics";
 import snapshot from "../scripts/changelog/seed.json";
-import { modelName } from "./changelogPresentation";
+const catalog = {
+  "azure/gpt-5": { litellm_provider: "azure", mode: "chat" },
+  "gpt-5": { litellm_provider: "openai", mode: "chat" },
+  "vertex_ai/claude-sonnet-4-5@20250929": { litellm_provider: "vertex_ai" },
+  "never-changed": { litellm_provider: "azure" },
+};
 vi.mock("svelte", () =>
   vi.importActual<typeof import("svelte")>("svelte/internal"),
 );
@@ -22,7 +27,13 @@ beforeEach(() => {
   window.history.replaceState({}, "", "/changelog");
   vi.stubGlobal(
     "fetch",
-    vi.fn(async () => new Response(JSON.stringify(snapshot))),
+    vi.fn(async (input: RequestInfo | URL) =>
+      String(input).includes("model_prices")
+        ? new Response(JSON.stringify(catalog))
+        : String(input).includes("models.dev")
+          ? new Response("{}")
+          : new Response(JSON.stringify(snapshot)),
+    ),
   );
 });
 afterEach(() => {
@@ -140,22 +151,54 @@ describe("Changelog page", () => {
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
     );
   });
-  it("builds a feed URL and Slack command from a pasted proxy model list", async () => {
+  const openBuilder = async () => {
+    const details = document.querySelector<HTMLDetailsElement>(".subscribe")!;
+    details.open = true;
+    details.dispatchEvent(new Event("toggle"));
+    await vi.waitFor(() =>
+      expect(document.body.textContent).not.toContain("loading the catalog"),
+    );
+  };
+  const modelBoxes = () =>
+    Array.from(
+      document.querySelectorAll<HTMLInputElement>(".model-grid input"),
+    );
+  it("builds a feed URL and Slack command from picked model names", async () => {
     const writeText = vi.fn(async () => undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
     component = new Changelog({ target: document.body });
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
     );
-    const known = snapshot.updates[0].entries[0].modelId;
-    const textarea = document.querySelector("textarea")!;
-    textarea.value = JSON.stringify({
-      data: [
-        { model_name: "a", litellm_params: { model: known } },
-        { model_name: "b", litellm_params: { model: "azure/never-changed" } },
-      ],
-    });
-    textarea.dispatchEvent(new Event("input"));
+    await openBuilder();
+    expect(track).toHaveBeenCalledWith("Changelog Feed Builder Opened");
+    expect(modelBoxes()).toHaveLength(200);
+    expect(document.body.textContent).toMatch(/\+\d+ more, type to narrow/);
+    const filter = document.querySelector<HTMLInputElement>(
+      ".models .provider-tools input",
+    )!;
+    const narrow = async (q: string) => {
+      filter.value = q;
+      filter.dispatchEvent(new Event("input"));
+      await tick();
+      return modelBoxes().map((i) => i.value);
+    };
+    const gpt5 = await narrow("gpt-5");
+    expect(gpt5.filter((n) => n === "GPT-5")).toHaveLength(1);
+    expect(gpt5.every((n) => n.toLowerCase().includes("gpt-5"))).toBe(true);
+    expect(await narrow("sonnet 4.5")).toContain("Claude Sonnet 4.5");
+    await narrow("never");
+    expect(modelBoxes().map((i) => i.value)).toEqual(["Never Changed"]);
+    modelBoxes()[0].click();
+    await tick();
+    filter.value = "rosalind";
+    filter.dispatchEvent(new Event("input"));
+    await tick();
+    expect(modelBoxes().map((i) => i.value)).toEqual([
+      "Never Changed",
+      "GPT-6 Rosalind",
+    ]);
+    modelBoxes()[1].click();
     await tick();
     const digest =
       document.querySelector<HTMLSelectElement>(".builder select")!;
@@ -170,23 +213,16 @@ describe("Changelog page", () => {
     const outputs = Array.from(document.querySelectorAll(".output code")).map(
       (c) => c.textContent,
     );
-    const knownName = modelName(known);
     expect(outputs[0]).toBe(
-      `https://models.litellm.ai/changelog.xml?models=${encodeURIComponent(knownName)},Never%20Changed&digest=1h`,
+      "https://models.litellm.ai/changelog.xml?models=Never%20Changed,GPT-6%20Rosalind&digest=1h",
     );
     expect(document.body.textContent).toContain(
-      `Following ${knownName}, Never Changed on every provider, 1 changed in the last 30 days.`,
+      "Following Never Changed, GPT-6 Rosalind, 1 changed in the last 30 days.",
     );
-    const everyProvider = document.querySelector<HTMLInputElement>(
-      ".paste input[type=checkbox]",
-    )!;
-    everyProvider.click();
-    await tick();
-    expect(document.querySelector(".output code")?.textContent).toBe(
-      `https://models.litellm.ai/changelog.xml?models=${known},azure/never-changed&digest=1h`,
-    );
-    everyProvider.click();
-    await tick();
+    expect(track).toHaveBeenCalledWith("Changelog Feed Builder Changed", {
+      field: "models",
+      value: 2,
+    });
     expect(outputs[1]).toBe(`/feed subscribe ${outputs[0]}`);
     Array.from(document.querySelectorAll<HTMLButtonElement>(".output button"))
       .find((b) => b.textContent === "Copy Slack command")!
@@ -200,8 +236,41 @@ describe("Changelog page", () => {
       providers: [],
       models: 2,
     });
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        ".models .provider-tools button",
+      ),
+    )
+      .find((b) => b.textContent === "Clear")!
+      .click();
+    await tick();
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml?digest=1h",
+    );
   });
-  it("picks providers from a filterable checklist and fills the Models box from an example", async () => {
+  it("narrows the model list to the picked providers and keeps picking when the catalog fails", async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) =>
+      String(input).includes("model_prices")
+        ? new Response("down", { status: 500 })
+        : new Response(JSON.stringify(snapshot)),
+    );
+    component = new Changelog({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+    );
+    await openBuilder();
+    const all = modelBoxes().length;
+    expect(all).toBeGreaterThan(1);
+    expect(modelBoxes().map((i) => i.value)).not.toContain("Never Changed");
+    document
+      .querySelector<HTMLInputElement>('.provider-grid input[value="openai"]')!
+      .click();
+    await tick();
+    const shown = modelBoxes().map((i) => i.value);
+    expect(shown).toContain("GPT-6 Rosalind");
+    expect(shown.length).toBeLessThan(all);
+  });
+  it("picks providers from a filterable checklist", async () => {
     component = new Changelog({ target: document.body });
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
@@ -238,19 +307,6 @@ describe("Changelog page", () => {
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml",
     );
-    Array.from(document.querySelectorAll<HTMLButtonElement>(".examples button"))
-      .find((b) => b.textContent === "config.yaml")!
-      .click();
-    await tick();
-    expect(document.querySelector("textarea")!.value).toContain(
-      "model: azure/gpt-5",
-    );
-    expect(document.querySelector(".output code")?.textContent).toBe(
-      "https://models.litellm.ai/changelog.xml?models=GPT-5,Claude%20Sonnet%204.5,Gemini%202.5%20Pro",
-    );
-    expect(track).toHaveBeenCalledWith("Changelog Feed Example Shown", {
-      format: "yaml",
-    });
   });
   it("opens the builder prefilled from a shared link's query string", async () => {
     window.history.replaceState(
@@ -268,27 +324,19 @@ describe("Changelog page", () => {
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml?kind=price&providers=azure&models=azure/gpt-5,Claude%20Sonnet%204.5&digest=4h",
     );
-    expect(
-      document.querySelector<HTMLInputElement>(".paste input[type=checkbox]")!
-        .checked,
-    ).toBe(false);
-    component.$destroy();
-    document.body.innerHTML = "";
-    window.history.replaceState(
-      {},
-      "",
-      "/changelog?models=Claude%20Sonnet%204.5,GPT-5&digest=1h",
-    );
-    component = new Changelog({ target: document.body });
     await vi.waitFor(() =>
-      expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+      expect(document.body.textContent).not.toContain("loading the catalog"),
     );
+    const checked = Array.from(
+      document.querySelectorAll<HTMLInputElement>(".model-grid input"),
+    )
+      .filter((i) => i.checked)
+      .map((i) => i.value);
+    expect(checked).toEqual(["azure/gpt-5", "Claude Sonnet 4.5"]);
     expect(
-      document.querySelector<HTMLInputElement>(".paste input[type=checkbox]")!
-        .checked,
-    ).toBe(true);
-    expect(document.querySelector(".output code")?.textContent).toBe(
-      "https://models.litellm.ai/changelog.xml?models=Claude%20Sonnet%204.5,GPT-5&digest=1h",
-    );
+      document.querySelector<HTMLInputElement>(
+        '.provider-grid input[value="azure"]',
+      )!.checked,
+    ).toBeTruthy();
   });
 });
