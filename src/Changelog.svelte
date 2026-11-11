@@ -16,10 +16,11 @@
     feedUrl,
     listingKeys,
     modelKey,
+    modelMatcher,
+    modelName,
   } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
   import { loadCatalogData } from "./catalogData";
-  import { humanizeModelId } from "./modelMeta";
   let updates: CatalogUpdate[] = [];
   let providerNames: Record<string, string> = {};
   let generatedAt = "";
@@ -115,7 +116,7 @@
     try {
       const { items } = await loadCatalogData(false, "");
       catalogModels = items.map((item) => ({
-        name: humanizeModelId(item.name),
+        name: modelName(item.name),
         provider:
           typeof item.litellm_provider === "string"
             ? item.litellm_provider
@@ -170,30 +171,47 @@
       if (provider) map.get(name)!.add(provider);
     };
     for (const update of updates)
-      for (const entry of update.entries) add(entry.name, update.provider);
+      for (const entry of update.entries)
+        add(modelName(entry.modelId), update.provider);
     for (const model of catalogModels) add(model.name, model.provider);
     return map;
   })();
+  $: pattern = modelQuery.includes("*") ? modelQuery.trim() : "";
   $: modelMatches = (() => {
     const q = modelQuery.trim().toLowerCase();
+    const wildcard = pattern ? modelMatcher([pattern]) : null;
     const onProviders = (name: string) =>
       !feedProviders.length ||
       [...(modelProviders.get(name) ?? [])].some((p) =>
         feedProviders.includes(p),
       );
-    const rest = [...modelProviders.keys()]
-      .filter(
-        (name) =>
-          !picked.includes(name) &&
-          onProviders(name) &&
-          (!q || name.toLowerCase().includes(q)),
-      )
-      .sort((a, b) => a.localeCompare(b));
+    const rest =
+      !q && !feedProviders.length
+        ? []
+        : [...modelProviders.keys()]
+            .filter(
+              (name) =>
+                !picked.includes(name) &&
+                onProviders(name) &&
+                (!q ||
+                  (wildcard
+                    ? wildcard([modelKey(name)])
+                    : name.toLowerCase().includes(q))),
+            )
+            .sort((a, b) => a.localeCompare(b));
+    const rows = [
+      ...picked,
+      ...(pattern && !picked.includes(pattern) ? [pattern] : []),
+      ...rest.slice(0, SHOWN_MODELS),
+    ];
     return {
-      names: [...picked, ...rest.slice(0, SHOWN_MODELS)],
+      names: rows,
+      matched: rest.length,
       hidden: Math.max(0, rest.length - SHOWN_MODELS),
     };
   })();
+  const rowLabel = (name: string) =>
+    name.includes("*") ? `All matching ${name}` : name;
   $: followed = picked;
   $: url = feedUrl({
     kinds,
@@ -202,10 +220,16 @@
     digest,
   });
   $: slackCommand = `/feed subscribe ${url}`;
-  $: changedKeys = new Set(
-    items.flatMap((item) => item.entries.flatMap((e) => [...listingKeys(e)])),
-  );
-  $: seen = followed.filter((id) => changedKeys.has(modelKey(id))).length;
+  $: wanted = modelMatcher(followed);
+  $: seen = wanted
+    ? new Set(
+        items.flatMap((item) =>
+          item.entries
+            .filter((e) => wanted(listingKeys(e)))
+            .map((e) => modelName(e.modelId)),
+        ),
+      ).size
+    : 0;
   $: shownNames =
     followed.slice(0, 6).join(", ") +
     (followed.length > 6 ? ` +${followed.length - 6} more` : "");
@@ -357,19 +381,22 @@
                 value={name}
                 on:change={pickedChanged}
               />
-              {name}</label
+              {rowLabel(name)}</label
             >{/each}
           {#if modelMatches.hidden}<span class="hint"
               >+{modelMatches.hidden} more, type to narrow</span
             >{/if}
-          {#if !modelMatches.names.length}<span class="hint"
-              >No model matches "{modelQuery}"</span
+          {#if !modelMatches.matched && !picked.length && !pattern}<span
+              class="hint"
+              >{modelQuery.trim()
+                ? `No model matches "${modelQuery}"`
+                : "Tick a provider above to list its models, or type a name here. gpt-5* follows every GPT-5 model."}</span
             >{/if}
         </div>
         <span class="hint"
           >{picked.length
             ? `Following ${shownNames}, ${seen} changed in the last 30 days.`
-            : "Pick the models you run. A name follows the model on every provider that lists it."}</span
+            : "A name follows the model on every provider that lists it."}</span
         >
       </fieldset>
       <div class="output">

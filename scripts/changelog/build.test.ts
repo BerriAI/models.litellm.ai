@@ -464,6 +464,20 @@ describe("automatic catalog changelog", () => {
       ["model", "Alpha added on Newco"],
     ]);
     expect(only("models=nobody")).toEqual([]);
+    expect(ids("models=gpt*")).toEqual(["p1"]);
+    expect(ids("models=GPT-5*")).toEqual(["p1"]);
+    expect(ids("models=*sonnet*")).toEqual(["p2"]);
+    expect(ids("models=Claude%20Sonnet*")).toEqual(["p2"]);
+    expect(ids("models=fireworks_ai/accounts/fireworks/models/*")).toEqual([
+      "m1",
+    ]);
+    expect(ids("models=k*,q*")).toEqual(["m1"]);
+    expect(only("models=k*,q*")[0].entries.map((e) => e.name)).toEqual([
+      "Kimi",
+      "Qwen",
+    ]);
+    expect(ids("models=*")).toEqual(["p1", "p2", "m1", "n1"]);
+    expect(ids("models=sonnet*")).toEqual([]);
     expect(only("models=gpt-5&providers=vertex_ai")).toEqual([]);
     expect(only("models=gpt-5&kind=model")).toEqual([]);
     expect(

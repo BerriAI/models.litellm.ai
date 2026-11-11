@@ -172,8 +172,10 @@ describe("Changelog page", () => {
     );
     await openBuilder();
     expect(track).toHaveBeenCalledWith("Changelog Feed Builder Opened");
-    expect(modelBoxes()).toHaveLength(200);
-    expect(document.body.textContent).toMatch(/\+\d+ more, type to narrow/);
+    expect(modelBoxes()).toHaveLength(0);
+    expect(document.body.textContent).toContain(
+      "Tick a provider above to list its models",
+    );
     const filter = document.querySelector<HTMLInputElement>(
       ".models .provider-tools input",
     )!;
@@ -187,6 +189,9 @@ describe("Changelog page", () => {
     expect(gpt5.filter((n) => n === "GPT-5")).toHaveLength(1);
     expect(gpt5.every((n) => n.toLowerCase().includes("gpt-5"))).toBe(true);
     expect(await narrow("sonnet 4.5")).toContain("Claude Sonnet 4.5");
+    const haiku = await narrow("haiku 4.5");
+    expect(haiku).toContain("Claude Haiku 4.5");
+    expect(haiku.some((n) => / v\d$/.test(n))).toBe(false);
     await narrow("never");
     expect(modelBoxes().map((i) => i.value)).toEqual(["Never Changed"]);
     modelBoxes()[0].click();
@@ -247,6 +252,24 @@ describe("Changelog page", () => {
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml?digest=1h",
     );
+    const wild = await narrow("gpt-6*");
+    expect(wild[0]).toBe("gpt-6*");
+    expect(modelBoxes()[0].parentElement?.textContent?.trim()).toBe(
+      "All matching gpt-6*",
+    );
+    expect(wild.slice(1)).toContain("GPT-6 Rosalind");
+    expect(
+      wild.slice(1).every((n) => n.toLowerCase().startsWith("gpt-6")),
+    ).toBe(true);
+    modelBoxes()[0].click();
+    await tick();
+    expect(await narrow("")).toEqual(["gpt-6*"]);
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml?models=gpt-6*&digest=1h",
+    );
+    expect(document.body.textContent).toMatch(
+      /Following gpt-6\*, [1-9]\d* changed in the last 30 days\./,
+    );
   });
   it("narrows the model list to the picked providers and keeps picking when the catalog fails", async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) =>
@@ -259,16 +282,23 @@ describe("Changelog page", () => {
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
     );
     await openBuilder();
-    const all = modelBoxes().length;
-    expect(all).toBeGreaterThan(1);
-    expect(modelBoxes().map((i) => i.value)).not.toContain("Never Changed");
+    expect(modelBoxes()).toHaveLength(0);
     document
       .querySelector<HTMLInputElement>('.provider-grid input[value="openai"]')!
       .click();
     await tick();
     const shown = modelBoxes().map((i) => i.value);
     expect(shown).toContain("GPT-6 Rosalind");
-    expect(shown.length).toBeLessThan(all);
+    expect(shown).not.toContain("Never Changed");
+    expect(shown).not.toContain("Claude Haiku 4.5");
+    const filter = document.querySelector<HTMLInputElement>(
+      ".models .provider-tools input",
+    )!;
+    filter.value = "haiku";
+    filter.dispatchEvent(new Event("input"));
+    await tick();
+    expect(modelBoxes()).toHaveLength(0);
+    expect(document.body.textContent).toContain('No model matches "haiku"');
   });
   it("picks providers from a filterable checklist", async () => {
     component = new Changelog({ target: document.body });

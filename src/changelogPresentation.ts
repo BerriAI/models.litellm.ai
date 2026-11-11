@@ -457,11 +457,34 @@ export function feedQuery(kind: string, provider: string): string {
   const query = params.toString();
   return query ? `?${query}` : "";
 }
+/**
+ * Whether a listing's `listingKeys` hit any followed model. A plain entry
+ * matches on its `modelKey`; an entry with `*` is a wildcard over the slugged
+ * keys, so `gpt-5*` follows GPT-5, GPT-5 Mini and GPT-5.1 and `*sonnet*` any
+ * Sonnet. Null when nothing usable was asked for, which means follow all.
+ */
+export function modelMatcher(
+  models: string[],
+): ((keys: Iterable<string>) => boolean) | null {
+  const exact = new Set(
+    models.filter((m) => !m.includes("*")).map((m) => modelKey(m)),
+  );
+  const patterns = models
+    .filter((m) => m.includes("*"))
+    .map((m) => m.split("*").map(slug))
+    .filter((pieces) => pieces.some(Boolean))
+    .map((pieces) => new RegExp(`^${pieces.join(".*")}$`));
+  if (!exact.size && !patterns.length) return null;
+  return (keys) =>
+    [...keys].some(
+      (key) => exact.has(key) || patterns.some((re) => re.test(key)),
+    );
+}
 export function filterChangelogItems(
   items: ChangelogItem[],
   filter: FeedFilter,
 ): ChangelogItem[] {
-  const wanted = new Set(filter.models.map(modelKey));
+  const wanted = modelMatcher(filter.models);
   return items.flatMap((item) => {
     if (
       (filter.kinds.length
@@ -470,10 +493,8 @@ export function filterChangelogItems(
       (filter.providers.length && !filter.providers.includes(item.provider))
     )
       return [];
-    if (!wanted.size) return [item];
-    const entries = item.entries.filter((entry) =>
-      [...listingKeys(entry)].some((key) => wanted.has(key)),
-    );
+    if (!wanted) return [item];
+    const entries = item.entries.filter((entry) => wanted(listingKeys(entry)));
     if (!entries.length) return [];
     // A new provider narrowed to the models a reader follows reads as those
     // models being added, not as the whole provider arriving.
