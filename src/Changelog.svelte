@@ -16,6 +16,7 @@
     feedUrl,
     listingKeys,
     modelKey,
+    modelName,
     parseModelList,
   } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
@@ -30,10 +31,28 @@
   let visibleCount = 40;
   let expanded = new Set<string>();
   let builderOpen = false;
+  const EXAMPLES = {
+    json: `{"data": [
+  {"model_name": "gpt-5", "litellm_params": {"model": "azure/gpt-5"}},
+  {"model_name": "claude", "litellm_params": {"model": "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0"}},
+  {"model_name": "gemini", "litellm_params": {"model": "vertex_ai/gemini-2.5-pro"}}
+]}`,
+    yaml: `model_list:
+  - model_name: gpt-5
+    litellm_params:
+      model: azure/gpt-5
+  - model_name: claude
+    litellm_params:
+      model: bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0
+  - model_name: gemini
+    litellm_params:
+      model: vertex_ai/gemini-2.5-pro`,
+  };
   let digest = "";
   let kinds: string[] = [];
   let feedProviders: string[] = [];
-  let providerToAdd = "";
+  let providerQuery = "";
+  let everyProvider = true;
   let pasted = "";
   let copied = "";
   let copyError = "";
@@ -96,6 +115,7 @@
         .filter(Boolean)
         .join("\n");
       digest = preset.digest;
+      everyProvider = parseModelList(pasted).every((m) => modelName(m) === m);
       builderOpen = true;
     }
     void load();
@@ -128,16 +148,39 @@
     expanded = new Set(expanded);
   }
   $: models = parseModelList(pasted);
-  $: url = feedUrl({ kinds, providers: feedProviders, models, digest });
+  $: providerMatches = providers.filter((id) => {
+    const q = providerQuery.trim().toLowerCase();
+    return !q || id.includes(q) || providerName(id).toLowerCase().includes(q);
+  });
+  $: followed = everyProvider ? [...new Set(models.map(modelName))] : models;
+  $: url = feedUrl({
+    kinds,
+    providers: feedProviders,
+    models: followed,
+    digest,
+  });
   $: slackCommand = `/feed subscribe ${url}`;
   $: changedKeys = new Set(
     items.flatMap((item) => item.entries.flatMap((e) => [...listingKeys(e)])),
   );
-  $: seen = models.filter((id) => changedKeys.has(modelKey(id))).length;
-  function addProvider() {
-    if (providerToAdd && !feedProviders.includes(providerToAdd))
-      feedProviders = [...feedProviders, providerToAdd];
-    providerToAdd = "";
+  $: seen = followed.filter((id) => changedKeys.has(modelKey(id))).length;
+  $: shownNames =
+    followed.slice(0, 6).join(", ") +
+    (followed.length > 6 ? ` +${followed.length - 6} more` : "");
+  function selectProviders(ids: string[]) {
+    feedProviders = [...new Set([...feedProviders, ...ids])];
+    track("Changelog Feed Builder Changed", {
+      field: "providers",
+      value: feedProviders.length,
+    });
+  }
+  function clearProviders() {
+    feedProviders = [];
+    track("Changelog Feed Builder Changed", { field: "providers", value: 0 });
+  }
+  function showExample(format: keyof typeof EXAMPLES) {
+    pasted = EXAMPLES[format];
+    track("Changelog Feed Example Shown", { format });
   }
   async function copy(what: "url" | "slack") {
     copyError = "";
@@ -154,7 +197,7 @@
       digest,
       kind: kinds,
       providers: feedProviders,
-      models: models.length,
+      models: followed.length,
     });
   }
   function reset() {
@@ -211,33 +254,74 @@
             {filter.label}</label
           >{/each}
       </fieldset>
-      <label
-        >Providers
-        <select bind:value={providerToAdd} on:change={addProvider}
-          ><option value="">Add a provider…</option
-          >{#each providers as id}<option value={id}>{providerName(id)}</option
-            >{/each}</select
-        ></label
-      >
-      {#if feedProviders.length}<div class="chips">
-          {#each feedProviders as id}<button
-              type="button"
-              on:click={() =>
-                (feedProviders = feedProviders.filter((p) => p !== id))}
-              >{providerName(id)} ×</button
+      <fieldset class="providers">
+        <legend>Providers <span>(none means all)</span></legend>
+        <div class="provider-tools">
+          <input
+            type="search"
+            bind:value={providerQuery}
+            placeholder="Filter providers"
+            aria-label="Filter providers"
+          />
+          <button
+            type="button"
+            on:click={() => selectProviders(providerMatches)}
+            >Select {providerQuery.trim() ? "shown" : "all"}</button
+          >
+          <button
+            type="button"
+            disabled={!feedProviders.length}
+            on:click={clearProviders}>Clear</button
+          >
+          <span class="hint"
+            >{feedProviders.length} of {providers.length} selected</span
+          >
+        </div>
+        <div class="provider-grid">
+          {#each providerMatches as id}<label class="check"
+              ><input type="checkbox" bind:group={feedProviders} value={id} />
+              {providerName(id)}</label
             >{/each}
-        </div>{/if}
-      <label class="paste"
-        >Models
+          {#if !providerMatches.length}<span class="hint"
+              >No provider matches "{providerQuery}"</span
+            >{/if}
+        </div>
+      </fieldset>
+      <div class="paste">
+        <div class="paste-head">
+          <label for="feed-models">Models</label>
+          <span class="examples"
+            >Example: <button type="button" on:click={() => showExample("json")}
+              >/model/info JSON</button
+            >
+            <button type="button" on:click={() => showExample("yaml")}
+              >config.yaml</button
+            ></span
+          >
+        </div>
         <textarea
+          id="feed-models"
           bind:value={pasted}
           rows="4"
           placeholder="Paste your proxy's /model/info or /v1/models JSON, its config.yaml, or model ids and names one per line"
         ></textarea>
-        {#if models.length}<span class="hint"
-            >{models.length} models, {seen} changed in the last 30 days</span
-          >{/if}</label
-      >
+        <label class="check"
+          ><input
+            type="checkbox"
+            bind:checked={everyProvider}
+            on:change={() =>
+              track("Changelog Feed Builder Changed", {
+                field: "everyProvider",
+                value: everyProvider,
+              })}
+          /> Follow these models on every provider</label
+        >
+        <span class="hint"
+          >{#if models.length}{`Following ${shownNames}${everyProvider ? " on every provider" : " as pasted"}, ${seen} changed in the last 30 days.`}{:else}Run
+            <code>curl $PROXY/model/info -H "Authorization: Bearer $KEY"</code>
+            and paste the response, or paste the model_list from your config.yaml.{/if}</span
+        >
+      </div>
       <div class="output">
         <code>{url}</code><button type="button" on:click={() => copy("url")}
           >{copied === "url" ? "Copied" : "Copy URL"}</button
@@ -252,9 +336,12 @@
       </div>
       {#if copyError}<p class="hint" role="alert">{copyError}</p>{/if}
       <p class="hint">
-        Model ids match on their last path segment, so <code>azure/gpt-5</code>
-        follows the catalog's <code>gpt-5</code>. A time window posts once it
-        closes and the catalog has rebuilt, up to 15 minutes later.
+        With the switch on, each pasted id becomes its catalog name, so a
+        Bedrock <code>anthropic.claude-sonnet-4-5-20250929-v1:0</code> follows
+        Claude Sonnet 4.5 on Azure and Vertex too. Off, ids match on their last
+        path segment, so <code>azure/gpt-5</code> follows <code>gpt-5</code>. A
+        time window posts once it closes and the catalog has rebuilt, up to 15
+        minutes later.
       </p>
     </div>
   </details>
@@ -479,17 +566,65 @@
     background: var(--hf-bg);
     resize: vertical;
   }
-  .chips {
+  .builder .providers {
+    display: grid;
+    gap: 8px;
+  }
+  .provider-tools {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
+    align-items: center;
   }
-  .chips button {
-    border: 1px solid var(--hf-line);
-    border-radius: 999px;
-    background: var(--hf-faint);
+  .provider-tools input {
+    flex: 1;
+    min-width: 160px;
     font-size: 12px;
-    padding: 3px 10px;
+    padding: 6px 10px;
+    min-height: 0;
+  }
+  .provider-tools button {
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    background: var(--hf-bg);
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  .provider-tools button:disabled {
+    opacity: 0.5;
+  }
+  .provider-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 4px 12px;
+    max-height: 190px;
+    overflow-y: auto;
+    padding: 8px 10px;
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    background: var(--hf-bg);
+  }
+  .builder .paste {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+    color: var(--hf-muted);
+  }
+  .paste-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .examples button {
+    border: 0;
+    background: none;
+    padding: 0;
+    font: inherit;
+    font-size: 12px;
+    color: var(--hf-accent);
+    text-decoration: underline;
+    cursor: pointer;
   }
   .output {
     display: flex;
