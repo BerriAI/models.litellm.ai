@@ -511,6 +511,15 @@ describe("automatic catalog changelog", () => {
     ]);
     expect(modelName("deepseek-v3")).not.toBe(modelName("deepseek-v2"));
     expect(modelName("whisper-large-v3")).toMatch(/v3$/i);
+    expect(
+      [
+        "anthropic.claude-opus-4-6-v1",
+        "global.anthropic.claude-opus-4-6-v1",
+        "anthropic.claude-opus-4-6-v1:0",
+      ].map(modelName),
+    ).toEqual(Array(3).fill(modelName("claude-opus-4-6")));
+    expect(modelName("anthropic.claude-instant-v1")).toMatch(/v1$/i);
+    expect(modelName("anthropic.claude-v2")).toMatch(/v2$/i);
     expect([
       ...listingKeys({
         modelId: "anthropic.claude-sonnet-4-5-20250929-v1:0",
