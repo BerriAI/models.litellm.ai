@@ -463,6 +463,12 @@ export function feedQuery(kind: string, provider: string): string {
  * keys, so `gpt-5*` follows GPT-5, GPT-5 Mini and GPT-5.1 and `*sonnet*` any
  * Sonnet and a bare `*` everything. Null when no model was asked for.
  */
+/** A `*` entry with nothing around it (`*`, `**`) is the unfiltered feed. */
+export function followsAll(models: string[]): boolean {
+  return models.some(
+    (m) => m.includes("*") && !m.split("*").map(slug).some(Boolean),
+  );
+}
 export function modelMatcher(
   models: string[],
 ): ((keys: Iterable<string>) => boolean) | null {
@@ -482,7 +488,7 @@ export function filterChangelogItems(
   items: ChangelogItem[],
   filter: FeedFilter,
 ): ChangelogItem[] {
-  const wanted = modelMatcher(filter.models);
+  const wanted = followsAll(filter.models) ? null : modelMatcher(filter.models);
   return items.flatMap((item) => {
     if (
       (filter.kinds.length
@@ -494,7 +500,6 @@ export function filterChangelogItems(
     if (!wanted) return [item];
     const entries = item.entries.filter((entry) => wanted(listingKeys(entry)));
     if (!entries.length) return [];
-    if (entries.length === item.entries.length) return [item];
     // A new provider narrowed to the models a reader follows reads as those
     // models being added, not as the whole provider arriving.
     if (item.kind === "model" || item.kind === "provider")
