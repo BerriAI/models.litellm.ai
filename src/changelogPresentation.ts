@@ -430,13 +430,14 @@ const slug = (s: string) =>
  */
 export const modelKey = (id: string) =>
   slug((id.split("/").pop() ?? id).replace(/@[^/]*$/, ""));
-const VERSION_TAG = /-v\d+:\d+$/i;
+const VERSION_TAG = /-v\d+:\d+$|(?<=\d)-v\d+$/i;
 /**
  * The catalog display name a pasted id stands for, so one entry follows the
  * model on every provider: `bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0`
  * and `vertex_ai/claude-sonnet-4-5@20250929` both give `Claude Sonnet 4.5`.
- * Bedrock's `-v1:0` tag (always with its `:M` revision, so `deepseek-v3` keeps
- * its version) is dropped first. Text with spaces is already a name.
+ * Bedrock's `-v1:0` tag is dropped first, and so is a bare `-v1` after a
+ * model version (`anthropic.claude-opus-4-6-v1`); `deepseek-v3` and
+ * `claude-instant-v1` keep theirs. Text with spaces is already a name.
  */
 export const modelName = (id: string) =>
   /\s/.test(id.trim())
@@ -449,58 +450,6 @@ export const listingKeys = (entry: ChangedListing) =>
     slug(entry.name),
     slug(modelName(entry.modelId)),
   ]);
-/**
- * Model ids out of whatever a user pastes from their proxy: the JSON of
- * `/model/info` (`litellm_params.model`) or `/v1/models` (`id`), a
- * `config.yaml` with `model:` lines, or ids and display names one per line or
- * comma-separated. A line of several ids separated by spaces also works unless
- * every word looks like an id, when it is read as one display name such as
- * `Claude Sonnet 4.5`. Order kept, duplicates dropped.
- */
-const MODEL_ID = /^[A-Za-z0-9][\w.\-:/@+]*$/;
-const DISPLAY_NAME = /^[A-Za-z0-9][\w.\-:/@+]*( [\w.\-:/@+]+)*$/;
-const unquote = (s: string) => s.trim().replace(/^["']|["']$/g, "");
-
-export function parseModelList(text: string): string[] {
-  const ids: string[] = [];
-  const add = (value: unknown) => {
-    if (typeof value === "string" && value.trim()) ids.push(value.trim());
-  };
-  try {
-    const json = JSON.parse(text) as unknown;
-    const rows = Array.isArray(json)
-      ? json
-      : Array.isArray((json as { data?: unknown })?.data)
-        ? (json as { data: unknown[] }).data
-        : [json];
-    for (const row of rows) {
-      if (typeof row === "string") add(row);
-      else if (row && typeof row === "object") {
-        const r = row as {
-          litellm_params?: { model?: unknown };
-          model_name?: unknown;
-          id?: unknown;
-        };
-        add(r.litellm_params?.model ?? r.model_name ?? r.id);
-      }
-    }
-  } catch {
-    if (/^\s*[[{]/.test(text)) return [];
-    const yaml = [...text.matchAll(/^\s*-?\s*model:\s*["']?([^\s"'#]+)/gm)];
-    for (const [, id] of yaml) add(id);
-    if (!yaml.length)
-      for (const line of text.split(/[\n,]+/).map(unquote)) {
-        if (DISPLAY_NAME.test(line)) add(line);
-        else
-          line
-            .split(/\s+/)
-            .map(unquote)
-            .filter((token) => MODEL_ID.test(token))
-            .forEach(add);
-      }
-  }
-  return [...new Set(ids.map(unquote))];
-}
 /** The query string the page's RSS link carries for its current tab and provider. */
 export function feedQuery(kind: string, provider: string): string {
   const params = new URLSearchParams();
@@ -509,11 +458,38 @@ export function feedQuery(kind: string, provider: string): string {
   const query = params.toString();
   return query ? `?${query}` : "";
 }
+/**
+ * Whether a listing's `listingKeys` hit any followed model. A plain entry
+ * matches on its `modelKey`; an entry with `*` is a wildcard over the slugged
+ * keys, so `gpt-5*` follows GPT-5, GPT-5 Mini and GPT-5.1 and `*sonnet*` any
+ * Sonnet and a bare `*` everything. Null when no model was asked for.
+ */
+/** A `*` entry with nothing around it (`*`, `**`) is the unfiltered feed. */
+export function followsAll(models: string[]): boolean {
+  return models.some(
+    (m) => m.includes("*") && !m.split("*").map(slug).some(Boolean),
+  );
+}
+export function modelMatcher(
+  models: string[],
+): ((keys: Iterable<string>) => boolean) | null {
+  const exact = new Set(
+    models.filter((m) => !m.includes("*")).map((m) => modelKey(m)),
+  );
+  const patterns = models
+    .filter((m) => m.includes("*"))
+    .map((m) => new RegExp(`^${m.split("*").map(slug).join(".*")}$`));
+  if (!exact.size && !patterns.length) return null;
+  return (keys) =>
+    [...keys].some(
+      (key) => exact.has(key) || patterns.some((re) => re.test(key)),
+    );
+}
 export function filterChangelogItems(
   items: ChangelogItem[],
   filter: FeedFilter,
 ): ChangelogItem[] {
-  const wanted = new Set(filter.models.map(modelKey));
+  const wanted = followsAll(filter.models) ? null : modelMatcher(filter.models);
   return items.flatMap((item) => {
     if (
       (filter.kinds.length
@@ -522,10 +498,8 @@ export function filterChangelogItems(
       (filter.providers.length && !filter.providers.includes(item.provider))
     )
       return [];
-    if (!wanted.size) return [item];
-    const entries = item.entries.filter((entry) =>
-      [...listingKeys(entry)].some((key) => wanted.has(key)),
-    );
+    if (!wanted) return [item];
+    const entries = item.entries.filter((entry) => wanted(listingKeys(entry)));
     if (!entries.length) return [];
     // A new provider narrowed to the models a reader follows reads as those
     // models being added, not as the whole provider arriving.

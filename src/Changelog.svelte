@@ -1,6 +1,6 @@
 <script lang="ts">
   import { track } from "./analytics";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import PageHero from "./PageHero.svelte";
   import {
     fieldLabel,
@@ -16,10 +16,11 @@
     feedUrl,
     listingKeys,
     modelKey,
+    modelMatcher,
     modelName,
-    parseModelList,
   } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
+  import { loadCatalogData } from "./catalogData";
   let updates: CatalogUpdate[] = [];
   let providerNames: Record<string, string> = {};
   let generatedAt = "";
@@ -31,29 +32,19 @@
   let visibleCount = 40;
   let expanded = new Set<string>();
   let builderOpen = false;
-  const EXAMPLES = {
-    json: `{"data": [
-  {"model_name": "gpt-5", "litellm_params": {"model": "azure/gpt-5"}},
-  {"model_name": "claude", "litellm_params": {"model": "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0"}},
-  {"model_name": "gemini", "litellm_params": {"model": "vertex_ai/gemini-2.5-pro"}}
-]}`,
-    yaml: `model_list:
-  - model_name: gpt-5
-    litellm_params:
-      model: azure/gpt-5
-  - model_name: claude
-    litellm_params:
-      model: bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0
-  - model_name: gemini
-    litellm_params:
-      model: vertex_ai/gemini-2.5-pro`,
-  };
+  const SHOWN_MODELS = 200;
+  const SHOWN_CHIPS = 5;
+  let listOpen = false;
+  let active = -1;
+  let modelInput: HTMLInputElement;
   let digest = "";
   let kinds: string[] = [];
   let feedProviders: string[] = [];
   let providerQuery = "";
-  let everyProvider = true;
-  let pasted = "";
+  let modelQuery = "";
+  let picked: string[] = [];
+  let catalogModels: { name: string; provider: string }[] = [];
+  let catalogState: "idle" | "loading" | "ready" | "failed" = "idle";
   let copied = "";
   let copyError = "";
   const filters: { id: UpdateKind | "all"; label: string }[] = [
@@ -109,17 +100,42 @@
     ) {
       kinds = preset.kinds;
       feedProviders = preset.providers;
-      pasted = (params.get("models") ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .join("\n");
+      picked = [
+        ...new Set(
+          (params.get("models") ?? "")
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean),
+        ),
+      ];
       digest = preset.digest;
-      everyProvider = parseModelList(pasted).every((m) => modelName(m) === m);
       builderOpen = true;
+      void loadCatalog();
     }
     void load();
   });
+  async function loadCatalog() {
+    if (catalogState !== "idle" && catalogState !== "failed") return;
+    catalogState = "loading";
+    try {
+      const { items } = await loadCatalogData(false, "");
+      catalogModels = items.map((item) => ({
+        name: modelName(item.name),
+        provider:
+          typeof item.litellm_provider === "string"
+            ? item.litellm_provider
+            : "",
+      }));
+      catalogState = "ready";
+    } catch {
+      catalogState = "failed";
+    }
+  }
+  function openBuilder() {
+    if (!builderOpen) return;
+    track("Changelog Feed Builder Opened");
+    void loadCatalog();
+  }
   $: items = changelogItems(updates, providerNames);
   $: providers = [...new Set(updates.map((u) => u.provider))].sort((a, b) =>
     providerName(a).localeCompare(providerName(b)),
@@ -147,12 +163,102 @@
     expanded.has(id) ? expanded.delete(id) : expanded.add(id);
     expanded = new Set(expanded);
   }
-  $: models = parseModelList(pasted);
   $: providerMatches = providers.filter((id) => {
     const q = providerQuery.trim().toLowerCase();
     return !q || id.includes(q) || providerName(id).toLowerCase().includes(q);
   });
-  $: followed = everyProvider ? [...new Set(models.map(modelName))] : models;
+  $: modelProviders = (() => {
+    const map = new Map<string, Set<string>>();
+    const add = (name: string, provider: string) => {
+      if (!name) return;
+      if (!map.has(name)) map.set(name, new Set());
+      if (provider) map.get(name)!.add(provider);
+    };
+    for (const update of updates)
+      for (const entry of update.entries)
+        add(modelName(entry.modelId), update.provider);
+    for (const model of catalogModels) add(model.name, model.provider);
+    return map;
+  })();
+  $: pattern = modelQuery.includes("*") ? modelQuery.trim() : "";
+  $: modelMatches = (() => {
+    const q = modelQuery.trim().toLowerCase();
+    const wildcard = pattern ? modelMatcher([pattern]) : null;
+    const onProviders = (name: string) =>
+      !feedProviders.length ||
+      [...(modelProviders.get(name) ?? [])].some((p) =>
+        feedProviders.includes(p),
+      );
+    const names =
+      !q && !feedProviders.length
+        ? []
+        : [...modelProviders.keys()]
+            .filter(
+              (name) =>
+                onProviders(name) &&
+                (!q ||
+                  (wildcard
+                    ? wildcard([modelKey(name)])
+                    : name.toLowerCase().includes(q))),
+            )
+            .sort((a, b) => a.localeCompare(b));
+    return {
+      options: [...(pattern ? [pattern] : []), ...names.slice(0, SHOWN_MODELS)],
+      matched: names.length,
+      hidden: Math.max(0, names.length - SHOWN_MODELS),
+    };
+  })();
+  $: if (active >= modelMatches.options.length) active = -1;
+  $: if (listOpen && active >= 0)
+    tick().then(() =>
+      document
+        .getElementById(optionId(active))
+        ?.scrollIntoView({ block: "nearest" }),
+    );
+  const rowLabel = (name: string) =>
+    name.includes("*") ? `All matching ${name}` : name;
+  const optionId = (index: number) => `model-option-${index}`;
+  function togglePick(name: string) {
+    picked = picked.includes(name)
+      ? picked.filter((n) => n !== name)
+      : [...picked, name];
+    modelQuery = "";
+    active = -1;
+    pickedChanged();
+  }
+  function unpick(name: string) {
+    picked = picked.filter((n) => n !== name);
+    pickedChanged();
+  }
+  function closeList(event: FocusEvent) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget instanceof Node) {
+      if (event.currentTarget.contains(next)) return;
+    }
+    listOpen = false;
+    active = -1;
+  }
+  function modelKeydown(event: KeyboardEvent) {
+    const n = modelMatches.options.length;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      listOpen = true;
+      if (!n) return;
+      if (event.key === "ArrowDown") active = (active + 1) % n;
+      else active = active < 0 ? n - 1 : (active - 1 + n) % n;
+    } else if (event.key === "Enter") {
+      if (!listOpen || active < 0 || active >= n) return;
+      event.preventDefault();
+      togglePick(modelMatches.options[active]);
+    } else if (event.key === "Escape") {
+      if (listOpen) event.preventDefault();
+      listOpen = false;
+      active = -1;
+    } else if (event.key === "Backspace" && !modelQuery && picked.length) {
+      unpick(picked[picked.length - 1]);
+    } else listOpen = true;
+  }
+  $: followed = picked;
   $: url = feedUrl({
     kinds,
     providers: feedProviders,
@@ -160,10 +266,16 @@
     digest,
   });
   $: slackCommand = `/feed subscribe ${url}`;
-  $: changedKeys = new Set(
-    items.flatMap((item) => item.entries.flatMap((e) => [...listingKeys(e)])),
-  );
-  $: seen = followed.filter((id) => changedKeys.has(modelKey(id))).length;
+  $: wanted = modelMatcher(followed);
+  $: seen = wanted
+    ? new Set(
+        items.flatMap((item) =>
+          item.entries
+            .filter((e) => wanted(listingKeys(e)))
+            .map((e) => modelName(e.modelId)),
+        ),
+      ).size
+    : 0;
   $: shownNames =
     followed.slice(0, 6).join(", ") +
     (followed.length > 6 ? ` +${followed.length - 6} more` : "");
@@ -178,9 +290,15 @@
     feedProviders = [];
     track("Changelog Feed Builder Changed", { field: "providers", value: 0 });
   }
-  function showExample(format: keyof typeof EXAMPLES) {
-    pasted = EXAMPLES[format];
-    track("Changelog Feed Example Shown", { format });
+  function pickedChanged() {
+    track("Changelog Feed Builder Changed", {
+      field: "models",
+      value: picked.length,
+    });
+  }
+  function clearPicked() {
+    picked = [];
+    pickedChanged();
   }
   async function copy(what: "url" | "slack") {
     copyError = "";
@@ -226,11 +344,7 @@
         : "RSS feed"}</a
     >
   </PageHero>
-  <details
-    class="subscribe"
-    bind:open={builderOpen}
-    on:toggle={() => builderOpen && track("Changelog Feed Builder Opened")}
-  >
+  <details class="subscribe" bind:open={builderOpen} on:toggle={openBuilder}>
     <summary>Build a feed for the models you run</summary>
     <div class="builder">
       <label
@@ -287,41 +401,111 @@
             >{/if}
         </div>
       </fieldset>
-      <div class="paste">
-        <div class="paste-head">
-          <label for="feed-models">Models</label>
-          <span class="examples"
-            >Example: <button type="button" on:click={() => showExample("json")}
-              >/model/info JSON</button
+      <fieldset class="models">
+        <legend>Models <span>(none means all)</span></legend>
+        <div class="combo" on:focusout={closeList}>
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="chips"
+            class:open={listOpen}
+            on:mousedown|self|preventDefault={() => modelInput.focus()}
+          >
+            {#each picked.slice(0, SHOWN_CHIPS) as name (name)}
+              <span class="chip"
+                >{rowLabel(name)}<button
+                  type="button"
+                  aria-label="Remove {rowLabel(name)}"
+                  on:click={() => unpick(name)}>×</button
+                ></span
+              >
+            {/each}
+            {#if picked.length > SHOWN_CHIPS}<span
+                class="hint"
+                title={picked.slice(SHOWN_CHIPS).map(rowLabel).join(", ")}
+                >+{picked.length - SHOWN_CHIPS} more</span
+              >{/if}
+            <input
+              type="text"
+              role="combobox"
+              aria-label="Select models"
+              aria-expanded={listOpen}
+              aria-controls="model-options"
+              aria-autocomplete="list"
+              aria-activedescendant={active >= 0 ? optionId(active) : undefined}
+              placeholder={picked.length ? "" : "Select models"}
+              autocomplete="off"
+              bind:value={modelQuery}
+              bind:this={modelInput}
+              on:focus={() => (listOpen = true)}
+              on:keydown={modelKeydown}
+            />
+          </div>
+          {#if listOpen}
+            <ul
+              class="model-options"
+              id="model-options"
+              role="listbox"
+              aria-multiselectable="true"
+              aria-label="Models"
             >
-            <button type="button" on:click={() => showExample("yaml")}
-              >config.yaml</button
-            ></span
+              {#if pattern}
+                <li class="group" role="presentation">Wildcards</li>
+                <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+                <li
+                  id={optionId(0)}
+                  role="option"
+                  data-value={pattern}
+                  aria-selected={picked.includes(pattern)}
+                  class:active={active === 0}
+                  on:mousedown|preventDefault
+                  on:click={() => togglePick(pattern)}
+                >
+                  {rowLabel(pattern)}
+                </li>
+              {/if}
+              {#if modelMatches.matched}
+                <li class="group" role="presentation">Models</li>
+                {#each modelMatches.options.slice(pattern ? 1 : 0) as name, i (name)}
+                  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+                  <li
+                    id={optionId(i + (pattern ? 1 : 0))}
+                    role="option"
+                    data-value={name}
+                    aria-selected={picked.includes(name)}
+                    class:active={active === i + (pattern ? 1 : 0)}
+                    on:mousedown|preventDefault
+                    on:click={() => togglePick(name)}
+                  >
+                    {name}
+                  </li>
+                {/each}
+                {#if modelMatches.hidden}<li class="hint" role="presentation">
+                    +{modelMatches.hidden} more, type to narrow
+                  </li>{/if}
+              {:else if !pattern}
+                <li class="hint" role="presentation">
+                  {modelQuery.trim()
+                    ? `No model matches "${modelQuery}"`
+                    : "Tick a provider above to list its models, or type a name. gpt-5* follows every GPT-5 model."}
+                </li>
+              {/if}
+            </ul>
+          {/if}
+        </div>
+        <div class="provider-tools">
+          <span class="hint"
+            >{picked.length
+              ? `Following ${shownNames}, ${seen} changed in the last 30 days.`
+              : "A name follows the model on every provider that lists it."}{catalogState ===
+            "loading"
+              ? " Loading the catalog…"
+              : ""}</span
+          >
+          <button type="button" disabled={!picked.length} on:click={clearPicked}
+            >Clear</button
           >
         </div>
-        <textarea
-          id="feed-models"
-          bind:value={pasted}
-          rows="4"
-          placeholder="Paste your proxy's /model/info or /v1/models JSON, its config.yaml, or model ids and names one per line"
-        ></textarea>
-        <label class="check"
-          ><input
-            type="checkbox"
-            bind:checked={everyProvider}
-            on:change={() =>
-              track("Changelog Feed Builder Changed", {
-                field: "everyProvider",
-                value: everyProvider,
-              })}
-          /> Follow these models on every provider</label
-        >
-        <span class="hint"
-          >{#if models.length}{`Following ${shownNames}${everyProvider ? " on every provider" : " as pasted"}, ${seen} changed in the last 30 days.`}{:else}Run
-            <code>curl $PROXY/model/info -H "Authorization: Bearer $KEY"</code>
-            and paste the response, or paste the model_list from your config.yaml.{/if}</span
-        >
-      </div>
+      </fieldset>
       <div class="output">
         <code>{url}</code><button type="button" on:click={() => copy("url")}
           >{copied === "url" ? "Copied" : "Copy URL"}</button
@@ -336,11 +520,7 @@
       </div>
       {#if copyError}<p class="hint" role="alert">{copyError}</p>{/if}
       <p class="hint">
-        With the switch on, each pasted id becomes its catalog name, so a
-        Bedrock <code>anthropic.claude-sonnet-4-5-20250929-v1:0</code> follows
-        Claude Sonnet 4.5 on Azure and Vertex too. Off, ids match on their last
-        path segment, so <code>azure/gpt-5</code> follows <code>gpt-5</code>. A
-        time window posts once it closes and the catalog has rebuilt, up to 15
+        A time window posts once it closes and the catalog has rebuilt, up to 15
         minutes later.
       </p>
     </div>
@@ -556,17 +736,8 @@
     padding: 0;
     width: auto;
   }
-  .builder textarea {
-    font: inherit;
-    font-size: 12px;
-    color: inherit;
-    border: 1px solid var(--hf-line);
-    border-radius: var(--control-radius);
-    padding: 10px 14px;
-    background: var(--hf-bg);
-    resize: vertical;
-  }
-  .builder .providers {
+  .builder .providers,
+  .builder .models {
     display: grid;
     gap: 8px;
   }
@@ -593,6 +764,104 @@
   .provider-tools button:disabled {
     opacity: 0.5;
   }
+  .combo {
+    position: relative;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    min-height: 36px;
+    padding: 4px 6px;
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    background: var(--hf-bg);
+    cursor: text;
+  }
+  .chips.open {
+    border-color: var(--hf-ink);
+  }
+  .chips input {
+    flex: 1;
+    min-width: 120px;
+    border: 0;
+    padding: 4px;
+    min-height: 0;
+    width: auto;
+    font-size: 13px;
+    outline: none;
+    background: transparent;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 4px 2px 8px;
+    border-radius: 999px;
+    background: var(--hf-faint);
+    color: var(--hf-ink);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .chip button {
+    border: 0;
+    background: transparent;
+    padding: 0 4px;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--hf-muted);
+    cursor: pointer;
+  }
+  .chip button:hover {
+    color: var(--hf-ink);
+  }
+  .model-options {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    background: var(--hf-bg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+  .model-options li {
+    font-size: 13px;
+    padding: 6px 8px 6px 26px;
+    border-radius: 4px;
+    position: relative;
+    color: var(--hf-ink);
+  }
+  .model-options li[role="option"] {
+    cursor: pointer;
+  }
+  .model-options li[role="option"]:hover,
+  .model-options li.active {
+    background: var(--hf-faint);
+  }
+  .model-options li[aria-selected="true"]::before {
+    content: "✓";
+    position: absolute;
+    left: 9px;
+    color: var(--hf-ink);
+  }
+  .model-options li.group {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--hf-muted);
+    padding: 8px 8px 2px;
+  }
+  .model-options li.hint {
+    padding-left: 8px;
+  }
   .provider-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
@@ -603,28 +872,6 @@
     border: 1px solid var(--hf-line);
     border-radius: var(--control-radius);
     background: var(--hf-bg);
-  }
-  .builder .paste {
-    display: grid;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--hf-muted);
-  }
-  .paste-head {
-    display: flex;
-    justify-content: space-between;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  .examples button {
-    border: 0;
-    background: none;
-    padding: 0;
-    font: inherit;
-    font-size: 12px;
-    color: var(--hf-accent);
-    text-decoration: underline;
-    cursor: pointer;
   }
   .output {
     display: flex;
@@ -652,9 +899,6 @@
     font-size: 11px;
     color: var(--hf-muted);
     margin: 0;
-  }
-  .hint code {
-    font-size: 11px;
   }
   .tools {
     display: flex;
