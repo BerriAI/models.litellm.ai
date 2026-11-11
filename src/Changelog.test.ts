@@ -267,9 +267,25 @@ describe("Changelog page", () => {
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml?models=gpt-6*&digest=1h",
     );
-    expect(document.body.textContent).toMatch(
-      /Following gpt-6\*, [1-9]\d* changed in the last 30 days\./,
+    const few = Number(
+      document.body.textContent?.match(
+        /Following gpt-6\*, ([1-9]\d*) changed in the last 30 days\./,
+      )?.[1],
     );
+    expect(few).toBeGreaterThan(0);
+    const every = await narrow("*");
+    expect(every.slice(0, 2)).toEqual(["gpt-6*", "*"]);
+    modelBoxes()[1].click();
+    await tick();
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml?models=gpt-6*,*&digest=1h",
+    );
+    const all = Number(
+      document.body.textContent?.match(
+        /Following gpt-6\*, \*, ([1-9]\d*) changed in the last 30 days\./,
+      )?.[1],
+    );
+    expect(all).toBeGreaterThan(few);
   });
   it("narrows the model list to the picked providers and keeps picking when the catalog fails", async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) =>

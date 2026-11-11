@@ -476,7 +476,9 @@ describe("automatic catalog changelog", () => {
       "Kimi",
       "Qwen",
     ]);
-    expect(ids("models=*")).toEqual(["p1", "p2", "m1", "n1"]);
+    expect(only("models=*")).toEqual(only(""));
+    expect(only("models=*,gpt-5")).toEqual(only(""));
+    expect(ids("models=**")).toEqual(["p1", "p2", "m1", "n1"]);
     expect(ids("models=sonnet*")).toEqual([]);
     expect(only("models=gpt-5&providers=vertex_ai")).toEqual([]);
     expect(only("models=gpt-5&kind=model")).toEqual([]);

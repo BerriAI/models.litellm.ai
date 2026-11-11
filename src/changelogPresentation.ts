@@ -461,7 +461,7 @@ export function feedQuery(kind: string, provider: string): string {
  * Whether a listing's `listingKeys` hit any followed model. A plain entry
  * matches on its `modelKey`; an entry with `*` is a wildcard over the slugged
  * keys, so `gpt-5*` follows GPT-5, GPT-5 Mini and GPT-5.1 and `*sonnet*` any
- * Sonnet. Null when nothing usable was asked for, which means follow all.
+ * Sonnet and a bare `*` everything. Null when no model was asked for.
  */
 export function modelMatcher(
   models: string[],
@@ -471,9 +471,7 @@ export function modelMatcher(
   );
   const patterns = models
     .filter((m) => m.includes("*"))
-    .map((m) => m.split("*").map(slug))
-    .filter((pieces) => pieces.some(Boolean))
-    .map((pieces) => new RegExp(`^${pieces.join(".*")}$`));
+    .map((m) => new RegExp(`^${m.split("*").map(slug).join(".*")}$`));
   if (!exact.size && !patterns.length) return null;
   return (keys) =>
     [...keys].some(
@@ -496,6 +494,7 @@ export function filterChangelogItems(
     if (!wanted) return [item];
     const entries = item.entries.filter((entry) => wanted(listingKeys(entry)));
     if (!entries.length) return [];
+    if (entries.length === item.entries.length) return [item];
     // A new provider narrowed to the models a reader follows reads as those
     // models being added, not as the whole provider arriving.
     if (item.kind === "model" || item.kind === "provider")
