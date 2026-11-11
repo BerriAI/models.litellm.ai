@@ -1,6 +1,6 @@
 <script lang="ts">
   import { track } from "./analytics";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import PageHero from "./PageHero.svelte";
   import {
     fieldLabel,
@@ -209,6 +209,12 @@
     };
   })();
   $: if (active >= modelMatches.options.length) active = -1;
+  $: if (listOpen && active >= 0)
+    tick().then(() =>
+      document
+        .getElementById(optionId(modelMatches.options[active]))
+        ?.scrollIntoView({ block: "nearest" }),
+    );
   const rowLabel = (name: string) =>
     name.includes("*") ? `All matching ${name}` : name;
   const optionId = (name: string) =>
