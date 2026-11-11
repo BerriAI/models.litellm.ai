@@ -159,10 +159,25 @@ describe("Changelog page", () => {
       expect(document.body.textContent).not.toContain("loading the catalog"),
     );
   };
-  const modelBoxes = () =>
+  const modelInput = () =>
+    document.querySelector<HTMLInputElement>(".models input[role=combobox]")!;
+  const options = () =>
     Array.from(
-      document.querySelectorAll<HTMLInputElement>(".model-grid input"),
+      document.querySelectorAll<HTMLLIElement>(".model-options [role=option]"),
     );
+  const values = () => options().map((o) => o.dataset.value!);
+  const picked = () =>
+    options().filter((o) => o.getAttribute("aria-selected") === "true");
+  const chips = () =>
+    Array.from(document.querySelectorAll(".chip")).map((c) =>
+      c.textContent!.replace(/×$/, ""),
+    );
+  const pick = async (name: string) => {
+    options()
+      .find((o) => o.dataset.value === name)!
+      .click();
+    await tick();
+  };
   it("builds a feed URL and Slack command from picked model names", async () => {
     const writeText = vi.fn(async () => undefined);
     vi.stubGlobal("navigator", { ...navigator, clipboard: { writeText } });
@@ -172,18 +187,19 @@ describe("Changelog page", () => {
     );
     await openBuilder();
     expect(track).toHaveBeenCalledWith("Changelog Feed Builder Opened");
-    expect(modelBoxes()).toHaveLength(0);
+    expect(document.querySelector(".model-options")).toBeNull();
+    const filter = modelInput();
+    filter.dispatchEvent(new Event("focus"));
+    await tick();
+    expect(options()).toHaveLength(0);
     expect(document.body.textContent).toContain(
       "Tick a provider above to list its models",
     );
-    const filter = document.querySelector<HTMLInputElement>(
-      ".models .provider-tools input",
-    )!;
     const narrow = async (q: string) => {
       filter.value = q;
       filter.dispatchEvent(new Event("input"));
       await tick();
-      return modelBoxes().map((i) => i.value);
+      return values();
     };
     const gpt5 = await narrow("gpt-5");
     expect(gpt5.filter((n) => n === "GPT-5")).toHaveLength(1);
@@ -192,19 +208,16 @@ describe("Changelog page", () => {
     const haiku = await narrow("haiku 4.5");
     expect(haiku).toContain("Claude Haiku 4.5");
     expect(haiku.some((n) => / v\d$/.test(n))).toBe(false);
-    await narrow("never");
-    expect(modelBoxes().map((i) => i.value)).toEqual(["Never Changed"]);
-    modelBoxes()[0].click();
-    await tick();
-    filter.value = "rosalind";
-    filter.dispatchEvent(new Event("input"));
-    await tick();
-    expect(modelBoxes().map((i) => i.value)).toEqual([
-      "Never Changed",
-      "GPT-6 Rosalind",
-    ]);
-    modelBoxes()[1].click();
-    await tick();
+    expect(await narrow("never")).toEqual(["Never Changed"]);
+    await pick("Never Changed");
+    expect(filter.value).toBe("");
+    expect(chips()).toEqual(["Never Changed"]);
+    expect(await narrow("rosalind")).toEqual(["GPT-6 Rosalind"]);
+    await pick("GPT-6 Rosalind");
+    expect(chips()).toEqual(["Never Changed", "GPT-6 Rosalind"]);
+    expect(await narrow("never")).toEqual(["Never Changed"]);
+    expect(picked().map((o) => o.dataset.value)).toEqual(["Never Changed"]);
+    await narrow("");
     const digest =
       document.querySelector<HTMLSelectElement>(".builder select")!;
     digest.value = "1h";
@@ -252,18 +265,21 @@ describe("Changelog page", () => {
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml?digest=1h",
     );
+    expect(chips()).toEqual([]);
     const wild = await narrow("gpt-6*");
     expect(wild[0]).toBe("gpt-6*");
-    expect(modelBoxes()[0].parentElement?.textContent?.trim()).toBe(
-      "All matching gpt-6*",
-    );
+    expect(options()[0].textContent?.trim()).toBe("All matching gpt-6*");
     expect(wild.slice(1)).toContain("GPT-6 Rosalind");
     expect(
       wild.slice(1).every((n) => n.toLowerCase().startsWith("gpt-6")),
     ).toBe(true);
-    modelBoxes()[0].click();
+    filter.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown" }));
     await tick();
-    expect(await narrow("")).toEqual(["gpt-6*"]);
+    expect(filter.getAttribute("aria-activedescendant")).toBe(options()[0].id);
+    filter.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter" }));
+    await tick();
+    expect(chips()).toEqual(["All matching gpt-6*"]);
+    expect(await narrow("")).toEqual([]);
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml?models=gpt-6*&digest=1h",
     );
@@ -274,9 +290,9 @@ describe("Changelog page", () => {
     );
     expect(few).toBeGreaterThan(0);
     const every = await narrow("*");
-    expect(every.slice(0, 2)).toEqual(["gpt-6*", "*"]);
-    modelBoxes()[1].click();
-    await tick();
+    expect(every[0]).toBe("*");
+    await pick("*");
+    expect(chips()).toEqual(["All matching gpt-6*", "All matching *"]);
     expect(document.querySelector(".output code")?.textContent).toBe(
       "https://models.litellm.ai/changelog.xml?models=gpt-6*,*&digest=1h",
     );
@@ -286,6 +302,22 @@ describe("Changelog page", () => {
       )?.[1],
     );
     expect(all).toBeGreaterThan(few);
+    filter.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace" }));
+    await tick();
+    expect(chips()).toEqual(["All matching gpt-6*"]);
+    document
+      .querySelector<HTMLButtonElement>(
+        '.chip button[aria-label="Remove All matching gpt-6*"]',
+      )!
+      .click();
+    await tick();
+    expect(chips()).toEqual([]);
+    expect(document.querySelector(".output code")?.textContent).toBe(
+      "https://models.litellm.ai/changelog.xml?digest=1h",
+    );
+    filter.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    await tick();
+    expect(document.querySelector(".model-options")).toBeNull();
   });
   it("narrows the model list to the picked providers and keeps picking when the catalog fails", async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) =>
@@ -298,22 +330,27 @@ describe("Changelog page", () => {
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
     );
     await openBuilder();
-    expect(modelBoxes()).toHaveLength(0);
+    const filter = modelInput();
+    filter.dispatchEvent(new Event("focus"));
+    await tick();
+    expect(options()).toHaveLength(0);
     document
       .querySelector<HTMLInputElement>('.provider-grid input[value="openai"]')!
       .click();
     await tick();
-    const shown = modelBoxes().map((i) => i.value);
+    const shown = values();
     expect(shown).toContain("GPT-6 Rosalind");
     expect(shown).not.toContain("Never Changed");
     expect(shown).not.toContain("Claude Haiku 4.5");
-    const filter = document.querySelector<HTMLInputElement>(
-      ".models .provider-tools input",
-    )!;
+    await pick("GPT-6 Rosalind");
+    expect(picked().map((o) => o.dataset.value)).toEqual(["GPT-6 Rosalind"]);
+    await pick("GPT-6 Rosalind");
+    expect(picked()).toEqual([]);
+    expect(chips()).toEqual([]);
     filter.value = "haiku";
     filter.dispatchEvent(new Event("input"));
     await tick();
-    expect(modelBoxes()).toHaveLength(0);
+    expect(options()).toHaveLength(0);
     expect(document.body.textContent).toContain('No model matches "haiku"');
   });
   it("picks providers from a filterable checklist", async () => {
@@ -373,12 +410,11 @@ describe("Changelog page", () => {
     await vi.waitFor(() =>
       expect(document.body.textContent).not.toContain("loading the catalog"),
     );
-    const checked = Array.from(
-      document.querySelectorAll<HTMLInputElement>(".model-grid input"),
-    )
-      .filter((i) => i.checked)
-      .map((i) => i.value);
-    expect(checked).toEqual(["azure/gpt-5", "Claude Sonnet 4.5"]);
+    expect(chips()).toEqual(["azure/gpt-5", "Claude Sonnet 4.5"]);
+    modelInput().dispatchEvent(new Event("focus"));
+    await tick();
+    expect(values()).toContain("GPT-5");
+    expect(values()).not.toContain("azure/gpt-5");
     expect(
       document.querySelector<HTMLInputElement>(
         '.provider-grid input[value="azure"]',

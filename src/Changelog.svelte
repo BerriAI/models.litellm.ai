@@ -33,6 +33,10 @@
   let expanded = new Set<string>();
   let builderOpen = false;
   const SHOWN_MODELS = 200;
+  const SHOWN_CHIPS = 5;
+  let listOpen = false;
+  let active = -1;
+  let modelInput: HTMLInputElement;
   let digest = "";
   let kinds: string[] = [];
   let feedProviders: string[] = [];
@@ -185,13 +189,12 @@
       [...(modelProviders.get(name) ?? [])].some((p) =>
         feedProviders.includes(p),
       );
-    const rest =
+    const names =
       !q && !feedProviders.length
         ? []
         : [...modelProviders.keys()]
             .filter(
               (name) =>
-                !picked.includes(name) &&
                 onProviders(name) &&
                 (!q ||
                   (wildcard
@@ -199,19 +202,56 @@
                     : name.toLowerCase().includes(q))),
             )
             .sort((a, b) => a.localeCompare(b));
-    const rows = [
-      ...picked,
-      ...(pattern && !picked.includes(pattern) ? [pattern] : []),
-      ...rest.slice(0, SHOWN_MODELS),
-    ];
     return {
-      names: rows,
-      matched: rest.length,
-      hidden: Math.max(0, rest.length - SHOWN_MODELS),
+      options: [...(pattern ? [pattern] : []), ...names.slice(0, SHOWN_MODELS)],
+      matched: names.length,
+      hidden: Math.max(0, names.length - SHOWN_MODELS),
     };
   })();
+  $: if (active >= modelMatches.options.length) active = -1;
   const rowLabel = (name: string) =>
     name.includes("*") ? `All matching ${name}` : name;
+  const optionId = (name: string) =>
+    `model-option-${modelKey(name).replace(/[^a-z0-9]/g, "-")}`;
+  function togglePick(name: string) {
+    picked = picked.includes(name)
+      ? picked.filter((n) => n !== name)
+      : [...picked, name];
+    modelQuery = "";
+    pickedChanged();
+  }
+  function unpick(name: string) {
+    picked = picked.filter((n) => n !== name);
+    pickedChanged();
+  }
+  function closeList(event: FocusEvent) {
+    const next = event.relatedTarget;
+    if (next instanceof Node && event.currentTarget instanceof Node) {
+      if (event.currentTarget.contains(next)) return;
+    }
+    listOpen = false;
+    active = -1;
+  }
+  function modelKeydown(event: KeyboardEvent) {
+    const n = modelMatches.options.length;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      listOpen = true;
+      if (!n) return;
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      active = (active + step + n) % n;
+    } else if (event.key === "Enter") {
+      if (!listOpen || active < 0 || active >= n) return;
+      event.preventDefault();
+      togglePick(modelMatches.options[active]);
+    } else if (event.key === "Escape") {
+      if (listOpen) event.preventDefault();
+      listOpen = false;
+      active = -1;
+    } else if (event.key === "Backspace" && !modelQuery && picked.length) {
+      unpick(picked[picked.length - 1]);
+    } else listOpen = true;
+  }
   $: followed = picked;
   $: url = feedUrl({
     kinds,
@@ -357,47 +397,110 @@
       </fieldset>
       <fieldset class="models">
         <legend>Models <span>(none means all)</span></legend>
+        <div class="combo" on:focusout={closeList}>
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <div
+            class="chips"
+            class:open={listOpen}
+            on:mousedown|self|preventDefault={() => modelInput.focus()}
+          >
+            {#each picked.slice(0, SHOWN_CHIPS) as name (name)}
+              <span class="chip"
+                >{rowLabel(name)}<button
+                  type="button"
+                  aria-label="Remove {rowLabel(name)}"
+                  on:click={() => unpick(name)}>×</button
+                ></span
+              >
+            {/each}
+            {#if picked.length > SHOWN_CHIPS}<span
+                class="hint"
+                title={picked.slice(SHOWN_CHIPS).map(rowLabel).join(", ")}
+                >+{picked.length - SHOWN_CHIPS} more</span
+              >{/if}
+            <input
+              type="text"
+              role="combobox"
+              aria-label="Select models"
+              aria-expanded={listOpen}
+              aria-controls="model-options"
+              aria-autocomplete="list"
+              aria-activedescendant={active >= 0
+                ? optionId(modelMatches.options[active])
+                : undefined}
+              placeholder={picked.length ? "" : "Select models"}
+              autocomplete="off"
+              bind:value={modelQuery}
+              bind:this={modelInput}
+              on:focus={() => (listOpen = true)}
+              on:keydown={modelKeydown}
+            />
+          </div>
+          {#if listOpen}
+            <ul
+              class="model-options"
+              id="model-options"
+              role="listbox"
+              aria-multiselectable="true"
+              aria-label="Models"
+            >
+              {#if pattern}
+                <li class="group" role="presentation">Wildcards</li>
+                <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+                <li
+                  id={optionId(pattern)}
+                  role="option"
+                  data-value={pattern}
+                  aria-selected={picked.includes(pattern)}
+                  class:active={active === 0}
+                  on:mousedown|preventDefault
+                  on:click={() => togglePick(pattern)}
+                >
+                  {rowLabel(pattern)}
+                </li>
+              {/if}
+              {#if modelMatches.matched}
+                <li class="group" role="presentation">Models</li>
+                {#each modelMatches.options.slice(pattern ? 1 : 0) as name, i (name)}
+                  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
+                  <li
+                    id={optionId(name)}
+                    role="option"
+                    data-value={name}
+                    aria-selected={picked.includes(name)}
+                    class:active={active === i + (pattern ? 1 : 0)}
+                    on:mousedown|preventDefault
+                    on:click={() => togglePick(name)}
+                  >
+                    {name}
+                  </li>
+                {/each}
+                {#if modelMatches.hidden}<li class="hint" role="presentation">
+                    +{modelMatches.hidden} more, type to narrow
+                  </li>{/if}
+              {:else if !pattern}
+                <li class="hint" role="presentation">
+                  {modelQuery.trim()
+                    ? `No model matches "${modelQuery}"`
+                    : "Tick a provider above to list its models, or type a name. gpt-5* follows every GPT-5 model."}
+                </li>
+              {/if}
+            </ul>
+          {/if}
+        </div>
         <div class="provider-tools">
-          <input
-            type="search"
-            bind:value={modelQuery}
-            placeholder="Filter models"
-            aria-label="Filter models"
-          />
+          <span class="hint"
+            >{picked.length
+              ? `Following ${shownNames}, ${seen} changed in the last 30 days.`
+              : "A name follows the model on every provider that lists it."}{catalogState ===
+            "loading"
+              ? " Loading the catalog…"
+              : ""}</span
+          >
           <button type="button" disabled={!picked.length} on:click={clearPicked}
             >Clear</button
           >
-          <span class="hint"
-            >{picked.length} selected{catalogState === "loading"
-              ? ", loading the catalog…"
-              : ""}</span
-          >
         </div>
-        <div class="model-grid">
-          {#each modelMatches.names as name (name)}<label class="check"
-              ><input
-                type="checkbox"
-                bind:group={picked}
-                value={name}
-                on:change={pickedChanged}
-              />
-              {rowLabel(name)}</label
-            >{/each}
-          {#if modelMatches.hidden}<span class="hint"
-              >+{modelMatches.hidden} more, type to narrow</span
-            >{/if}
-          {#if !modelMatches.matched && !picked.length && !pattern}<span
-              class="hint"
-              >{modelQuery.trim()
-                ? `No model matches "${modelQuery}"`
-                : "Tick a provider above to list its models, or type a name here. gpt-5* follows every GPT-5 model."}</span
-            >{/if}
-        </div>
-        <span class="hint"
-          >{picked.length
-            ? `Following ${shownNames}, ${seen} changed in the last 30 days.`
-            : "A name follows the model on every provider that lists it."}</span
-        >
       </fieldset>
       <div class="output">
         <code>{url}</code><button type="button" on:click={() => copy("url")}
@@ -657,8 +760,105 @@
   .provider-tools button:disabled {
     opacity: 0.5;
   }
-  .provider-grid,
-  .model-grid {
+  .combo {
+    position: relative;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
+    min-height: 36px;
+    padding: 4px 6px;
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    background: var(--hf-bg);
+    cursor: text;
+  }
+  .chips.open {
+    border-color: var(--hf-ink);
+  }
+  .chips input {
+    flex: 1;
+    min-width: 120px;
+    border: 0;
+    padding: 4px;
+    min-height: 0;
+    width: auto;
+    font-size: 13px;
+    outline: none;
+    background: transparent;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 4px 2px 8px;
+    border-radius: 999px;
+    background: var(--hf-faint);
+    color: var(--hf-ink);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  .chip button {
+    border: 0;
+    background: transparent;
+    padding: 0 4px;
+    font-size: 14px;
+    line-height: 1;
+    color: var(--hf-muted);
+    cursor: pointer;
+  }
+  .chip button:hover {
+    color: var(--hf-ink);
+  }
+  .model-options {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 4px;
+    list-style: none;
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--hf-line);
+    border-radius: var(--control-radius);
+    background: var(--hf-bg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  }
+  .model-options li {
+    font-size: 13px;
+    padding: 6px 8px 6px 26px;
+    border-radius: 4px;
+    position: relative;
+    color: var(--hf-ink);
+  }
+  .model-options li[role="option"] {
+    cursor: pointer;
+  }
+  .model-options li[role="option"]:hover,
+  .model-options li.active {
+    background: var(--hf-faint);
+  }
+  .model-options li[aria-selected="true"]::before {
+    content: "✓";
+    position: absolute;
+    left: 9px;
+    color: var(--hf-ink);
+  }
+  .model-options li.group {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--hf-muted);
+    padding: 8px 8px 2px;
+  }
+  .model-options li.hint {
+    padding-left: 8px;
+  }
+  .provider-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
     gap: 4px 12px;
