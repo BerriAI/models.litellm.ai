@@ -1,6 +1,6 @@
 <script lang="ts">
   import { track } from "./analytics";
-  import { onMount, tick } from "svelte";
+  import { onMount } from "svelte";
   import PageHero from "./PageHero.svelte";
   import {
     fieldLabel,
@@ -14,10 +14,11 @@
     feedFilter,
     feedQuery,
     feedUrl,
-    listingKeys,
+    filterChangelogItems,
     modelKey,
-    modelMatcher,
     modelName,
+    scopedEntry,
+    scopedModel,
   } from "./changelogPresentation";
   import { getProviderDisplayName } from "./providers";
   import { loadCatalogData } from "./catalogData";
@@ -32,17 +33,17 @@
   let visibleCount = 40;
   let expanded = new Set<string>();
   let builderOpen = false;
-  const SHOWN_MODELS = 200;
-  const SHOWN_CHIPS = 5;
-  let listOpen = false;
-  let active = -1;
-  let modelInput: HTMLInputElement;
+  const SHOWN_CHIPS = 6;
   let digest = "";
   let kinds: string[] = [];
-  let feedProviders: string[] = [];
+  /** Providers followed whole (`?all=`). */
+  let whole: string[] = [];
+  /** `provider:model` entries followed on one provider (`?models=`). */
+  let scoped: string[] = [];
+  /** Models a shared link follows on every provider (`?models=`). */
+  let everywhere: string[] = [];
+  let open = new Set<string>();
   let providerQuery = "";
-  let modelQuery = "";
-  let picked: string[] = [];
   let catalogModels: { name: string; provider: string }[] = [];
   let catalogState: "idle" | "loading" | "ready" | "failed" = "idle";
   let copied = "";
@@ -95,12 +96,13 @@
     if (
       preset.kinds.length ||
       preset.providers.length ||
+      preset.all.length ||
       preset.models.length ||
       preset.digest
     ) {
       kinds = preset.kinds;
-      feedProviders = preset.providers;
-      picked = [
+      digest = preset.digest;
+      const models = [
         ...new Set(
           (params.get("models") ?? "")
             .split(",")
@@ -108,7 +110,18 @@
             .filter(Boolean),
         ),
       ];
-      digest = preset.digest;
+      const plain = models.filter((m) => !scopedModel(m));
+      // A `providers=…&models=…` link ANDs the two, so it follows those models
+      // on those providers; `providers=` alone follows the providers whole.
+      whole = [
+        ...new Set([...preset.all, ...(plain.length ? [] : preset.providers)]),
+      ];
+      scoped = [
+        ...models.filter((m) => scopedModel(m)),
+        ...preset.providers.flatMap((p) => plain.map((m) => scopedEntry(p, m))),
+      ];
+      everywhere = preset.providers.length ? [] : plain;
+      open = new Set(scoped.map((s) => scopedModel(s)!.provider));
       builderOpen = true;
       void loadCatalog();
     }
@@ -137,9 +150,30 @@
     void loadCatalog();
   }
   $: items = changelogItems(updates, providerNames);
-  $: providers = [...new Set(updates.map((u) => u.provider))].sort((a, b) =>
-    providerName(a).localeCompare(providerName(b)),
-  );
+  $: providerModels = (() => {
+    const map = new Map<string, Set<string>>();
+    const add = (provider: string, name: string) => {
+      if (!provider || !name) return;
+      if (!map.has(provider)) map.set(provider, new Set());
+      map.get(provider)!.add(name);
+    };
+    for (const update of updates)
+      for (const entry of update.entries)
+        add(update.provider, modelName(entry.modelId));
+    for (const model of catalogModels) add(model.provider, model.name);
+    return new Map(
+      [...map].map(([provider, names]) => [
+        provider,
+        [...names].sort((a, b) => a.localeCompare(b)),
+      ]),
+    );
+  })();
+  const byName = (a: string, b: string) =>
+    providerName(a).localeCompare(providerName(b));
+  /** Providers with a change in the last 30 days, for the page's filter. */
+  $: providers = [...new Set(updates.map((u) => u.provider))].sort(byName);
+  /** Every provider the catalog or the changelog knows, for the feed builder. */
+  $: builderProviders = [...providerModels.keys()].sort(byName);
   $: search = query.trim().toLowerCase();
   $: filtered = items.filter(
     (item) =>
@@ -163,143 +197,119 @@
     expanded.has(id) ? expanded.delete(id) : expanded.add(id);
     expanded = new Set(expanded);
   }
-  $: providerMatches = providers.filter((id) => {
+  $: providerMatches = builderProviders.filter((id) => {
     const q = providerQuery.trim().toLowerCase();
     return !q || id.includes(q) || providerName(id).toLowerCase().includes(q);
   });
-  $: modelProviders = (() => {
+  /** Per provider, the `modelKey`s of the models followed on it alone. */
+  $: scopedKeys = (() => {
     const map = new Map<string, Set<string>>();
-    const add = (name: string, provider: string) => {
-      if (!name) return;
-      if (!map.has(name)) map.set(name, new Set());
-      if (provider) map.get(name)!.add(provider);
-    };
-    for (const update of updates)
-      for (const entry of update.entries)
-        add(modelName(entry.modelId), update.provider);
-    for (const model of catalogModels) add(model.name, model.provider);
+    for (const entry of scoped) {
+      const { provider, model } = scopedModel(entry)!;
+      if (!map.has(provider)) map.set(provider, new Set());
+      map.get(provider)!.add(modelKey(model));
+    }
     return map;
   })();
-  $: pattern = modelQuery.includes("*") ? modelQuery.trim() : "";
-  $: modelMatches = (() => {
-    const q = modelQuery.trim().toLowerCase();
-    const wildcard = pattern ? modelMatcher([pattern]) : null;
-    const onProviders = (name: string) =>
-      !feedProviders.length ||
-      [...(modelProviders.get(name) ?? [])].some((p) =>
-        feedProviders.includes(p),
-      );
-    const names =
-      !q && !feedProviders.length
-        ? []
-        : [...modelProviders.keys()]
-            .filter(
-              (name) =>
-                onProviders(name) &&
-                (!q ||
-                  (wildcard
-                    ? wildcard([modelKey(name)])
-                    : name.toLowerCase().includes(q))),
-            )
-            .sort((a, b) => a.localeCompare(b));
-    return {
-      options: [...(pattern ? [pattern] : []), ...names.slice(0, SHOWN_MODELS)],
-      matched: names.length,
-      hidden: Math.max(0, names.length - SHOWN_MODELS),
-    };
-  })();
-  $: if (active >= modelMatches.options.length) active = -1;
-  $: if (listOpen && active >= 0)
-    tick().then(() =>
-      document
-        .getElementById(optionId(active))
-        ?.scrollIntoView({ block: "nearest" }),
-    );
-  const rowLabel = (name: string) =>
-    name.includes("*") ? `All matching ${name}` : name;
-  const optionId = (index: number) => `model-option-${index}`;
-  function togglePick(name: string) {
-    picked = picked.includes(name)
-      ? picked.filter((n) => n !== name)
-      : [...picked, name];
-    modelQuery = "";
-    active = -1;
-    pickedChanged();
-  }
-  function unpick(name: string) {
-    picked = picked.filter((n) => n !== name);
-    pickedChanged();
-  }
-  function closeList(event: FocusEvent) {
-    const next = event.relatedTarget;
-    if (next instanceof Node && event.currentTarget instanceof Node) {
-      if (event.currentTarget.contains(next)) return;
+  const countLabel = (isWhole: boolean, picked: number, total: number) =>
+    isWhole
+      ? `all ${total} ${total === 1 ? "model" : "models"}`
+      : picked
+        ? `${picked} of ${total} models`
+        : `${total} ${total === 1 ? "model" : "models"}`;
+  const changed = (field: string, value: number) =>
+    track("Changelog Feed Builder Changed", { field, value });
+  function toggleWhole(id: string) {
+    if (whole.includes(id)) whole = whole.filter((p) => p !== id);
+    else {
+      whole = [...whole, id];
+      scoped = scoped.filter((s) => scopedModel(s)!.provider !== id);
     }
-    listOpen = false;
-    active = -1;
+    changed("all", whole.length);
   }
-  function modelKeydown(event: KeyboardEvent) {
-    const n = modelMatches.options.length;
-    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-      event.preventDefault();
-      listOpen = true;
-      if (!n) return;
-      if (event.key === "ArrowDown") active = (active + 1) % n;
-      else active = active < 0 ? n - 1 : (active - 1 + n) % n;
-    } else if (event.key === "Enter") {
-      if (!listOpen || active < 0 || active >= n) return;
-      event.preventDefault();
-      togglePick(modelMatches.options[active]);
-    } else if (event.key === "Escape") {
-      if (listOpen) event.preventDefault();
-      listOpen = false;
-      active = -1;
-    } else if (event.key === "Backspace" && !modelQuery && picked.length) {
-      unpick(picked[picked.length - 1]);
-    } else listOpen = true;
+  function toggleModel(id: string, name: string) {
+    const key = modelKey(name);
+    const rest = scoped.filter((s) => {
+      const m = scopedModel(s)!;
+      return m.provider !== id || modelKey(m.model) !== key;
+    });
+    scoped =
+      rest.length < scoped.length ? rest : [...rest, scopedEntry(id, name)];
+    changed("models", scoped.length);
   }
-  $: followed = picked;
-  $: url = feedUrl({
-    kinds,
-    providers: feedProviders,
-    models: followed,
-    digest,
-  });
-  $: slackCommand = `/feed subscribe ${url}`;
-  $: wanted = modelMatcher(followed);
-  $: seen = wanted
-    ? new Set(
-        items.flatMap((item) =>
-          item.entries
-            .filter((e) => wanted(listingKeys(e)))
-            .map((e) => modelName(e.modelId)),
-        ),
-      ).size
-    : 0;
-  $: shownNames =
-    followed.slice(0, 6).join(", ") +
-    (followed.length > 6 ? ` +${followed.length - 6} more` : "");
+  function toggleOpen(id: string) {
+    open.has(id) ? open.delete(id) : open.add(id);
+    open = new Set(open);
+    track("Changelog Feed Builder Provider Toggled", {
+      provider: id,
+      open: open.has(id),
+    });
+  }
   function selectProviders(ids: string[]) {
-    feedProviders = [...new Set([...feedProviders, ...ids])];
-    track("Changelog Feed Builder Changed", {
-      field: "providers",
-      value: feedProviders.length,
-    });
+    whole = [...new Set([...whole, ...ids])];
+    scoped = scoped.filter((s) => !ids.includes(scopedModel(s)!.provider));
+    changed("all", whole.length);
   }
-  function clearProviders() {
-    feedProviders = [];
-    track("Changelog Feed Builder Changed", { field: "providers", value: 0 });
+  function clearAll() {
+    whole = [];
+    scoped = [];
+    everywhere = [];
+    changed("all", 0);
   }
-  function pickedChanged() {
-    track("Changelog Feed Builder Changed", {
-      field: "models",
-      value: picked.length,
-    });
+  interface Chip {
+    key: string;
+    label: string;
+    note: string;
+    remove: () => void;
   }
-  function clearPicked() {
-    picked = [];
-    pickedChanged();
-  }
+  $: following = ((): Chip[] => {
+    const byModel = new Map<string, { label: string; providers: string[] }>();
+    for (const entry of scoped) {
+      const { provider, model } = scopedModel(entry)!;
+      const key = modelKey(model);
+      const match = byModel.get(key);
+      if (match) match.providers.push(provider);
+      else byModel.set(key, { label: model, providers: [provider] });
+    }
+    return [
+      ...whole.map((id) => ({
+        key: `all:${id}`,
+        label: providerName(id),
+        note: "all models",
+        remove: () => toggleWhole(id),
+      })),
+      ...[...byModel].map(([key, { label, providers: on }]) => ({
+        key: `model:${key}`,
+        label,
+        note: on.map(providerName).join(", "),
+        remove: () => {
+          scoped = scoped.filter(
+            (s) => modelKey(scopedModel(s)!.model) !== key,
+          );
+          changed("models", scoped.length);
+        },
+      })),
+      ...everywhere.map((m) => ({
+        key: `every:${m}`,
+        label: m.includes("*") ? `All matching ${m}` : m,
+        note: "every provider",
+        remove: () => {
+          everywhere = everywhere.filter((e) => e !== m);
+          changed("models", scoped.length + everywhere.length);
+        },
+      })),
+    ];
+  })();
+  $: filter = {
+    kinds,
+    providers: [],
+    all: whole,
+    models: [...scoped, ...everywhere],
+    digest,
+  };
+  $: url = feedUrl(filter);
+  $: slackCommand = `/feed subscribe ${url}`;
+  $: posts = following.length ? filterChangelogItems(items, filter).length : 0;
   async function copy(what: "url" | "slack") {
     copyError = "";
     try {
@@ -314,8 +324,8 @@
       what,
       digest,
       kind: kinds,
-      providers: feedProviders,
-      models: followed.length,
+      providers: whole,
+      models: scoped.length + everywhere.length,
     });
   }
   function reset() {
@@ -369,7 +379,12 @@
           >{/each}
       </fieldset>
       <fieldset class="providers">
-        <legend>Providers <span>(none means all)</span></legend>
+        <legend
+          >Providers and models <span
+            >(tick a provider for all of it, open it to pick models; none means
+            all)</span
+          ></legend
+        >
         <div class="provider-tools">
           <input
             type="search"
@@ -382,127 +397,91 @@
             on:click={() => selectProviders(providerMatches)}
             >Select {providerQuery.trim() ? "shown" : "all"}</button
           >
-          <button
-            type="button"
-            disabled={!feedProviders.length}
-            on:click={clearProviders}>Clear</button
+          <button type="button" disabled={!following.length} on:click={clearAll}
+            >Clear</button
           >
           <span class="hint"
-            >{feedProviders.length} of {providers.length} selected</span
+            >{whole.length} whole, {scopedKeys.size} partial of {builderProviders.length}</span
           >
         </div>
-        <div class="provider-grid">
-          {#each providerMatches as id}<label class="check"
-              ><input type="checkbox" bind:group={feedProviders} value={id} />
-              {providerName(id)}</label
-            >{/each}
-          {#if !providerMatches.length}<span class="hint"
-              >No provider matches "{providerQuery}"</span
-            >{/if}
-        </div>
-      </fieldset>
-      <fieldset class="models">
-        <legend>Models <span>(none means all)</span></legend>
-        <div class="combo" on:focusout={closeList}>
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <div
-            class="chips"
-            class:open={listOpen}
-            on:mousedown|self|preventDefault={() => modelInput.focus()}
-          >
-            {#each picked.slice(0, SHOWN_CHIPS) as name (name)}
-              <span class="chip"
-                >{rowLabel(name)}<button
+        <ul class="provider-list">
+          {#each providerMatches as id (id)}
+            {@const total = providerModels.get(id)?.length ?? 0}
+            {@const isWhole = whole.includes(id)}
+            {@const picked = scopedKeys.get(id)?.size ?? 0}
+            <li class="provider" data-provider={id} class:open={open.has(id)}>
+              <div class="row">
+                <input
+                  type="checkbox"
+                  aria-label={`Follow all of ${providerName(id)}`}
+                  checked={isWhole}
+                  indeterminate={!isWhole && picked > 0}
+                  on:change={() => toggleWhole(id)}
+                />
+                <button
                   type="button"
-                  aria-label="Remove {rowLabel(name)}"
-                  on:click={() => unpick(name)}>×</button
-                ></span
-              >
-            {/each}
-            {#if picked.length > SHOWN_CHIPS}<span
-                class="hint"
-                title={picked.slice(SHOWN_CHIPS).map(rowLabel).join(", ")}
-                >+{picked.length - SHOWN_CHIPS} more</span
-              >{/if}
-            <input
-              type="text"
-              role="combobox"
-              aria-label="Select models"
-              aria-expanded={listOpen}
-              aria-controls="model-options"
-              aria-autocomplete="list"
-              aria-activedescendant={active >= 0 ? optionId(active) : undefined}
-              placeholder={picked.length ? "" : "Select models"}
-              autocomplete="off"
-              bind:value={modelQuery}
-              bind:this={modelInput}
-              on:focus={() => (listOpen = true)}
-              on:keydown={modelKeydown}
-            />
-          </div>
-          {#if listOpen}
-            <ul
-              class="model-options"
-              id="model-options"
-              role="listbox"
-              aria-multiselectable="true"
-              aria-label="Models"
-            >
-              {#if pattern}
-                <li class="group" role="presentation">Wildcards</li>
-                <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-                <li
-                  id={optionId(0)}
-                  role="option"
-                  data-value={pattern}
-                  aria-selected={picked.includes(pattern)}
-                  class:active={active === 0}
-                  on:mousedown|preventDefault
-                  on:click={() => togglePick(pattern)}
+                  class="expand"
+                  aria-expanded={open.has(id)}
+                  on:click={() => toggleOpen(id)}
+                  >{providerName(id)}
+                  <span class="hint">{countLabel(isWhole, picked, total)}</span
+                  ><span class="chevron" aria-hidden="true"
+                    >{open.has(id) ? "▴" : "▾"}</span
+                  ></button
                 >
-                  {rowLabel(pattern)}
-                </li>
+              </div>
+              {#if open.has(id)}
+                <div class="model-grid">
+                  {#each providerModels.get(id) ?? [] as name (name)}
+                    <label class="check"
+                      ><input
+                        type="checkbox"
+                        value={name}
+                        disabled={isWhole}
+                        checked={isWhole ||
+                          (scopedKeys.get(id)?.has(modelKey(name)) ?? false)}
+                        on:change={() => toggleModel(id, name)}
+                      />
+                      {name}</label
+                    >
+                  {/each}
+                  {#if !total}<span class="hint"
+                      >{catalogState === "loading"
+                        ? "Loading the catalog…"
+                        : "No models listed"}</span
+                    >{/if}
+                </div>
               {/if}
-              {#if modelMatches.matched}
-                <li class="group" role="presentation">Models</li>
-                {#each modelMatches.options.slice(pattern ? 1 : 0) as name, i (name)}
-                  <!-- svelte-ignore a11y-click-events-have-key-events a11y-no-noninteractive-element-interactions -->
-                  <li
-                    id={optionId(i + (pattern ? 1 : 0))}
-                    role="option"
-                    data-value={name}
-                    aria-selected={picked.includes(name)}
-                    class:active={active === i + (pattern ? 1 : 0)}
-                    on:mousedown|preventDefault
-                    on:click={() => togglePick(name)}
-                  >
-                    {name}
-                  </li>
-                {/each}
-                {#if modelMatches.hidden}<li class="hint" role="presentation">
-                    +{modelMatches.hidden} more, type to narrow
-                  </li>{/if}
-              {:else if !pattern}
-                <li class="hint" role="presentation">
-                  {modelQuery.trim()
-                    ? `No model matches "${modelQuery}"`
-                    : "Tick a provider above to list its models, or type a name. gpt-5* follows every GPT-5 model."}
-                </li>
-              {/if}
-            </ul>
-          {/if}
-        </div>
-        <div class="provider-tools">
+            </li>
+          {/each}
+          {#if !providerMatches.length}<li class="hint">
+              No provider matches "{providerQuery}"
+            </li>{/if}
+        </ul>
+        <div class="following">
+          {#each following.slice(0, SHOWN_CHIPS) as chip (chip.key)}
+            <span class="chip"
+              >{chip.label} <span class="hint">{chip.note}</span><button
+                type="button"
+                aria-label="Stop following {chip.label}"
+                on:click={chip.remove}>×</button
+              ></span
+            >
+          {/each}
+          {#if following.length > SHOWN_CHIPS}<span
+              class="hint"
+              title={following
+                .slice(SHOWN_CHIPS)
+                .map((c) => c.label)
+                .join(", ")}>+{following.length - SHOWN_CHIPS} more</span
+            >{/if}
           <span class="hint"
-            >{picked.length
-              ? `Following ${shownNames}, ${seen} changed in the last 30 days.`
-              : "A name follows the model on every provider that lists it."}{catalogState ===
+            >{following.length
+              ? `${posts} ${posts === 1 ? "post" : "posts"} in the last 30 days.`
+              : "Nothing ticked follows every provider."}{catalogState ===
             "loading"
               ? " Loading the catalog…"
               : ""}</span
-          >
-          <button type="button" disabled={!picked.length} on:click={clearPicked}
-            >Clear</button
           >
         </div>
       </fieldset>
@@ -735,9 +714,9 @@
     min-height: 0;
     padding: 0;
     width: auto;
+    flex: none;
   }
-  .builder .providers,
-  .builder .models {
+  .builder .providers {
     display: grid;
     gap: 8px;
   }
@@ -764,39 +743,79 @@
   .provider-tools button:disabled {
     opacity: 0.5;
   }
-  .combo {
-    position: relative;
-  }
-  .chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    align-items: center;
-    min-height: 36px;
-    padding: 4px 6px;
+  .provider-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 320px;
+    overflow-y: auto;
     border: 1px solid var(--hf-line);
     border-radius: var(--control-radius);
     background: var(--hf-bg);
-    cursor: text;
   }
-  .chips.open {
-    border-color: var(--hf-ink);
+  .provider-list > .hint {
+    padding: 8px 10px;
   }
-  .chips input {
-    flex: 1;
-    min-width: 120px;
-    border: 0;
-    padding: 4px;
+  .provider {
+    border-bottom: 1px solid var(--hf-line);
+  }
+  .provider:last-child {
+    border-bottom: 0;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 10px;
+    position: sticky;
+    top: 0;
+    background: var(--hf-bg);
+    z-index: 1;
+  }
+  .row input {
     min-height: 0;
+    padding: 0;
     width: auto;
+    flex: none;
+  }
+  .expand {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 0;
+    border: 0;
+    background: none;
+    color: var(--hf-ink);
     font-size: 13px;
-    outline: none;
-    background: transparent;
+    text-align: left;
+  }
+  .expand:hover {
+    color: var(--hf-accent);
+  }
+  .chevron {
+    margin-left: auto;
+    color: var(--hf-muted);
+    font-size: 11px;
+  }
+  .model-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 4px 12px;
+    max-height: 220px;
+    overflow-y: auto;
+    padding: 4px 10px 10px 32px;
+  }
+  .following {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    align-items: center;
   }
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
+    gap: 4px;
     padding: 2px 4px 2px 8px;
     border-radius: 999px;
     background: var(--hf-faint);
@@ -815,63 +834,6 @@
   }
   .chip button:hover {
     color: var(--hf-ink);
-  }
-  .model-options {
-    position: absolute;
-    z-index: 5;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    margin: 0;
-    padding: 4px;
-    list-style: none;
-    max-height: 260px;
-    overflow-y: auto;
-    border: 1px solid var(--hf-line);
-    border-radius: var(--control-radius);
-    background: var(--hf-bg);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-  }
-  .model-options li {
-    font-size: 13px;
-    padding: 6px 8px 6px 26px;
-    border-radius: 4px;
-    position: relative;
-    color: var(--hf-ink);
-  }
-  .model-options li[role="option"] {
-    cursor: pointer;
-  }
-  .model-options li[role="option"]:hover,
-  .model-options li.active {
-    background: var(--hf-faint);
-  }
-  .model-options li[aria-selected="true"]::before {
-    content: "✓";
-    position: absolute;
-    left: 9px;
-    color: var(--hf-ink);
-  }
-  .model-options li.group {
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--hf-muted);
-    padding: 8px 8px 2px;
-  }
-  .model-options li.hint {
-    padding-left: 8px;
-  }
-  .provider-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-    gap: 4px 12px;
-    max-height: 190px;
-    overflow-y: auto;
-    padding: 8px 10px;
-    border: 1px solid var(--hf-line);
-    border-radius: var(--control-radius);
-    background: var(--hf-bg);
   }
   .output {
     display: flex;

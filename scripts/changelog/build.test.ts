@@ -14,6 +14,8 @@ import {
   listingKeys,
   modelName,
   filterChangelogItems,
+  scopedEntry,
+  scopedModel,
 } from "../../src/changelogPresentation";
 const sha = "a".repeat(40),
   parent = "b".repeat(40);
@@ -485,6 +487,29 @@ describe("automatic catalog changelog", () => {
     expect(ids("models=sonnet*")).toEqual([]);
     expect(only("models=gpt-5&providers=vertex_ai")).toEqual([]);
     expect(only("models=gpt-5&kind=model")).toEqual([]);
+    expect(ids("all=openai")).toEqual(["p1"]);
+    expect(ids("all=OpenAI,newco")).toEqual(["p1", "n1"]);
+    expect(only("all=newco")[0].kind).toBe("provider");
+    expect(ids("all=vertex_ai&models=openai:gpt-5")).toEqual(["p1", "p2"]);
+    expect(ids("models=openai:gpt-5")).toEqual(["p1"]);
+    expect(ids("models=openai:GPT-5")).toEqual(["p1"]);
+    expect(ids("models=vertex_ai:gpt-5")).toEqual([]);
+    expect(ids("models=openai:gpt-5,claude-sonnet-4-5")).toEqual(["p1", "p2"]);
+    expect(ids("models=fireworks_ai:*")).toEqual(["m1"]);
+    expect(
+      only("models=fireworks_ai:k*")[0].entries.map((e) => e.name),
+    ).toEqual(["Kimi"]);
+    expect(ids("all=openai&models=openai:gpt-5")).toEqual(["p1"]);
+    expect(ids("all=openai&providers=vertex_ai")).toEqual([]);
+    expect(ids("all=openai&kind=model")).toEqual([]);
+    expect(ids("all=openai&models=*")).toEqual(["p1", "p2", "m1", "n1"]);
+    expect(scopedModel("Azure:GPT-5")).toEqual({
+      provider: "azure",
+      model: "GPT-5",
+    });
+    expect(scopedModel("anthropic.claude-sonnet-4-5-20250929-v1:0")).toBeNull();
+    expect(scopedModel("bedrock/anthropic.claude-v2:1")).toBeNull();
+    expect(scopedEntry("azure", "GPT-5")).toBe("azure:GPT-5");
     expect(
       filterChangelogItems(items, feedFilter(new URLSearchParams(""))).length,
     ).toBe(4);
@@ -526,12 +551,13 @@ describe("automatic catalog changelog", () => {
         name: "Claude Sonnet 4.5 v1",
       } as never),
     ]).toContain("claude-sonnet-4-5");
-    expect(feedUrl({ kinds: [], providers: [], models: [], digest: "" })).toBe(
-      "https://models.litellm.ai/changelog.xml",
-    );
+    expect(
+      feedUrl({ kinds: [], providers: [], all: [], models: [], digest: "" }),
+    ).toBe("https://models.litellm.ai/changelog.xml");
     const url = feedUrl({
       kinds: ["price", "deprecation"],
       providers: ["azure", "vertex_ai"],
+      all: [],
       models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
       digest: "1h",
     });
@@ -541,11 +567,35 @@ describe("automatic catalog changelog", () => {
     expect(feedFilter(new URL(url).searchParams)).toEqual({
       kinds: ["price", "deprecation"],
       providers: ["azure", "vertex_ai"],
+      all: [],
       models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
       digest: "1h",
     });
+    const or = feedUrl({
+      kinds: [],
+      providers: [],
+      all: ["anthropic"],
+      models: ["azure:GPT-5.1", "openai:GPT-5.1", "Claude Sonnet 4.5"],
+      digest: "",
+    });
+    expect(or).toBe(
+      "https://models.litellm.ai/changelog.xml?all=anthropic&models=azure:GPT-5.1,openai:GPT-5.1,Claude%20Sonnet%204.5",
+    );
+    expect(feedFilter(new URL(or).searchParams)).toEqual({
+      kinds: [],
+      providers: [],
+      all: ["anthropic"],
+      models: ["azure:gpt-5.1", "openai:gpt-5.1", "claude sonnet 4.5"],
+      digest: "",
+    });
     expect(
-      feedUrl({ kinds: [], providers: [], models: ["a b&c"], digest: "" }),
+      feedUrl({
+        kinds: [],
+        providers: [],
+        all: [],
+        models: ["a b&c"],
+        digest: "",
+      }),
     ).toBe("https://models.litellm.ai/changelog.xml?models=a%20b%26c");
   });
 });
