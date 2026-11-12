@@ -711,6 +711,7 @@
     min-height: 0;
     padding: 0;
     width: auto;
+    flex: none;
   }
   .builder .providers {
     display: grid;
