@@ -1,8 +1,11 @@
 /**
  * Serves /changelog.xml (rewritten here in vercel.json) from the build's
- * /changelog.json, filtered by ?kind=, ?providers= and ?models=. A function rather than a
- * static file because the CDN caches static files by path alone, so a filtered
- * URL would be answered with the unfiltered feed once either was cached.
+ * /changelog.json, filtered by ?kind=, ?all=, ?providers= and ?models=. ?all=
+ * names providers followed whole and ?models= models followed everywhere or,
+ * as provider:model, on one provider; an item posts when any of those holds.
+ * A function rather than a static file because the CDN caches static files by
+ * path alone, so a filtered URL would be answered with the unfiltered feed
+ * once either was cached.
  * ?digest=commit folds every change of one catalog commit into one item, and
  * ?digest=1h (30m, 4h, 1d) every change of one clock hour, the shapes a Slack
  * channel subscription reads best. A window counts as closed by the time the

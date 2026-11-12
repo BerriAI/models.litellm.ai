@@ -361,8 +361,14 @@ const xml = (s: string) =>
 export const FEED_URL = "https://models.litellm.ai/changelog.xml";
 export interface FeedFilter {
   kinds: string[];
+  /** Scope filter: only these providers' items, combined with `models` by AND. */
   providers: string[];
-  /** Catalog ids or display names, each matched by `modelKey`. */
+  /** Providers followed whole: every item on them posts. */
+  all: string[];
+  /**
+   * Catalog ids or display names, each matched by `modelKey`, followed on
+   * every provider, or `provider:model` entries followed on that provider only.
+   */
   models: string[];
   /** "" for one item per change, "commit" for one per commit, or a span like "1h". */
   digest: string;
@@ -383,16 +389,18 @@ const list = (value: string | null) =>
     .filter(Boolean);
 const digestOf = (value: string | null) =>
   value === "commit" || digestWindow(value ?? "") ? (value as string) : "";
-/** `?kind=price,deprecation&providers=bedrock,openai&models=gpt-5&digest=commit` as the feed reads it. */
+/** `?kind=price,deprecation&all=anthropic&models=openai:gpt-5.1,gpt-5&digest=commit` as the feed reads it. */
 export const feedFilter = (params: URLSearchParams): FeedFilter => ({
   kinds: list(params.get("kind")),
   providers: list(params.get("providers")),
+  all: list(params.get("all")),
   models: list(params.get("models")),
   digest: digestOf(params.get("digest")),
 });
 export const EMPTY_FILTER: FeedFilter = {
   kinds: [],
   providers: [],
+  all: [],
   models: [],
   digest: "",
 };
@@ -410,6 +418,7 @@ export function feedUrl(filter: FeedFilter): string {
       : [];
   const query = [
     ...part("kind", filter.kinds),
+    ...part("all", filter.all),
     ...part("providers", filter.providers),
     ...part("models", filter.models),
     ...part("digest", filter.digest ? [filter.digest] : []),
@@ -485,11 +494,50 @@ export function modelMatcher(
       (key) => exact.has(key) || patterns.some((re) => re.test(key)),
     );
 }
+const SCOPED = /^([a-z0-9_-]+):(.+)$/i;
+/**
+ * A `?models=` entry of the form `openai:gpt-5.1` follows the model on that
+ * one provider. A Bedrock id such as `anthropic.claude-sonnet-4-5-v1:0` has a
+ * `.` before its colon, so it never reads as a scope.
+ */
+export function scopedModel(
+  entry: string,
+): { provider: string; model: string } | null {
+  const match = SCOPED.exec(entry);
+  return match ? { provider: match[1].toLowerCase(), model: match[2] } : null;
+}
+export const scopedEntry = (provider: string, model: string) =>
+  `${provider}:${model}`;
+/**
+ * The items a filter posts. `kind` and the legacy `providers` scope are AND
+ * filters; `all` and `models` are ORed: an item posts when its provider is
+ * followed whole, one of its models is followed on that provider, or one of
+ * its models is followed everywhere. With none of the three, everything posts.
+ */
 export function filterChangelogItems(
   items: ChangelogItem[],
   filter: FeedFilter,
 ): ChangelogItem[] {
-  const wanted = followsAll(filter.models) ? null : modelMatcher(filter.models);
+  const everywhere: string[] = [];
+  const perProvider = new Map<string, string[]>();
+  for (const entry of filter.models) {
+    const scoped = scopedModel(entry);
+    if (!scoped) everywhere.push(entry);
+    else
+      perProvider.set(scoped.provider, [
+        ...(perProvider.get(scoped.provider) ?? []),
+        scoped.model,
+      ]);
+  }
+  const whole = new Set(filter.all);
+  const follows = whole.size + everywhere.length + perProvider.size > 0;
+  const wanted = followsAll(everywhere) ? null : modelMatcher(everywhere);
+  const onProvider = new Map(
+    [...perProvider].map(([provider, models]) => [
+      provider,
+      followsAll(models) ? null : modelMatcher(models),
+    ]),
+  );
   return items.flatMap((item) => {
     if (
       (filter.kinds.length
@@ -498,8 +546,18 @@ export function filterChangelogItems(
       (filter.providers.length && !filter.providers.includes(item.provider))
     )
       return [];
-    if (!wanted) return [item];
-    const entries = item.entries.filter((entry) => wanted(listingKeys(entry)));
+    const local = onProvider.get(item.provider);
+    if (
+      !follows ||
+      whole.has(item.provider) ||
+      (everywhere.length && !wanted) ||
+      (onProvider.has(item.provider) && !local)
+    )
+      return [item];
+    const entries = item.entries.filter((entry) => {
+      const keys = listingKeys(entry);
+      return Boolean(wanted?.(keys) || local?.(keys));
+    });
     if (!entries.length) return [];
     // A new provider narrowed to the models a reader follows reads as those
     // models being added, not as the whole provider arriving.
