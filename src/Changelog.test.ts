@@ -6,6 +6,9 @@ import Main from "./Main.svelte";
 import { track, trackPageView } from "./analytics";
 import snapshot from "../scripts/changelog/seed.json";
 const catalog = {
+  "never_changed_provider/model": {
+    litellm_provider: "never_changed_provider",
+  },
   "azure/gpt-5": { litellm_provider: "azure", mode: "chat" },
   "gpt-5": { litellm_provider: "openai", mode: "chat" },
   "vertex_ai/claude-sonnet-4-5@20250929": { litellm_provider: "vertex_ai" },
@@ -331,13 +334,24 @@ describe("Changelog page", () => {
     );
     expect(document.body.textContent).toContain("1 post in the last 30 days.");
   });
-  it("picks providers from a filterable checklist", async () => {
+  it("picks providers from a filterable checklist that lists catalog-only providers without widening the page filter", async () => {
     component = new Changelog({ target: document.body });
     await vi.waitFor(() =>
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
     );
+    await openBuilder();
+    await vi.waitFor(() =>
+      expect(row("never_changed_provider")).not.toBeNull(),
+    );
     const all = document.querySelectorAll(".provider-list .row input").length;
-    expect(all).toBeGreaterThan(1);
+    const pageFilter = Array.from(
+      document.querySelectorAll<HTMLOptionElement>(
+        'select[aria-label="Filter by provider"] option',
+      ),
+    ).map((option) => option.value);
+    expect(pageFilter).toContain("openai");
+    expect(pageFilter).not.toContain("never_changed_provider");
+    expect(pageFilter.length).toBeLessThan(all);
     const filter = document.querySelector<HTMLInputElement>(
       ".provider-tools input",
     )!;

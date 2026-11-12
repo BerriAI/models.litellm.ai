@@ -168,9 +168,12 @@
       ]),
     );
   })();
-  $: providers = [...providerModels.keys()].sort((a, b) =>
-    providerName(a).localeCompare(providerName(b)),
-  );
+  const byName = (a: string, b: string) =>
+    providerName(a).localeCompare(providerName(b));
+  /** Providers with a change in the last 30 days, for the page's filter. */
+  $: providers = [...new Set(updates.map((u) => u.provider))].sort(byName);
+  /** Every provider the catalog or the changelog knows, for the feed builder. */
+  $: builderProviders = [...providerModels.keys()].sort(byName);
   $: search = query.trim().toLowerCase();
   $: filtered = items.filter(
     (item) =>
@@ -194,7 +197,7 @@
     expanded.has(id) ? expanded.delete(id) : expanded.add(id);
     expanded = new Set(expanded);
   }
-  $: providerMatches = providers.filter((id) => {
+  $: providerMatches = builderProviders.filter((id) => {
     const q = providerQuery.trim().toLowerCase();
     return !q || id.includes(q) || providerName(id).toLowerCase().includes(q);
   });
@@ -398,7 +401,7 @@
             >Clear</button
           >
           <span class="hint"
-            >{whole.length} whole, {scopedKeys.size} partial of {providers.length}</span
+            >{whole.length} whole, {scopedKeys.size} partial of {builderProviders.length}</span
           >
         </div>
         <ul class="provider-list">
