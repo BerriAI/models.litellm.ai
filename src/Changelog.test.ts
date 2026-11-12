@@ -348,7 +348,9 @@ describe("Changelog page", () => {
       document.querySelectorAll<HTMLOptionElement>(
         'select[aria-label="Filter by provider"] option',
       ),
-    ).map((option) => option.value);
+    )
+      .map((option) => option.value)
+      .filter((value) => value !== "all");
     expect(pageFilter).toContain("openai");
     expect(pageFilter).not.toContain("never_changed_provider");
     expect(pageFilter.length).toBeLessThan(all);
