@@ -130,4 +130,54 @@ describe("/changelog.xml function", () => {
     expect(digest[0].body).not.toContain("bedrock/b");
     expect(items(await (await feed("?models=nobody")).text())).toEqual([]);
   });
+  it("keeps only the GovCloud listings ?cloud= names, combined with the other filters", async () => {
+    const mixed = update("price", "bedrock", "bedrock/us-gov-west-1/claude");
+    mixed.entries.push({
+      ...mixed.entries[0],
+      modelId: "bedrock/us-west-2/claude",
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          ...data,
+          updates: [
+            ...data.updates,
+            mixed,
+            update("price", "bedrock_converse", "us-gov.nova"),
+            update(
+              "price",
+              "bedrock_mantle",
+              "bedrock_mantle/us-gov-east-1/gpt",
+            ),
+            update("deprecation", "azure", "azure/us-gov/o3"),
+            update("price", "azure", "azure/eu/us-gov-lookalike"),
+            update("price", "openai", "us-gov-unknown-seller"),
+          ],
+        }),
+      ),
+    );
+    const ids = async (query: string) =>
+      items(await (await feed(query)).text()).flatMap((i) =>
+        i.body.split("\n").filter((line) => line.includes("gov")),
+      );
+    expect(await ids("?cloud=bedrock-gov")).toEqual([
+      "bedrock/us-gov-west-1/claude",
+      "us-gov.nova",
+      "bedrock_mantle/us-gov-east-1/gpt",
+    ]);
+    expect(await ids("?cloud=azure-gov")).toEqual(["azure/us-gov/o3"]);
+    expect(await ids("?cloud=bedrock-gov,azure-gov&kind=deprecation")).toEqual([
+      "azure/us-gov/o3",
+    ]);
+    expect(await ids("?cloud=bedrock-gov&all=bedrock_mantle")).toEqual([
+      "bedrock_mantle/us-gov-east-1/gpt",
+    ]);
+    expect(await ids("?cloud=bedrock-gov&models=*nova*")).toEqual([
+      "us-gov.nova",
+    ]);
+    const body = items(await (await feed("?cloud=bedrock-gov")).text())[0].body;
+    expect(body).not.toContain("us-west-2");
+    expect(items(await (await feed("?cloud=nowhere")).text())).toEqual([]);
+  });
 });

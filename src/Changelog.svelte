@@ -10,6 +10,7 @@
   } from "./discoveryChangelog";
   import {
     DIGEST_OPTIONS,
+    GOV_CLOUDS,
     changelogItems,
     feedFilter,
     feedQuery,
@@ -36,6 +37,8 @@
   const SHOWN_CHIPS = 6;
   let digest = "";
   let kinds: string[] = [];
+  /** Government clouds the feed is narrowed to (`?cloud=`). */
+  let clouds: string[] = [];
   /** Providers followed whole (`?all=`). */
   let whole: string[] = [];
   /** `provider:model` entries followed on one provider (`?models=`). */
@@ -96,11 +99,13 @@
     if (
       preset.kinds.length ||
       preset.providers.length ||
+      preset.clouds.length ||
       preset.all.length ||
       preset.models.length ||
       preset.digest
     ) {
       kinds = preset.kinds;
+      clouds = preset.clouds;
       digest = preset.digest;
       const models = [
         ...new Set(
@@ -219,6 +224,12 @@
         : `${total} ${total === 1 ? "model" : "models"}`;
   const changed = (field: string, value: number) =>
     track("Changelog Feed Builder Changed", { field, value });
+  function toggleCloud(id: string) {
+    clouds = clouds.includes(id)
+      ? clouds.filter((c) => c !== id)
+      : [...clouds, id];
+    track("Changelog Feed Builder Changed", { field: "cloud", value: clouds });
+  }
   function toggleWhole(id: string) {
     if (whole.includes(id)) whole = whole.filter((p) => p !== id);
     else {
@@ -303,13 +314,15 @@
   $: filter = {
     kinds,
     providers: [],
+    clouds,
     all: whole,
     models: [...scoped, ...everywhere],
     digest,
   };
   $: url = feedUrl(filter);
   $: slackCommand = `/feed subscribe ${url}`;
-  $: posts = following.length ? filterChangelogItems(items, filter).length : 0;
+  $: narrowed = following.length + clouds.length > 0;
+  $: posts = narrowed ? filterChangelogItems(items, filter).length : 0;
   async function copy(what: "url" | "slack") {
     copyError = "";
     try {
@@ -324,6 +337,7 @@
       what,
       digest,
       kind: kinds,
+      cloud: clouds,
       providers: whole,
       models: scoped.length + everywhere.length,
     });
@@ -376,6 +390,22 @@
         {#each filters.slice(1) as filter}<label class="check"
             ><input type="checkbox" bind:group={kinds} value={filter.id} />
             {filter.label}</label
+          >{/each}
+      </fieldset>
+      <fieldset class="clouds">
+        <legend
+          >Government clouds <span
+            >(only GovCloud listings; none means every region)</span
+          ></legend
+        >
+        {#each GOV_CLOUDS as cloud}<label class="check"
+            ><input
+              type="checkbox"
+              value={cloud.id}
+              checked={clouds.includes(cloud.id)}
+              on:change={() => toggleCloud(cloud.id)}
+            />
+            {cloud.label}</label
           >{/each}
       </fieldset>
       <fieldset class="providers">
@@ -476,7 +506,7 @@
                 .join(", ")}>+{following.length - SHOWN_CHIPS} more</span
             >{/if}
           <span class="hint"
-            >{following.length
+            >{narrowed
               ? `${posts} ${posts === 1 ? "post" : "posts"} in the last 30 days.`
               : "Nothing ticked follows every provider."}{catalogState ===
             "loading"

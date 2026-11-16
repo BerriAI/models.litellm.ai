@@ -1,6 +1,7 @@
 /**
  * Serves /changelog.xml (rewritten here in vercel.json) from the build's
- * /changelog.json, filtered by ?kind=, ?all=, ?providers= and ?models=. ?all=
+ * /changelog.json, filtered by ?kind=, ?cloud=, ?all=, ?providers= and
+ * ?models=. ?cloud=bedrock-gov,azure-gov keeps only GovCloud listings. ?all=
  * names providers followed whole and ?models= models followed everywhere or,
  * as provider:model, on one provider; an item posts when any of those holds.
  * A function rather than a static file because the CDN caches static files by

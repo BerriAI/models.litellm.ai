@@ -552,11 +552,19 @@ describe("automatic catalog changelog", () => {
       } as never),
     ]).toContain("claude-sonnet-4-5");
     expect(
-      feedUrl({ kinds: [], providers: [], all: [], models: [], digest: "" }),
+      feedUrl({
+        kinds: [],
+        providers: [],
+        clouds: [],
+        all: [],
+        models: [],
+        digest: "",
+      }),
     ).toBe("https://models.litellm.ai/changelog.xml");
     const url = feedUrl({
       kinds: ["price", "deprecation"],
       providers: ["azure", "vertex_ai"],
+      clouds: [],
       all: [],
       models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
       digest: "1h",
@@ -567,6 +575,7 @@ describe("automatic catalog changelog", () => {
     expect(feedFilter(new URL(url).searchParams)).toEqual({
       kinds: ["price", "deprecation"],
       providers: ["azure", "vertex_ai"],
+      clouds: [],
       all: [],
       models: ["azure/gpt-5", "vertex_ai/claude-sonnet-4-5@20250929"],
       digest: "1h",
@@ -574,6 +583,7 @@ describe("automatic catalog changelog", () => {
     const or = feedUrl({
       kinds: [],
       providers: [],
+      clouds: [],
       all: ["anthropic"],
       models: ["azure:GPT-5.1", "openai:GPT-5.1", "Claude Sonnet 4.5"],
       digest: "",
@@ -584,6 +594,7 @@ describe("automatic catalog changelog", () => {
     expect(feedFilter(new URL(or).searchParams)).toEqual({
       kinds: [],
       providers: [],
+      clouds: [],
       all: ["anthropic"],
       models: ["azure:gpt-5.1", "openai:gpt-5.1", "claude sonnet 4.5"],
       digest: "",
@@ -592,6 +603,7 @@ describe("automatic catalog changelog", () => {
       feedUrl({
         kinds: [],
         providers: [],
+        clouds: [],
         all: [],
         models: ["a b&c"],
         digest: "",

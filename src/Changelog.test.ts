@@ -299,6 +299,7 @@ describe("Changelog page", () => {
       what: "slack",
       digest: "1h",
       kind: [],
+      cloud: [],
       providers: ["azure"],
       models: 0,
     });
@@ -450,5 +451,39 @@ describe("Changelog page", () => {
       expect(document.body.textContent).toContain("GPT-6 Rosalind"),
     );
     expect(url()).toBe("https://models.litellm.ai/changelog.xml?all=azure");
+  });
+  it("narrows the feed to the government clouds ticked and reopens from a ?cloud= link", async () => {
+    window.history.replaceState({}, "", "/changelog?cloud=azure-gov");
+    component = new Changelog({ target: document.body });
+    await vi.waitFor(() =>
+      expect(document.body.textContent).toContain("GPT-6 Rosalind"),
+    );
+    const feedUrl = () => document.querySelector(".output code")!.textContent;
+    const cloudBox = (id: string) =>
+      document.querySelector<HTMLInputElement>(`.clouds input[value="${id}"]`)!;
+    expect(document.querySelector<HTMLDetailsElement>(".subscribe")!.open).toBe(
+      true,
+    );
+    expect(cloudBox("azure-gov").checked).toBe(true);
+    expect(cloudBox("bedrock-gov").checked).toBe(false);
+    expect(document.querySelector(".clouds")!.textContent).toContain(
+      "AWS Bedrock GovCloud",
+    );
+    expect(document.body.textContent).toMatch(
+      /\d+ posts? in the last 30 days\./,
+    );
+    cloudBox("bedrock-gov").click();
+    await tick();
+    expect(feedUrl()).toBe(
+      "https://models.litellm.ai/changelog.xml?cloud=azure-gov,bedrock-gov",
+    );
+    expect(track).toHaveBeenCalledWith("Changelog Feed Builder Changed", {
+      field: "cloud",
+      value: ["azure-gov", "bedrock-gov"],
+    });
+    cloudBox("azure-gov").click();
+    cloudBox("bedrock-gov").click();
+    await tick();
+    expect(feedUrl()).toBe("https://models.litellm.ai/changelog.xml");
   });
 });
