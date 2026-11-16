@@ -102,7 +102,7 @@ describe("machine fetch tracking", () => {
       expect(
         middleware(
           new Request(
-            "https://models.litellm.ai/changelog.xml?kind=price&providers=bedrock,databricks",
+            "https://models.litellm.ai/changelog.xml?kind=price&providers=bedrock,databricks&cloud=bedrock-gov",
           ),
           context,
         ),
@@ -122,6 +122,8 @@ describe("machine fetch tracking", () => {
         "Feed Fetched",
       ]);
       expect(events[0].properties.kind).toEqual(["price"]);
+      expect(events[0].properties.cloud).toEqual(["bedrock-gov"]);
+      expect(events[1].properties.cloud).toBeUndefined();
       expect(events[0].properties.providers).toEqual(["bedrock", "databricks"]);
       expect(events[1].properties).not.toHaveProperty("kind");
       expect(events[1].properties).not.toHaveProperty("providers");

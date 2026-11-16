@@ -363,6 +363,8 @@ export interface FeedFilter {
   kinds: string[];
   /** Scope filter: only these providers' items, combined with `models` by AND. */
   providers: string[];
+  /** Government clouds (`GOV_CLOUDS` ids): only their listings, ANDed with the rest. */
+  clouds: string[];
   /** Providers followed whole: every item on them posts. */
   all: string[];
   /**
@@ -393,6 +395,7 @@ const digestOf = (value: string | null) =>
 export const feedFilter = (params: URLSearchParams): FeedFilter => ({
   kinds: list(params.get("kind")),
   providers: list(params.get("providers")),
+  clouds: list(params.get("cloud")),
   all: list(params.get("all")),
   models: list(params.get("models")),
   digest: digestOf(params.get("digest")),
@@ -400,6 +403,7 @@ export const feedFilter = (params: URLSearchParams): FeedFilter => ({
 export const EMPTY_FILTER: FeedFilter = {
   kinds: [],
   providers: [],
+  clouds: [],
   all: [],
   models: [],
   digest: "",
@@ -418,6 +422,7 @@ export function feedUrl(filter: FeedFilter): string {
       : [];
   const query = [
     ...part("kind", filter.kinds),
+    ...part("cloud", filter.clouds),
     ...part("all", filter.all),
     ...part("providers", filter.providers),
     ...part("models", filter.models),
@@ -494,6 +499,31 @@ export function modelMatcher(
       (key) => exact.has(key) || patterns.some((re) => re.test(key)),
     );
 }
+/** The government clouds the builder offers, by the `?cloud=` id each writes. */
+export const GOV_CLOUDS = [
+  { id: "bedrock-gov", label: "AWS Bedrock GovCloud", provider: "bedrock" },
+  { id: "azure-gov", label: "Azure Government", provider: "azure" },
+];
+/**
+ * The government cloud a listing is sold in, read from its catalog id: a
+ * `us-gov-west-1` or `us-gov` region segment before the model, or a model
+ * that is a `us-gov.` inference profile. Bedrock's sibling providers
+ * (`bedrock_converse`, `bedrock_mantle`) count as Bedrock.
+ */
+export function govCloud(provider: string, modelId: string): string | null {
+  const segments = modelId.toLowerCase().split("/");
+  const model = segments.pop() ?? "";
+  if (
+    !model.startsWith("us-gov.") &&
+    !segments.some((s) => /^us-gov(-|$)/.test(s))
+  )
+    return null;
+  return (
+    GOV_CLOUDS.find((cloud) =>
+      provider.toLowerCase().startsWith(cloud.provider),
+    )?.id ?? null
+  );
+}
 const SCOPED = /^([a-z0-9_-]+):(.+)$/i;
 /**
  * A `?models=` entry of the form `openai:gpt-5.1` follows the model on that
@@ -529,8 +559,8 @@ export function filterChangelogItems(
         scoped.model,
       ]);
   }
-  const whole = new Set(filter.all);
-  const follows = whole.size + everywhere.length + perProvider.size > 0;
+  const followed = new Set(filter.all);
+  const follows = followed.size + everywhere.length + perProvider.size > 0;
   const wanted = followsAll(everywhere) ? null : modelMatcher(everywhere);
   const onProvider = new Map(
     [...perProvider].map(([provider, models]) => [
@@ -546,31 +576,46 @@ export function filterChangelogItems(
       (filter.providers.length && !filter.providers.includes(item.provider))
     )
       return [];
+    const inCloud = filter.clouds.length
+      ? item.entries.filter((entry) =>
+          filter.clouds.includes(govCloud(item.provider, entry.modelId) ?? ""),
+        )
+      : item.entries;
+    // A new provider narrowed to the models a reader follows reads as those
+    // models being added, not as the whole provider arriving.
+    const narrowed = (
+      entries: ChangedListing[],
+      byModel: boolean,
+    ): ChangelogItem[] =>
+      !entries.length
+        ? []
+        : !byModel && entries.length === item.entries.length
+          ? [item]
+          : item.kind === "model" || item.kind === "provider"
+            ? [
+                {
+                  ...item,
+                  kind: "model" as const,
+                  entries,
+                  ...additionText("model", entries, item.providerName),
+                },
+              ]
+            : [{ ...item, entries }];
     const local = onProvider.get(item.provider);
     if (
       !follows ||
-      whole.has(item.provider) ||
+      followed.has(item.provider) ||
       (everywhere.length && !wanted) ||
       (onProvider.has(item.provider) && !local)
     )
-      return [item];
-    const entries = item.entries.filter((entry) => {
-      const keys = listingKeys(entry);
-      return Boolean(wanted?.(keys) || local?.(keys));
-    });
-    if (!entries.length) return [];
-    // A new provider narrowed to the models a reader follows reads as those
-    // models being added, not as the whole provider arriving.
-    if (item.kind === "model" || item.kind === "provider")
-      return [
-        {
-          ...item,
-          kind: "model" as const,
-          entries,
-          ...additionText("model", entries, item.providerName),
-        },
-      ];
-    return [{ ...item, entries }];
+      return narrowed(inCloud, false);
+    return narrowed(
+      inCloud.filter((entry) => {
+        const keys = listingKeys(entry);
+        return Boolean(wanted?.(keys) || local?.(keys));
+      }),
+      true,
+    );
   });
 }
 export function changelogRss(
