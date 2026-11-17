@@ -610,4 +610,74 @@ describe("automatic catalog changelog", () => {
       }),
     ).toBe("https://models.litellm.ai/changelog.xml?models=a%20b%26c");
   });
+  it("names the government cloud instead of the commercial provider", () => {
+    const listing = (modelId: string, name: string) => ({
+      modelId,
+      name,
+      changes: [{ field: "input_cost_per_token", before: 1e-6, after: 2e-6 }],
+    });
+    const base = {
+      date: "2026-11-16",
+      timestamp: "2026-11-16T00:00:00Z",
+      title: "",
+      description: "",
+      source: `https://github.com/BerriAI/litellm/commit/${"a".repeat(40)}`,
+      sourceLabel: "",
+    };
+    const items = changelogItems(
+      [
+        {
+          ...base,
+          id: "m1",
+          kind: "model",
+          provider: "azure",
+          entries: [
+            listing("azure/gpt-4.1", "GPT-4.1"),
+            listing("azure/us-gov/gpt-4.1", "GPT-4.1"),
+            listing("azure/us-gov/gpt-4o", "GPT-4o"),
+          ],
+        },
+        {
+          ...base,
+          id: "m2",
+          kind: "model",
+          provider: "bedrock_converse",
+          entries: [listing("us-gov.amazon.nova-pro-v1:0", "Nova Pro")],
+        },
+        {
+          ...base,
+          id: "p1",
+          kind: "price",
+          provider: "bedrock",
+          entries: [
+            listing("bedrock/us-gov-west-1/claude", "Claude"),
+            listing("bedrock/us-east-1/claude", "Claude"),
+          ],
+        },
+      ],
+      { azure: "Azure OpenAI", bedrock: "Amazon Bedrock" },
+    );
+    expect(items.map((i) => [i.id.split(":%")[0], i.headline])).toEqual([
+      ["m1", "GPT-4.1 added on Azure OpenAI"],
+      ["m1:azure-gov", "2 models added on Azure Government"],
+      ["m2", "Nova Pro added on AWS Bedrock GovCloud"],
+      ["p1:bedrock%2Fus-gov-west-1%2Fclaude", "Claude on AWS Bedrock GovCloud"],
+      ["p1:bedrock%2Fus-east-1%2Fclaude", "Claude on Amazon Bedrock"],
+    ]);
+    const [digest] = digestFeedEntries(items);
+    expect(digest.body.split("\n")).toEqual([
+      "• GPT-4.1 added on Azure OpenAI",
+      "• GPT-4.1 added on Azure Government",
+      "• GPT-4o added on Azure Government",
+      "• Nova Pro added on AWS Bedrock GovCloud",
+      "• Claude on AWS Bedrock GovCloud: Input increased $1 → $2 (+100%) / 1M tokens",
+      "• Claude on Amazon Bedrock: Input increased $1 → $2 (+100%) / 1M tokens",
+    ]);
+    expect(
+      filterChangelogItems(
+        items,
+        feedFilter(new URLSearchParams("cloud=azure-gov")),
+      ).map((i) => i.headline),
+    ).toEqual(["2 models added on Azure Government"]);
+  });
 });

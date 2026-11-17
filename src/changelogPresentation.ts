@@ -157,7 +157,7 @@ export function changelogItems(
       newProviders.has(`${update.source}:${update.provider}`)
     )
       return [];
-    if (update.kind === "model" || update.kind === "provider")
+    if (update.kind === "provider")
       return [
         {
           ...update,
@@ -165,7 +165,27 @@ export function changelogItems(
           ...additionText(update.kind, update.entries, provider),
         },
       ];
+    const sellerName = (entry: ChangedListing) =>
+      govCloudLabel(update.provider, entry.modelId) ?? provider;
+    if (update.kind === "model") {
+      const bySeller = new Map<string, ChangedListing[]>();
+      for (const entry of update.entries) {
+        const seller = sellerName(entry);
+        bySeller.set(seller, [...(bySeller.get(seller) ?? []), entry]);
+      }
+      return [...bySeller].map(([seller, entries]) => ({
+        ...update,
+        id:
+          bySeller.size === 1 || seller === provider
+            ? update.id
+            : `${update.id}:${govCloud(update.provider, entries[0].modelId)}`,
+        providerName: seller,
+        entries,
+        ...additionText("model", entries, seller),
+      }));
+    }
     return update.entries.map((entry) => {
+      const seller = sellerName(entry);
       const ordered = [...entry.changes].sort((a, b) => {
         const rank = (field: string) =>
           field === "input_cost_per_token"
@@ -178,9 +198,9 @@ export function changelogItems(
       return {
         ...update,
         id: `${update.id}:${encodeURIComponent(entry.modelId)}`,
-        providerName: provider,
+        providerName: seller,
         entries: [entry],
-        headline: `${entry.name} on ${provider}`,
+        headline: `${entry.name} on ${seller}`,
         lines: ordered.map(changeLine),
       };
     });
@@ -256,7 +276,7 @@ function digestBullets(items: ChangelogItem[]): DigestBullet[] {
     }
     const note = item.kind === "model" ? "" : item.lines.join(", ");
     for (const name of new Set(item.entries.map((e) => e.name))) {
-      const key = `${item.provider}|${name}`;
+      const key = `${item.provider}|${item.providerName}|${name}`;
       const match = bullets.get(key);
       if (match && note) match.text += `, ${note}`;
       else if (!match)
@@ -524,6 +544,10 @@ export function govCloud(provider: string, modelId: string): string | null {
     )?.id ?? null
   );
 }
+/** "Azure Government" or "AWS Bedrock GovCloud" for a listing sold there, else null. */
+export const govCloudLabel = (provider: string, modelId: string) =>
+  GOV_CLOUDS.find((cloud) => cloud.id === govCloud(provider, modelId))?.label ??
+  null;
 const SCOPED = /^([a-z0-9_-]+):(.+)$/i;
 /**
  * A `?models=` entry of the form `openai:gpt-5.1` follows the model on that
