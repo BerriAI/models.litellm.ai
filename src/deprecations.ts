@@ -25,32 +25,28 @@ export type Deprecation = Omit<
 };
 
 export const DEPRECATION_FEED_PATH = "/deprecated-models.xml";
+export const DEFAULT_DEPRECATION_DAYS = 30;
+export const MAX_DEPRECATION_DAYS = 180;
 
-export type DeprecationDateRange = { from: string; to: string };
-
-export function deprecationDateRange(
-  params: URLSearchParams,
-): DeprecationDateRange | null {
-  const from = params.get("from");
-  const to = params.get("to");
-  if (
-    params.getAll("from").length !== 1 ||
-    params.getAll("to").length !== 1 ||
-    !isDay(from) ||
-    !isDay(to) ||
-    from.startsWith("0000-") ||
-    to.startsWith("0000-") ||
-    from > to
-  )
-    return null;
-  return { from, to };
+export function deprecationDays(params: URLSearchParams): number | null {
+  const [value, ...rest] = params.getAll("days");
+  return value !== undefined &&
+    !rest.length &&
+    /^\d+$/.test(value) &&
+    Number(value) <= MAX_DEPRECATION_DAYS
+    ? Number(value)
+    : null;
 }
 
-export function inDeprecationDateRange(
-  day: string,
-  { from, to }: DeprecationDateRange,
-): boolean {
-  return from <= day && day <= to;
+export function shiftDeprecationDay(day: string, days: number): string {
+  return new Date(Date.parse(`${day}T00:00:00Z`) + days * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+}
+
+export function deprecationWindow(today: string, days: number) {
+  const cutoff = shiftDeprecationDay(today, days);
+  return (effectiveDate: string) => today <= effectiveDate && effectiveDate <= cutoff;
 }
 
 export type DeprecationSearchRow = {

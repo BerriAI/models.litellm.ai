@@ -32,6 +32,8 @@ const rows = deprecationSearchIndex(
     listing("eight-days", "2026-11-27"),
     listing("thirty-days", "2026-12-19"),
     listing("later", "2026-12-20"),
+    listing("last-allowed-day", "2027-05-18"),
+    listing("outside-maximum", "2027-05-19"),
   ]),
 );
 const origin = "https://models.litellm.ai";
@@ -56,14 +58,14 @@ async function filtered(query: string) {
   return GET(new Request(target!));
 }
 
-describe("deprecation RSS date range", () => {
+describe("deprecation RSS window", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.unstubAllEnvs();
     vi.useRealTimers();
   });
 
-  it("tracks only valid dates and leaves the default subscription event unchanged", async () => {
+  it("tracks the validated window and leaves the default subscription event unchanged", async () => {
     vi.stubEnv("VITE_MIXPANEL_TOKEN", "test-token");
     const sent = vi.fn().mockResolvedValue(new Response("1"));
     vi.stubGlobal("fetch", sent);
@@ -71,11 +73,7 @@ describe("deprecation RSS date range", () => {
     const context = {
       waitUntil: (work: Promise<unknown>) => pending.push(work),
     };
-    for (const query of [
-      "",
-      "?from=2026-11-18&to=2026-11-26",
-      "?from=2026-11-18&to=bad",
-    ])
+    for (const query of ["", "?days=0", "?days=bad"])
       middleware(
         new Request(`${origin}/deprecated-models.xml${query}`),
         context,
@@ -87,12 +85,10 @@ describe("deprecation RSS date range", () => {
     expect(events.map(({ event }) => event)).toEqual(
       Array(3).fill("Feed Fetched"),
     );
-    expect(
-      events.map(({ properties }) => [properties.from, properties.to]),
-    ).toEqual([
-      [undefined, undefined],
-      ["2026-11-18", "2026-11-26"],
-      [undefined, undefined],
+    expect(events.map(({ properties }) => properties.days)).toEqual([
+      undefined,
+      0,
+      undefined,
     ]);
   });
 
@@ -108,7 +104,7 @@ describe("deprecation RSS date range", () => {
     expect(items(xml)[0].date).toBe("Thu, 19 Nov 2026 00:00:00 GMT");
   });
 
-  it("includes both effective dates across past and future, keeping item IDs and dates stable", async () => {
+  it("serves different windows from the same data with stable GUIDs and non-future publication dates", async () => {
     vi.setSystemTime(new Date("2026-11-19T23:59:59Z"));
     vi.stubGlobal(
       "fetch",
@@ -117,31 +113,29 @@ describe("deprecation RSS date range", () => {
         return Response.json(rows);
       }),
     );
-    const shortRange = "from=2026-11-18&to=2026-11-26";
-    const response = await filtered(shortRange);
+    const response = await filtered("days=7");
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe(
       "application/rss+xml; charset=utf-8",
     );
     expect(response.headers.get("cache-control")).toBe("no-store");
-    const short = await response.text();
-    const long = await (await filtered("from=2026-11-19&to=2026-12-19")).text();
-    expect(short).toContain(
-      `href="${origin}/deprecated-models.xml?from=2026-11-18&amp;to=2026-11-26" rel="self"`,
+    const seven = await response.text();
+    const thirty = await (await filtered("days=30")).text();
+    expect(seven).toContain(
+      `href="${origin}/deprecated-models.xml?days=7" rel="self"`,
     );
-    expect(items(short).map((item) => item.name)).toEqual([
-      "week",
-      "today",
-      "yesterday",
-    ]);
-    expect(items(long).map((item) => item.name)).toEqual([
+    expect(thirty).toContain(
+      `href="${origin}/deprecated-models.xml?days=30" rel="self"`,
+    );
+    expect(items(seven).map((item) => item.name)).toEqual(["week", "today"]);
+    expect(items(thirty).map((item) => item.name)).toEqual([
       "thirty-days",
-      "eight-days",
       "week",
+      "eight-days",
       "today",
     ]);
-    const week = items(short)[0];
-    expect(week.date).toBe("Wed, 18 Nov 2026 00:00:00 GMT");
+    const week = items(seven)[0];
+    expect(week.date).toBe("Thu, 19 Nov 2026 00:00:00 GMT");
     expect(week.link).toBe(
       `${origin}/deprecated-models/2026-11?utm_source=rss&utm_medium=feed&utm_campaign=deprecated-models#week--azure--2026-11-26`,
     );
@@ -150,30 +144,32 @@ describe("deprecation RSS date range", () => {
     expect(week.description).toContain(
       "https://example.com/notice?id=1&source=provider",
     );
-    expect(items(long)[2]).toMatchObject({
+    expect(items(thirty)[1]).toMatchObject({
       guid: week.guid,
       date: "Wed, 18 Nov 2026 00:00:00 GMT",
     });
     expect(
-      items(await (await filtered("from=2026-11-19&to=2026-11-19")).text()).map(
-        (item) => item.name,
-      ),
+      items(await (await filtered("days=0")).text()).map((item) => item.name),
     ).toEqual(["today"]);
 
+    const maximum = items(await (await filtered("days=180")).text());
+    expect(maximum.map((item) => item.name)).toContain("last-allowed-day");
+    expect(maximum.map((item) => item.name)).not.toContain("outside-maximum");
+
     vi.setSystemTime(new Date("2026-11-20T00:00:00Z"));
-    const nextDay = items(await (await filtered(shortRange)).text());
-    expect(nextDay).toEqual(items(short));
+    const nextDay = items(await (await filtered("days=7")).text());
+    expect(nextDay.map((item) => item.name)).toEqual(["eight-days", "week"]);
+    expect(nextDay[1]).toEqual(week);
+    expect(items(await (await filtered("days=0")).text())).toEqual([]);
   });
 
   it.each([
-    "from=2026-11-19",
-    "to=2026-11-19",
-    "from=&to=2026-11-19",
-    "from=2026-2-01&to=2026-11-19",
-    "from=2026-02-29&to=2026-11-19",
-    "from=0000-01-01&to=2026-11-19",
-    "from=2026-11-20&to=2026-11-19",
-    "from=2026-11-19&to=2026-11-19&to=2026-11-19",
+    "days=",
+    "days=-1",
+    "days=1.5",
+    "days=abc",
+    "days=181",
+    "days=7&days=30",
   ])(
     "rejects %s instead of returning unfiltered notifications",
     async (query) => {
@@ -191,7 +187,7 @@ describe("deprecation RSS date range", () => {
       "fetch",
       vi.fn(async () => Response.json({}, { status: 404 })),
     );
-    const response = await filtered("from=2026-11-19&to=2026-11-26");
+    const response = await filtered("days=7");
     expect(response.status).toBe(503);
     expect(response.headers.get("cache-control")).toBe("no-store");
   });

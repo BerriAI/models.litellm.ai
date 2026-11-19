@@ -1,5 +1,6 @@
 import {
-  deprecationDateRange,
+  MAX_DEPRECATION_DAYS,
+  deprecationDays,
   type DeprecationSearchRow,
 } from "../src/deprecations.js";
 import { deprecationRss } from "../scripts/seo/deprecation-feed.js";
@@ -9,10 +10,10 @@ const HEADERS = { "Cache-Control": "no-store" };
 
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
-  const range = deprecationDateRange(url.searchParams);
-  if (!range) {
+  const days = deprecationDays(url.searchParams);
+  if (days === null) {
     return new Response(
-      "Use one from date and one to date (YYYY-MM-DD). The from date must not be after the to date.",
+      `Use one days parameter with a whole number from 0 to ${MAX_DEPRECATION_DAYS}.`,
       { status: 400, headers: HEADERS },
     );
   }
@@ -31,7 +32,7 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  return new Response(deprecationRss(rows, today, range), {
+  return new Response(deprecationRss(rows, today, days), {
     headers: {
       ...HEADERS,
       "Content-Type": "application/rss+xml; charset=utf-8",

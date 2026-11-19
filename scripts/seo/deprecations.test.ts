@@ -333,9 +333,8 @@ describe("deprecation search", () => {
       tracked,
       q: document.querySelector<HTMLInputElement>('[name="q"]')!,
       provider: document.querySelector<HTMLSelectElement>('[name="provider"]')!,
-      from: document.querySelector<HTMLInputElement>('[name="from"]')!,
-      to: document.querySelector<HTMLInputElement>('[name="to"]')!,
-      clear: document.querySelector<HTMLButtonElement>("[data-dep-clear]")!,
+      window: document.querySelector<HTMLSelectElement>('[name="window"]')!,
+      days: document.querySelector<HTMLInputElement>('[name="days"]')!,
       rss: document.querySelector<HTMLAnchorElement>("[data-dep-rss]")!,
       status: document.querySelector<HTMLElement>("[data-dep-status]")!,
       results: () =>
@@ -349,6 +348,7 @@ describe("deprecation search", () => {
   afterEach(() => {
     document.body.innerHTML = "";
     vi.unstubAllGlobals();
+    vi.useRealTimers();
   });
 
   test("the index carries every grouped deprecation with each affected model id", () => {
@@ -429,7 +429,8 @@ describe("deprecation search", () => {
   });
 
   test("applies filters from the URL and keeps a month page to its own month", async () => {
-    const page = await open("/deprecated-models/2026-10?q=gpt&from=2026-10-30&to=2026-11-01", "2026-10");
+    vi.setSystemTime(new Date("2026-10-30T23:59:59Z"));
+    const page = await open("/deprecated-models/2026-10?q=gpt&days=2", "2026-10");
     await settle();
     expect(page.q.value).toBe("gpt");
     expect(page.results()).toHaveLength(1);
@@ -442,54 +443,71 @@ describe("deprecation search", () => {
     );
   });
 
-  test("filters on inclusive effective dates and updates the subscription URL as dates change", async () => {
-    const page = await open("/deprecated-models?from=2026-10-30&to=2026-11-01#archive");
-    expect(page.from.value).toBe("2026-10-30");
-    expect(page.to.value).toBe("2026-11-01");
-    expect(page.results()).toHaveLength(2);
-    expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml?from=2026-10-30&to=2026-11-01");
+  test("starts Upcoming only at 30 days and lets users change or clear the window", async () => {
+    vi.setSystemTime(new Date("2026-10-30T23:59:59Z"));
+    const page = await open("/deprecated-models#archive");
+    expect(page.days.value).toBe("30");
+    expect(page.days.disabled).toBe(true);
 
-    page.to.value = "2026-10-30";
-    page.to.dispatchEvent(new Event("change"));
+    page.window.value = "upcoming";
+    page.window.dispatchEvent(new Event("change"));
+    await settle();
+    expect(page.results()).toHaveLength(2);
+    expect(page.days.disabled).toBe(false);
+    expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml?days=30");
+
+    page.days.value = "0";
+    page.days.dispatchEvent(new Event("change"));
     await settle();
     expect(page.results()).toHaveLength(1);
     expect(page.results()[0]).toContain("Azure");
-    expect(location.search).toBe("?from=2026-10-30&to=2026-10-30");
+    expect(location.search).toBe("?days=0");
     expect(location.hash).toBe("#archive");
-    expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml?from=2026-10-30&to=2026-10-30");
+    expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml?days=0");
     page.rss.dispatchEvent(new Event("click"));
-    expect(page.tracked).toEqual([
+    expect(page.tracked.slice(-2)).toEqual([
       ["deprecations_filtered", {
         provider: null,
         has_query: false,
         matches: 1,
         page_kind: "deprecated-models",
-        from: "2026-10-30",
-        to: "2026-10-30",
+        days: 0,
       }],
-      ["Deprecation RSS Date Range Opened", { from: "2026-10-30", to: "2026-10-30" }],
+      ["Deprecation RSS Window Opened", { days: 0 }],
     ]);
 
-    page.clear.click();
+    page.window.value = "";
+    page.window.dispatchEvent(new Event("change"));
     await settle();
     expect(page.defaultHidden()).toBe(false);
     expect(page.rss.hasAttribute("href")).toBe(false);
     expect(location.search).toBe("");
     expect(page.tracked.at(-1)).toEqual([
-      "Deprecation Date Range Cleared",
+      "Deprecation Window Cleared",
       { page_kind: "deprecated-models" },
     ]);
   });
 
+  test("anchors a shared window to UTC today and matches the inclusive cutoff", async () => {
+    vi.setSystemTime(new Date("2026-10-30T23:59:59Z"));
+    const before = await open("/deprecated-models?days=1");
+    expect(before.results()).toHaveLength(1);
+    expect(before.results()[0]).toContain("Azure");
+    vi.setSystemTime(new Date("2026-10-31T00:00:00Z"));
+    const after = await open("/deprecated-models?days=1");
+    expect(after.results()).toHaveLength(1);
+    expect(after.results()[0]).toContain("Anthropic");
+  });
+
   test.each([
-    "?from=2026-11-01",
-    "?from=2026-11-01&to=2026-10-30",
-    "?from=2026-10-30&to=2026-11-31",
-    "?from=2026-10-30&from=2026-10-31&to=2026-11-01",
+    "?days=",
+    "?days=-1",
+    "?days=181",
+    "?days=7&days=30",
   ])("shows an error instead of the unfiltered table for %s", async (query) => {
     const page = await open(`/deprecated-models${query}`);
     expect(page.defaultHidden()).toBe(true);
-    expect(page.status.textContent).toContain("Enter both effective dates");
+    expect(page.status.textContent).toContain("Enter a whole number from 0 to 180 days");
     expect(page.rss.hasAttribute("href")).toBe(false);
     expect(page.fetched).toEqual([]);
   });

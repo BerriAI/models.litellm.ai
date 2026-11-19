@@ -1,8 +1,10 @@
 import {
   DEPRECATION_FEED_PATH,
-  deprecationDateRange,
-  inDeprecationDateRange,
-  isDay,
+  DEFAULT_DEPRECATION_DAYS,
+  MAX_DEPRECATION_DAYS,
+  deprecationDays,
+  deprecationWindow,
+  shiftDeprecationDay,
   type Deprecation,
   type DeprecationSearchRow,
 } from "../../src/deprecations";
@@ -56,9 +58,9 @@ function deprecationFilters(entries: Deprecation[], month?: string): string {
       entries.map((entry) => [entry.provider, entry.providerName]),
     ).entries(),
   ].sort((a, b) => a[1].localeCompare(b[1]));
-  return `<form class="dep-filter" role="search" data-dep-filter${month ? ` data-month="${esc(month)}"` : ""}><label>Search<input type="search" name="q" placeholder="Model name or id, e.g. azure/gpt-4o" autocomplete="off" spellcheck="false"></label><label>API provider<select name="provider"><option value="">All API providers</option>${providers.map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("")}</select></label><label>Effective from<input type="date" name="from"></label><label>Effective through<input type="date" name="to"></label><button type="button" data-dep-clear hidden>Clear dates</button></form>
-<p class="note">Choose a start and end date to filter by effective deprecation date. Both dates are included.</p>
-<p class="note" data-dep-rss-note hidden><a data-dep-rss>Subscribe to this date range (RSS)</a>. The feed covers these dates across the full archive, independent of other page filters.</p>
+  return `<form class="dep-filter" role="search" data-dep-filter${month ? ` data-month="${esc(month)}"` : ""}><label>Search<input type="search" name="q" placeholder="Model name or id, e.g. azure/gpt-4o" autocomplete="off" spellcheck="false"></label><label>API provider<select name="provider"><option value="">All API providers</option>${providers.map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("")}</select></label><label>Effective date<select name="window"><option value="">All dates</option><option value="upcoming">Upcoming only</option></select></label><label>Days ahead<input type="number" name="days" min="0" max="${MAX_DEPRECATION_DAYS}" step="1" value="${DEFAULT_DEPRECATION_DAYS}" aria-describedby="dep-window-help" disabled></label></form>
+<p class="note" id="dep-window-help">Upcoming only includes today through the selected number of days ahead (UTC).</p>
+<p class="note" data-dep-rss-note hidden><a data-dep-rss>Subscribe to this window (RSS)</a>. The feed covers all providers and months, independent of other page filters.</p>
 <p class="note" data-dep-status aria-live="polite" hidden></p><div data-dep-results hidden></div>`;
 }
 
@@ -66,62 +68,61 @@ function deprecationFilters(entries: Deprecation[], month?: string): string {
 export const DEPRECATION_SEARCH_JS = `<script>(function(){
 var form=document.querySelector("[data-dep-filter]");if(!form)return;
 var q=form.querySelector('[name="q"]'),sel=form.querySelector('[name="provider"]'),month=form.getAttribute("data-month")||"";
-var fromInput=form.querySelector('[name="from"]'),toInput=form.querySelector('[name="to"]'),clear=form.querySelector("[data-dep-clear]");
+var mode=form.querySelector('[name="window"]'),daysInput=form.querySelector('[name="days"]');
 var rss=document.querySelector("[data-dep-rss]"),rssNote=document.querySelector("[data-dep-rss-note]"),feedPath=${JSON.stringify(DEPRECATION_FEED_PATH)};
 var out=document.querySelector("[data-dep-results]"),status=document.querySelector("[data-dep-status]"),def=document.querySelector("[data-dep-default]");
 var rows=null,loading=null,matches=0,revision=0,MONTHS="/deprecated-models/",MODELS="/models/",timer=null,MAX=${SEARCH_LIMIT};
-var isDay=${isDay.toString()};
-var deprecationDateRange=${deprecationDateRange.toString()};
-var inDeprecationDateRange=${inDeprecationDateRange.toString()};
+var MAX_DEPRECATION_DAYS=${MAX_DEPRECATION_DAYS};
+var deprecationDays=${deprecationDays.toString()};
+var shiftDeprecationDay=${shiftDeprecationDay.toString()};
+var deprecationWindow=${deprecationWindow.toString()};
 var esc=function(v){return String(v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
 function load(){if(!loading)loading=fetch("/deprecated-models.json").then(function(r){return r.json()}).then(function(d){rows=Array.isArray(d)?d:[]},function(e){loading=null;throw e});return loading}
 function row(e){var ids=e.ids.map(function(m){return"<code>"+esc(m)+"</code>"});return'<tr><td><a href="'+MONTHS+esc(e.d.slice(0,7))+"#"+esc(e.id)+'"><time datetime="'+esc(e.d)+'">'+esc(e.dt)+'</time></a></td><td><a href="'+MODELS+esc(e.s)+'">'+esc(e.n)+"</a></td><td>"+esc(e.pn)+'</td><td class="affected-routes">'+(ids.length===1?ids[0]:"<details><summary>"+ids.length+" listings</summary><ul>"+ids.map(function(c){return"<li>"+c+"</li>"}).join("")+"</ul></details>")+"</td><td>"+(e.r?"<code>"+esc(e.r)+"</code>":"–")+"</td><td>"+(e.ref?'<a class="ref" href="'+esc(e.ref)+'" rel="noopener" target="_blank">'+esc(e.rl||e.ref)+"</a>":"–")+"</td></tr>"}
-function dates(){var params=new URLSearchParams();if(fromInput.value)params.set("from",fromInput.value);if(toInput.value)params.set("to",toInput.value);return params}
-function sync(text,p,params){var u=new URLSearchParams(location.search);[["q",text],["provider",p],["from",params.get("from")],["to",params.get("to")]].forEach(function(pair){if(pair[1])u.set(pair[0],pair[1]);else u.delete(pair[0])});var s=u.toString();history.replaceState(null,"",location.pathname+(s?"?"+s:"")+location.hash)}
-function link(query){rssNote.hidden=!query;if(query)rss.href=feedPath+"?"+query;else rss.removeAttribute("href")}
+function sync(text,p,days){var u=new URLSearchParams(location.search);[["q",text||null],["provider",p||null],["days",days]].forEach(function(pair){if(pair[1]===null)u.delete(pair[0]);else u.set(pair[0],pair[1])});var s=u.toString();history.replaceState(null,"",location.pathname+(s?"?"+s:"")+location.hash)}
+function link(days){rssNote.hidden=days===null;if(days===null)rss.removeAttribute("href");else rss.href=feedPath+"?days="+days}
 function invalid(){
-  clear.hidden=false;link("");status.hidden=false;out.hidden=true;if(def)def.hidden=true;
-  status.textContent="Enter both effective dates. The start date must not be after the end date.";
+  daysInput.setAttribute("aria-invalid","true");link(null);status.hidden=false;out.hidden=true;if(def)def.hidden=true;
+  status.textContent="Enter a whole number from 0 to "+MAX_DEPRECATION_DAYS+" days.";
 }
 function apply(){
-  var run=++revision,text=q.value.trim(),p=sel.value,params=dates(),query=params.toString(),range=deprecationDateRange(params);
-  sync(text,p,params);
-  if(query&&!range){invalid();return Promise.resolve(false)}
-  clear.hidden=!query;link(query);
-  if(!text&&!p&&!query){out.hidden=true;out.innerHTML="";status.hidden=true;if(def)def.hidden=false;return Promise.resolve(false)}
+  var run=++revision,text=q.value.trim(),p=sel.value,upcoming=mode.value==="upcoming";
+  var days=upcoming?deprecationDays(new URLSearchParams({days:daysInput.value})):null;
+  daysInput.disabled=!upcoming;
+  if(upcoming&&days===null){invalid();return Promise.resolve(false)}
+  daysInput.removeAttribute("aria-invalid");sync(text,p,days);link(days);
+  var includes=days===null?null:deprecationWindow(new Date().toISOString().slice(0,10),days);
+  if(!text&&!p&&!includes){out.hidden=true;out.innerHTML="";status.hidden=true;if(def)def.hidden=false;return Promise.resolve(false)}
   if(def)def.hidden=true;status.hidden=false;if(!rows){out.hidden=true;status.textContent="Loading deprecations…"}
   return load().then(function(){
     if(run!==revision)return false;
     var terms=text.toLowerCase().split(/\\s+/).filter(Boolean);
-    var hits=rows.filter(function(e){if(month&&e.d.slice(0,7)!==month)return false;if(p&&e.p!==p)return false;if(range&&!inDeprecationDateRange(e.d,range))return false;var h=(e.n+" "+e.pn+" "+e.ids.join(" ")+" "+(e.r||"")).toLowerCase();return terms.every(function(t){return h.indexOf(t)>=0})});
+    var hits=rows.filter(function(e){if(month&&e.d.slice(0,7)!==month)return false;if(p&&e.p!==p)return false;if(includes&&!includes(e.d))return false;var h=(e.n+" "+e.pn+" "+e.ids.join(" ")+" "+(e.r||"")).toLowerCase();return terms.every(function(t){return h.indexOf(t)>=0})});
     matches=hits.length;if(def)def.hidden=true;status.hidden=false;out.hidden=!hits.length;
     status.textContent=!hits.length?"No deprecations match.":hits.length>MAX?"Showing the first "+MAX+" of "+hits.length+" matching deprecations.":hits.length+(hits.length===1?" matching deprecation.":" matching deprecations.");
     out.innerHTML=hits.length?'<div class="tbl"><table>${TABLE_HEAD}<tbody>'+hits.slice(0,MAX).map(row).join("")+"</tbody></table></div>":"";
     return true;
   },function(){if(run!==revision)return false;out.hidden=true;status.hidden=false;status.textContent="Filters could not load. Reload the page to try again.";return false});
 }
-function trackDates(props){
-  if(fromInput.value)props.from=fromInput.value;
-  if(toInput.value)props.to=toInput.value;
-  return props;
-}
-function track(){if(window.litellmTrack)window.litellmTrack("deprecations_filtered",trackDates({provider:sel.value||null,has_query:!!q.value.trim(),matches:matches,page_kind:month?"deprecated-models-month":"deprecated-models"}))}
+var pageKind=month?"deprecated-models-month":"deprecated-models";
+function track(){if(window.litellmTrack)window.litellmTrack("deprecations_filtered",{provider:sel.value||null,has_query:!!q.value.trim(),matches:matches,page_kind:pageKind,...(mode.value==="upcoming"?{days:Number(daysInput.value)}:{})})}
 function change(){clearTimeout(timer);apply().then(function(applied){if(applied)track()})}
 form.addEventListener("submit",function(e){e.preventDefault()});
 q.addEventListener("focus",function(){load().catch(function(){})});
 q.addEventListener("input",function(){clearTimeout(timer);apply().then(function(applied){if(applied)timer=setTimeout(track,1000)})});
 sel.addEventListener("change",change);
-fromInput.addEventListener("change",change);
-toInput.addEventListener("change",change);
-clear.addEventListener("click",function(){fromInput.value="";toInput.value="";change();fromInput.focus();if(window.litellmTrack)window.litellmTrack("Deprecation Date Range Cleared",{page_kind:month?"deprecated-models-month":"deprecated-models"})});
-rss.addEventListener("click",function(){if(window.litellmTrack)window.litellmTrack("Deprecation RSS Date Range Opened",trackDates({}))});
+mode.addEventListener("change",function(){change();if(!mode.value&&window.litellmTrack)window.litellmTrack("Deprecation Window Cleared",{page_kind:pageKind})});
+daysInput.addEventListener("change",change);
+rss.addEventListener("click",function(){if(window.litellmTrack)window.litellmTrack("Deprecation RSS Window Opened",{days:Number(daysInput.value)})});
 var start=new URLSearchParams(location.search),sp=start.get("provider");
 if(start.get("q"))q.value=start.get("q");
 if(sp&&sel.querySelector('option[value="'+sp.replace(/[^a-z0-9_-]/g,"")+'"]'))sel.value=sp;
-if(isDay(start.get("from")))fromInput.value=start.get("from");
-if(isDay(start.get("to")))toInput.value=start.get("to");
-if((start.has("from")||start.has("to"))&&!deprecationDateRange(start))invalid();
-else if(q.value||sel.value||fromInput.value||toInput.value)apply();
+if(start.has("days")){
+  mode.value="upcoming";
+  var initial=deprecationDays(start);
+  daysInput.value=initial===null?"":String(initial);
+}
+if(q.value||sel.value||mode.value)apply();
 })()</script>`;
 
 /** One row per API provider with dated listings: how many, and how often LiteLLM re-reads them. */
