@@ -227,42 +227,33 @@
       </nav>
 
       <div class="hf-header-tools">
-        <div class="hf-search-and-ask">
-          <form
-            class="hf-header-search"
-            action="/search"
-            role="search"
-            on:submit|preventDefault={() => selectTab("models", searchQuery)}
+        <form
+          class="hf-header-search"
+          action="/search"
+          role="search"
+          on:submit|preventDefault={() => selectTab("models", searchQuery)}
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+            ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
           >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              aria-hidden="true"
-              ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
-            >
-            <input
-              bind:this={searchInput}
-              bind:value={searchQuery}
-              name="q"
-              type="search"
-              placeholder="Search models"
-              aria-label="Search models"
-              autocomplete="off"
-            />
-            <kbd aria-hidden="true">⌘ K</kbd>
-          </form>
-          <button
-            class="hf-ask-ai"
-            type="button"
-            aria-expanded={aiOpen}
-            aria-controls="models-ai-chat"
-            on:click={openAI}>Ask AI</button
-          >
-        </div>
+          <input
+            bind:this={searchInput}
+            bind:value={searchQuery}
+            name="q"
+            type="search"
+            placeholder="Search models"
+            aria-label="Search models"
+            autocomplete="off"
+          />
+          <kbd aria-hidden="true">⌘ K</kbd>
+        </form>
 
         <div class="hf-header-actions">
           <a
@@ -270,6 +261,13 @@
             href="https://docs.litellm.ai"
             target="_blank"
             rel="noopener noreferrer">Docs ↗</a
+          >
+          <button
+            class="hf-ask-ai"
+            type="button"
+            aria-expanded={aiOpen}
+            aria-controls="models-ai-chat"
+            on:click={openAI}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-2-2V7a3 3 0 0 1 3-3Z"/><path d="M6 8h7M6 11h4"/></svg>Ask AI</button
           >
           <button
             class="hf-theme-toggle"
@@ -313,7 +311,19 @@
               aria-label="More navigation"
               aria-expanded={moreMenuOpen}
               aria-controls="hf-more-menu"
-              on:click={() => (moreMenuOpen = !moreMenuOpen)}>···</button
+              on:click={() => (moreMenuOpen = !moreMenuOpen)}
+              ><svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                ><circle cx="4" cy="10" r="1.5" /><circle
+                  cx="10"
+                  cy="10"
+                  r="1.5"
+                /><circle cx="16" cy="10" r="1.5" /></svg
+              ></button
             >
             {#if moreMenuOpen}
               <nav
@@ -360,7 +370,7 @@
       {:else if activeTab === "benchmarks"}
         <Benchmarks />
       {:else if activeTab === "models"}
-        <App compact on:querychange={handleQueryChange} />
+        <App compact {aiOpen} on:querychange={handleQueryChange} on:askai={openAI} />
       {:else if activeTab === "providers"}
         <Providers />
       {:else if activeTab === "cookbook"}

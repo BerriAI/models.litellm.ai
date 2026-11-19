@@ -92,6 +92,24 @@ const noFilters: ModelFilters = {
   minOutputTokens: null,
 };
 
+it("keeps dynamically discovered capabilities in worker searches and invalidates cached filters", () => {
+  const entries = [
+    { name: "orbit-alpha", display_name: "Orbit Alpha", supports_reasoning: true, supports_future_feature: 1 },
+    { name: "orbit-beta", display_name: "Orbit Beta", supports_reasoning: true, supports_future_feature: false },
+  ];
+  const handle = createSearchHandler();
+  const outbox: SearchMessage[] = [];
+  const shown: string[][] = [];
+  const searcher = createModelSearcher(entries, (message) => outbox.push(message),
+    (matches) => shown.push(matches.items.map((item) => item.name)));
+  handle(outbox.shift()!);
+  for (const capabilities of [["supports_reasoning"], ["supports_reasoning", "supports_future_feature"], []]) {
+    searcher.search("orbit", { ...noFilters, capabilities });
+    searcher.receive(handle(outbox.shift()!)!);
+  }
+  expect(shown).toEqual([["orbit-alpha", "orbit-beta"], ["orbit-alpha"], ["orbit-alpha", "orbit-beta"]]);
+});
+
 const names = (items: readonly SearchableModel[]) =>
   items.map((item) => item.name);
 

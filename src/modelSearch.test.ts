@@ -1,4 +1,5 @@
 import Fuse from "fuse.js";
+import { catalogCapabilities } from "./modelCapabilities";
 import { describe, expect, it } from "vitest";
 import {
   SEARCH_OPTIONS,
@@ -86,6 +87,25 @@ const noFilters: ModelFilters = {
   minInputTokens: null,
   minOutputTokens: null,
 };
+
+it("discovers and combines reported capabilities without treating unknown values as supported", () => {
+  const entries = [
+    { name: "alpha", display_name: "Alpha", supports_reasoning: true, supports_future_feature: 1 },
+    { name: "beta", display_name: "Beta", supports_reasoning: false, supports_future_feature: true },
+    { name: "gamma", display_name: "Gamma", supports_reasoning: true, supports_future_feature: null },
+    { name: "delta", display_name: "Delta", supports_reasoning: "true" },
+  ];
+  expect(catalogCapabilities(entries)).toEqual([
+    { key: "supports_reasoning", label: "Reasoning" },
+    { key: "supports_future_feature", label: "Future feature" },
+  ]);
+  const index = indexModels(entries);
+  const find = (capabilities: string[]) => searchModels(index, "", { ...noFilters, capabilities }).map((item) => item.name);
+  expect(find(["supports_reasoning"])).toEqual(["alpha", "gamma"]);
+  expect(find(["supports_future_feature"])).toEqual(["alpha", "beta"]);
+  expect(find(["supports_reasoning", "supports_future_feature"])).toEqual(["alpha"]);
+  expect(find([])).toHaveLength(4);
+});
 
 const names = (items: readonly SearchableModel[]) =>
   items.map((item) => item.name);
