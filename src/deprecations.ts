@@ -25,16 +25,32 @@ export type Deprecation = Omit<
 };
 
 export const DEPRECATION_FEED_PATH = "/deprecated-models.xml";
-export const MAX_DEPRECATION_FEED_DAYS = 365;
 
-export function deprecationFeedDays(params: URLSearchParams): number | null {
-  const [value, ...rest] = params.getAll("days");
-  return value !== undefined &&
-    !rest.length &&
-    /^[0-9]+$/.test(value) &&
-    Number(value) <= MAX_DEPRECATION_FEED_DAYS
-    ? Number(value)
-    : null;
+export type DeprecationDateRange = { from: string; to: string };
+
+export function deprecationDateRange(
+  params: URLSearchParams,
+): DeprecationDateRange | null {
+  const from = params.get("from");
+  const to = params.get("to");
+  if (
+    params.getAll("from").length !== 1 ||
+    params.getAll("to").length !== 1 ||
+    !isDay(from) ||
+    !isDay(to) ||
+    from.startsWith("0000-") ||
+    to.startsWith("0000-") ||
+    from > to
+  )
+    return null;
+  return { from, to };
+}
+
+export function inDeprecationDateRange(
+  day: string,
+  { from, to }: DeprecationDateRange,
+): boolean {
+  return from <= day && day <= to;
 }
 
 export type DeprecationSearchRow = {

@@ -9,7 +9,7 @@
  * A /changelog.xml fetch also reports the ?kind=, ?cloud=, ?all=, ?providers=, ?models= and ?digest= it asked for.
  */
 import { feedFilter } from "./src/changelogPresentation";
-import { DEPRECATION_FEED_PATH, deprecationFeedDays } from "./src/deprecations";
+import { DEPRECATION_FEED_PATH, deprecationDateRange } from "./src/deprecations";
 export const config = {
   matcher: [
     "/models/:path*",
@@ -113,12 +113,10 @@ export default function middleware(
   const fetched = machineFetchEvent(page.pathname);
   if (
     page.pathname === DEPRECATION_FEED_PATH &&
-    page.searchParams.has("days")
+    (page.searchParams.has("from") || page.searchParams.has("to"))
   ) {
-    const days = deprecationFeedDays(page.searchParams);
-    report(request, context, "Feed Fetched", page.pathname, "url", {
-      ...(days === null ? {} : { days }),
-    });
+    const range = deprecationDateRange(page.searchParams);
+    report(request, context, "Feed Fetched", page.pathname, "url", range ?? {});
     page.pathname = "/api/deprecation-feed";
     return new Response(null, {
       headers: { "x-middleware-rewrite": page.toString() },
