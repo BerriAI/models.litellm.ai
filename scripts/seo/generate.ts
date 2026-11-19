@@ -46,14 +46,15 @@ import type { CardInput } from "./og-card";
 import { buildModelView, type ModelView, type RowView } from "./model-view";
 import { CHAT_MODES, IMAGE_MODES, UNIT_LABEL, leadsWithTokens } from "./pricing";
 import { providerDocsUrl, providerName, type ProviderSupport } from "./providers";
-import { COOKBOOK_URL, COST_MAP_RAW_URL, GUARDRAILS_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, modelPath, providerPath } from "./site";
+import { COOKBOOK_URL, COST_MAP_RAW_URL, GUARDRAILS_URL, PROVIDER_SUPPORT_RAW_URL, SITE_URL, abs, deprecationPath, modelPath, providerPath } from "./site";
 import { PAGE_TITLES } from "../../src/pageTitles";
 import { catalogModelId } from "../../src/litellmModelId";
 import { loadDiscoveryBenchmarkData } from "./discovery-benchmarks";
 import { auditProviderLogos } from "../provider-logos";
 import { buildDeprecations } from "./deprecations";
 import { groupDeprecations } from "../../src/deprecations";
-import { DEPRECATION_SEARCH_JS, deprecationBody, deprecationMarkdown, deprecationPath, deprecationSearchIndex } from "./deprecation-pages";
+import { DEPRECATION_SEARCH_JS, deprecationBody, deprecationMarkdown, deprecationSearchIndex } from "./deprecation-pages";
+import { deprecationRss } from "./deprecation-feed";
 
 const OUT = path.resolve(process.env.SEO_OUT_DIR ?? "dist");
 const BUILD_DATE = (process.env.BUILD_DATE ?? new Date().toISOString()).slice(0, 10);
@@ -674,7 +675,6 @@ ${cheapestOnProvider(h.name, list)}
 
   // Effective deprecations share one durable dataset across HTML, RSS and the discovery tabs.
   const deprecations = groupDeprecations(manifest.deprecations);
-  const deprecated = deprecations.filter((entry) => entry.date <= BUILD_DATE);
   const deprecationMonths = [...new Set(deprecations.map((entry) => entry.date.slice(0, 7)))].sort().reverse()
     .map((ym) => ({ ym, count: deprecations.filter((entry) => entry.date.startsWith(ym)).length }));
   const deprecationEntries: SitemapEntry[] = [];
@@ -695,16 +695,9 @@ ${cheapestOnProvider(h.name, list)}
     write(`${pagePath.slice(1)}.md`, deprecationMarkdown(entries, heading, BUILD_DATE));
     if (ym) deprecationEntries.push({ path: pagePath, lastmod: BUILD_DATE });
   }
-  write("deprecated-models.json", JSON.stringify(deprecationSearchIndex(deprecations)));
-  write("deprecated-models.xml", rssFeed(
-    "Recently deprecated AI models on LiteLLM", abs("/deprecated-models"),
-    "Provider-specific model deprecations recorded by LiteLLM. Publication dates are effective deprecation dates, not announcement dates.",
-    deprecated.map((entry) => ({
-      title: `${entry.name} listings deprecated on ${entry.providerName}`,
-      link: abs(deprecationPath(entry)), guid: `urn:litellm:deprecation:${entry.id}`, date: entry.date,
-      description: `Effective ${entry.date} on ${entry.providerName}. Affected listings: ${[...new Set(entry.listings.map((row) => row.modelId))].join(", ")}. Other versions or providers may still offer this model.${entry.successor ? ` Recommended replacement: ${entry.successor}.` : ""}${entry.reference ? ` Provider notice: ${entry.reference}` : ""}`,
-    })), "/deprecated-models.xml",
-  ));
+  const deprecationRows = deprecationSearchIndex(deprecations);
+  write("deprecated-models.json", JSON.stringify(deprecationRows));
+  write("deprecated-models.xml", deprecationRss(deprecationRows, BUILD_DATE));
 
   // Cost calculator for every model still sold and priced per input and output token.
   const calcModels: CalcModel[] = views

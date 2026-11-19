@@ -47,7 +47,9 @@ The generator writes:
 
 The home page’s **What’s new** and **Recently deprecated** tabs link to matching archive pages and RSS feeds. The pages and feeds use the same catalog data; the pages do not parse RSS.
 
-Deprecations come from `deprecation_date` in LiteLLM’s price file. Dates are effective dates, not announcement dates. The build backfills all valid dated listings it can map to catalog models. It groups variants with the same model, provider, and date, and lists the exact affected routes. Future dates appear under **Scheduled for deprecation** and enter RSS when their date arrives (UTC).
+Deprecations come from `deprecation_date` in LiteLLM’s price file. Dates are effective dates, not announcement dates. The build backfills all valid dated listings it can map to catalog models. It groups variants with the same model, provider, and date, and lists the exact affected routes. Future dates appear under **Scheduled for deprecation** and enter the unfiltered RSS feed when their date arrives (UTC).
+
+The Deprecated Models page opens with **Deprecating within 30 days**. Enter a whole number from 0 through 180, or clear the box to see all dates. Month pages start with the box empty so past deprecations stay visible. The RSS link follows the box: `/deprecated-models.xml?days=30` for a rolling window, or the standard feed without `days` when blank. The window includes today and the cutoff in UTC; 0 means today only. Search, provider and month filters apply only to the tables. The feed dates each item when it enters the window or when LiteLLM first observed it, whichever is later. The description shows its effective date.
 
 The published `/models/manifest.json` retains dated listings so past deprecations remain available after a listing is removed. Corrections to an existing listing’s date are respected. Models removed before this tracking began may be absent from the backfill; a removal alone is not treated as a deprecation. RSS item identifiers stay stable across rebuilds.
 
