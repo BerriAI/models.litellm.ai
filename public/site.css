@@ -576,16 +576,9 @@ main > .catalog-views {
   margin-left: auto;
   min-width: 0;
 }
-.hf-search-and-ask {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.hf-search-and-ask .hf-header-search {
+.hf-header-tools .hf-header-search {
   width: 190px;
   margin: 0;
-  order: 0;
 }
 .hf-ask-ai {
   height: 36px;
@@ -607,16 +600,8 @@ main > .catalog-views {
   .hf-header-tools {
     display: contents;
   }
-  .hf-search-and-ask {
-    order: 2;
+  .hf-header-tools .hf-header-search {
     width: 100%;
-  }
-  .hf-search-and-ask .hf-header-search {
-    flex: 1;
-    width: 0;
     min-width: 0;
-  }
-  .hf-ask-ai {
-    height: 38px;
   }
 }

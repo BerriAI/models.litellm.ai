@@ -227,42 +227,33 @@
       </nav>
 
       <div class="hf-header-tools">
-        <div class="hf-search-and-ask">
-          <form
-            class="hf-header-search"
-            action="/search"
-            role="search"
-            on:submit|preventDefault={() => selectTab("models", searchQuery)}
+        <form
+          class="hf-header-search"
+          action="/search"
+          role="search"
+          on:submit|preventDefault={() => selectTab("models", searchQuery)}
+        >
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+            ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
           >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              aria-hidden="true"
-              ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
-            >
-            <input
-              bind:this={searchInput}
-              bind:value={searchQuery}
-              name="q"
-              type="search"
-              placeholder="Search models"
-              aria-label="Search models"
-              autocomplete="off"
-            />
-            <kbd aria-hidden="true">⌘ K</kbd>
-          </form>
-          <button
-            class="hf-ask-ai"
-            type="button"
-            aria-expanded={aiOpen}
-            aria-controls="models-ai-chat"
-            on:click={openAI}>Ask AI</button
-          >
-        </div>
+          <input
+            bind:this={searchInput}
+            bind:value={searchQuery}
+            name="q"
+            type="search"
+            placeholder="Search models"
+            aria-label="Search models"
+            autocomplete="off"
+          />
+          <kbd aria-hidden="true">⌘ K</kbd>
+        </form>
 
         <div class="hf-header-actions">
           <a
@@ -270,6 +261,13 @@
             href="https://docs.litellm.ai"
             target="_blank"
             rel="noopener noreferrer">Docs ↗</a
+          >
+          <button
+            class="hf-ask-ai"
+            type="button"
+            aria-expanded={aiOpen}
+            aria-controls="models-ai-chat"
+            on:click={openAI}>Ask AI</button
           >
           <button
             class="hf-theme-toggle"
