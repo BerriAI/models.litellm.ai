@@ -267,7 +267,7 @@
             type="button"
             aria-expanded={aiOpen}
             aria-controls="models-ai-chat"
-            on:click={openAI}>Ask AI</button
+            on:click={openAI}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-2-2V7a3 3 0 0 1 3-3Z"/><path d="M6 8h7M6 11h4"/></svg>Ask AI</button
           >
           <button
             class="hf-theme-toggle"
@@ -370,7 +370,7 @@
       {:else if activeTab === "benchmarks"}
         <Benchmarks />
       {:else if activeTab === "models"}
-        <App compact on:querychange={handleQueryChange} />
+        <App compact {aiOpen} on:querychange={handleQueryChange} on:askai={openAI} />
       {:else if activeTab === "providers"}
         <Providers />
       {:else if activeTab === "cookbook"}

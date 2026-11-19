@@ -579,6 +579,10 @@ main > .catalog-views {
   margin: 0;
 }
 .hf-ask-ai {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   height: 36px;
   padding: 0 12px;
   color: var(--hf-ink);
@@ -586,8 +590,19 @@ main > .catalog-views {
   border: 1px solid var(--hf-line);
   border-radius: var(--control-radius);
   font-size: 12px;
+  font-family: inherit;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
+}
+.hf-ask-ai svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  flex-shrink: 0;
 }
 .hf-ask-ai:hover,
 .hf-ask-ai[aria-expanded="true"] {

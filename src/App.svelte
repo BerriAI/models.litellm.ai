@@ -50,7 +50,8 @@
   import { longestPerColumn, rowOffsets, rowsInView } from "./rowWindow";
 
   export let compact = false;
-  const dispatch = createEventDispatcher<{ querychange: { query: string } }>();
+  export let aiOpen = false;
+  const dispatch = createEventDispatcher<{ querychange: { query: string }; askai: void }>();
   $: dispatch("querychange", { query });
 
   type Item = {
@@ -86,6 +87,7 @@
   let output: NonNullable<ModelFilters["output"]> = "";
   let inputs: NonNullable<ModelFilters["inputs"]> = [];
   let capabilities: string[] = [];
+  let filtersOpen = false;
   let capabilityOptions: ReturnType<typeof catalogCapabilities> = [];
   $: extraCapabilityCount = capabilityOptions.slice(8).filter(({ key }) => capabilities.includes(key)).length;
   const outputTabs: { value: NonNullable<ModelFilters["output"]>; label: string }[] = [{ value: "", label: "All" }, { value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "video", label: "Video" }, { value: "audio", label: "Speech" }, { value: "embedding", label: "Embeddings" }];
@@ -127,6 +129,14 @@
 
   // Quick start tab state per model
   let codeTabStates: Record<string, "sdk" | "proxy"> = {};
+
+  onMount(() => {
+    const desktop = window.matchMedia("(min-width: 1100px)");
+    const resizeFilters = () => { filtersOpen = desktop.matches; };
+    resizeFilters();
+    desktop.addEventListener("change", resizeFilters);
+    return () => desktop.removeEventListener("change", resizeFilters);
+  });
 
   onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -644,7 +654,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   <div class="catalog-layout">
     <aside class="catalog-sidebar" aria-label="Model filters">
-      <details class="filter-panel" open={typeof window !== "undefined" && window.innerWidth >= 1100}>
+      <details class="filter-panel" bind:open={filtersOpen}>
         <summary>Filters <span>⌄</span></summary>
         <div class="sidebar-filter-content">
           <section class="filter-block"><h2>Input modalities</h2><span class="filter-help">Must support all selected</span>
@@ -720,8 +730,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
           <kbd class="search-shortcut">⌘K</kbd>
         {/if}
       </div>
-      
-
+      <button class="hf-ask-ai catalog-ask-ai" type="button" aria-expanded={aiOpen} aria-controls="models-ai-chat" on:click={() => { track("AI Entry Clicked", { source: "catalog_search" }); dispatch("askai"); }}>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-2-2V7a3 3 0 0 1 3-3Z"/><path d="M6 8h7M6 11h4"/></svg>
+        Ask AI
+      </button>
     </div>
 
     {#if intent.title}
@@ -1338,9 +1350,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     align-items: center;
   }
 
+  .catalog-ask-ai { height: 44px; min-width: 156px; padding: 0 24px; font-size: 14px; flex-shrink: 0; }
+  .catalog-ask-ai svg { width: 19px; height: 19px; }
+  @media (max-width: 640px) { .catalog-ask-ai { min-width: 104px; padding: 0 14px; font-size: 13px; } }
+
   .search-input-wrapper {
     position: relative;
     flex: 1;
+    min-width: 0;
   }
 
   .search-icon {
