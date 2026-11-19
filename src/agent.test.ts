@@ -161,6 +161,87 @@ describe("read-only catalog queries", () => {
 });
 
 const sse = (value: unknown) => `data: ${JSON.stringify(value)}\n\n`;
+function modelStream(sql?: string) {
+  const delta = sql
+    ? {
+        tool_calls: [
+          {
+            index: 0,
+            id: "query",
+            type: "function",
+            function: {
+              name: "query_catalog",
+              arguments: JSON.stringify({ sql }),
+            },
+          },
+        ],
+      }
+    : { content: "The answer. [1]" };
+  return new Response(
+    sse({ choices: [{ delta }] }) +
+      sse({
+        choices: [{ delta: {}, finish_reason: sql ? "tool_calls" : "stop" }],
+      }) +
+      "data: [DONE]\n\n",
+  );
+}
+
+it("stops gateway calls immediately when a query timeout kills the worker", async () => {
+  let calls = 0;
+  await expect(
+    runAgent({
+      question: "Count matching listings.",
+      history: [],
+      snapshot,
+      gateway: {
+        base: "https://gateway.example.com/v1",
+        key: "test-placeholder",
+      },
+      signal: new AbortController().signal,
+      emit: () => {},
+      fetchImpl: async () => {
+        calls++;
+        return modelStream(
+          calls === 1
+            ? "WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n) SELECT sum(x) FROM n"
+            : undefined,
+        );
+      },
+    }),
+  ).rejects.toThrow(/timed out/);
+  expect(calls).toBe(1);
+});
+
+it("lets the model correct an ordinary SQL error while the worker remains usable", async () => {
+  let calls = 0;
+  await runAgent({
+    question: "Count matching listings.",
+    history: [],
+    snapshot,
+    gateway: {
+      base: "https://gateway.example.com/v1",
+      key: "test-placeholder",
+    },
+    signal: new AbortController().signal,
+    emit: () => {},
+    fetchImpl: async (_url, init) => {
+      calls++;
+      if (calls === 2)
+        expect(
+          JSON.parse(String(init?.body)).messages.at(-1).content,
+        ).toContain("no such table");
+      return modelStream(
+        calls === 1
+          ? "SELECT * FROM missing_table"
+          : calls === 2
+            ? "SELECT count(*) FROM models"
+            : undefined,
+      );
+    },
+  });
+  expect(calls).toBe(3);
+});
+
 it("delivers the live schema to the model, queries evidence and streams a cited answer in the next call", async () => {
   const events: any[] = [],
     inputs: any[] = [];

@@ -42,6 +42,7 @@ export async function querySession(snapshot: Snapshot, signal: AbortSignal) {
       };
       const fail = () => {
         cleanup();
+        close();
         reject(new Error("Catalog query stopped"));
       };
       worker.once("message", done);

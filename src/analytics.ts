@@ -17,7 +17,6 @@ function trackPageLeave(transport?: 'sendBeacon') {
 }
 
 function trackOutboundClick(event: MouseEvent) {
-  if ((event.target as Element | null)?.closest?.("[data-ai-chat]")) return;
   const link = (event.target as Element | null)?.closest?.('a[href]');
   const props = link instanceof HTMLAnchorElement ? outboundLinkProps(link, window.location.origin) : undefined;
   if (props) mixpanel.track('Outbound Link Clicked', props, { transport: 'sendBeacon' });

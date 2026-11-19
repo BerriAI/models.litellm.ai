@@ -39,5 +39,8 @@ export function pageKind(path: string): string {
 
 export function outboundLinkProps(link: HTMLAnchorElement, origin: string) {
   if (link.origin === origin || !/^https?:$/.test(link.protocol)) return undefined;
-  return { url: link.href, host: link.hostname, text: (link.textContent ?? "").trim().slice(0, 80) };
+  // Chat links retain destination tracking without copying model-authored text.
+  return { url: link.href, host: link.hostname,
+    ...(!link.closest("[data-ai-chat]") ? { text: (link.textContent ?? "").trim().slice(0, 80) } : {}),
+  };
 }

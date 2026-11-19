@@ -195,14 +195,25 @@ export async function runAgent({
       });
       for (const call of calls) {
         let result: any;
+        let args: { sql: string; offset?: number } | undefined;
         try {
-          const args = JSON.parse(call.function.arguments);
+          const parsed = JSON.parse(call.function.arguments);
           if (
             call.function.name !== "query_catalog" ||
-            typeof args.sql !== "string" ||
-            Object.keys(args).some((key) => !["sql", "offset"].includes(key))
+            !parsed ||
+            typeof parsed.sql !== "string" ||
+            Object.keys(parsed).some((key) => !["sql", "offset"].includes(key))
           )
             throw new Error("Invalid query arguments");
+          args = parsed;
+        } catch {
+          result = {
+            error:
+              "Use query_catalog with a SQL string and optional nonnegative offset.",
+          };
+        }
+        if (args) {
+          // SQL errors are returned as tool results; worker failures must stop inference.
           emit({ type: "status", text: "Checking the catalog…" });
           result = await db.query(args.sql, args.offset);
           for (const table of result.tables || [])
@@ -213,11 +224,6 @@ export async function runAgent({
               snapshot.tables[table]?.sources.includes(source.id),
             ),
           );
-        } catch {
-          result = {
-            error:
-              "Query could not complete. Use one SELECT, correct schema fields and a narrower query.",
-          };
         }
         messages.push({
           role: "tool",
