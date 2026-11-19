@@ -24,7 +24,7 @@ const MIXPANEL_TOKEN = process.env.VITE_MIXPANEL_TOKEN ?? "";
 const MIXPANEL_SNIPPET = readFileSync(createRequire(path.join(process.cwd(), "package.json")).resolve("mixpanel-browser/dist/mixpanel-jslib-snippet.min.js"), "utf8").trim();
 
 const CSS = `
-.provider-list{max-width:320px;white-space:normal}.update-nav{width:fit-content;max-width:100%}.affected-routes{max-width:380px;white-space:normal}.affected-routes code{overflow-wrap:anywhere;font-size:12px}.affected-routes summary{cursor:pointer;color:var(--muted)}.affected-routes ul{padding-left:16px}.affected-routes li{margin:8px 0}[data-dep-results]{min-width:0}.dep-filter{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:20px 0 8px}.dep-filter label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}.dep-filter input,.dep-filter select{min-width:0;max-width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--card-bg);color:var(--fg);font:inherit;font-size:14px}.dep-filter input[type=search]{width:255px}.dep-filter input[type=number]{width:94px}.dep-filter input:disabled{opacity:.6}
+.provider-list{max-width:320px;white-space:normal}.update-nav{width:fit-content;max-width:100%}.affected-routes{max-width:380px;white-space:normal}.affected-routes code{overflow-wrap:anywhere;font-size:12px}.affected-routes summary{cursor:pointer;color:var(--muted)}.affected-routes ul{padding-left:16px}.affected-routes li{margin:8px 0}[data-dep-results]{min-width:0}.dep-filter{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px;margin:20px 0 8px}.dep-filter label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}.dep-filter input,.dep-filter select{min-width:0;max-width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:8px;background:var(--card-bg);color:var(--fg);font:inherit;font-size:14px}.dep-filter input[type=search]{width:255px}.dep-filter label.dep-days{flex-direction:row;align-items:center;gap:6px}.dep-filter input[type=number]{width:76px}
 :root{--bg:var(--hf-bg);--bg2:var(--bg-secondary);--bg3:var(--bg-tertiary);--fg:var(--hf-ink);--fg2:var(--text-secondary);--muted:var(--hf-muted);--rule:var(--hf-line);--rule2:var(--border-color-strong);--accent:var(--hf-accent);--on-accent:var(--hf-button-ink);--ring:var(--focus-ring);--code:var(--code-bg);--warn:var(--hf-warning);--warn-bg:var(--bg-secondary);--ok:var(--success-color);--no:var(--hf-muted);--shadow:none}
 *{box-sizing:border-box;margin:0;padding:0}
 html{font-family:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
@@ -637,9 +637,9 @@ function newModelProviders(providers: NewModelRow["providers"]): string {
   return providers.map((provider) => `<a href="${providerPath(provider.hub)}">${esc(provider.name)}</a>`).join(", ") || "–";
 }
 
-export function modelUpdatesMeta(active: "new" | "deprecated", updated: string): string {
+export function modelUpdatesMeta(active: "new" | "deprecated", updated: string, showFeed = true): string {
   const feed = active === "new" ? "/new-models.xml" : "/deprecated-models.xml";
-  return `<div class="meta"><span>Updated <time datetime="${esc(updated)}">${longDate(updated)}</time></span><a class="rss-link" href="${feed}">RSS feed</a></div>`;
+  return `<div class="meta"><span>Updated <time datetime="${esc(updated)}">${longDate(updated)}</time></span>${showFeed ? `<a class="rss-link" href="${feed}">RSS feed</a>` : ""}</div>`;
 }
 
 export function modelUpdatesNav(active: "new" | "deprecated"): string {
