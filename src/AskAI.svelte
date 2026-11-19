@@ -6,6 +6,7 @@
   import { streamData } from "./aiStream";
   import AIView from "./AIView.svelte";
   import { viewText, type AnswerView } from "./aiViews";
+  import { ASK_ERRORS } from "./askLimits";
 
   export let trackEvent = track;
   type Turn = {
@@ -30,6 +31,25 @@
   let returnFocus: HTMLElement | null = null;
   let stickToBottom = true;
   let expanded = false;
+  let retrySeconds = 0;
+  let cooldownTimer: ReturnType<typeof setInterval> | undefined;
+  function cooldown(value: string | null) {
+    const seconds =
+      value && /^\d+$/.test(value)
+        ? Number(value)
+        : value
+          ? Math.ceil((Date.parse(value) - Date.now()) / 1000)
+          : 60;
+    retrySeconds = Number.isFinite(seconds)
+      ? Math.max(1, Math.min(300, seconds))
+      : 60;
+    const until = Date.now() + retrySeconds * 1000;
+    clearInterval(cooldownTimer);
+    cooldownTimer = setInterval(() => {
+      retrySeconds = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      if (!retrySeconds) clearInterval(cooldownTimer);
+    }, 250);
+  }
   const starters = [
     { label: "Show me models on…", prefix: "Show me models on " },
     { label: "Find models with…", prefix: "Find models with " },
@@ -41,7 +61,7 @@
     input?.focus({ preventScroll: true });
   }
   async function help() {
-    if (busy) return;
+    if (busy || retrySeconds) return;
     trackEvent("AI Capabilities Asked");
     const response = send("What can I ask?");
     await tick();
@@ -148,7 +168,7 @@
       conversation?.scrollTo({ top: conversation.scrollHeight });
   }
   async function send(message?: string) {
-    if (!(message ?? question).trim() || busy) return;
+    if (!(message ?? question).trim() || busy || retrySeconds) return;
     const text = (message ?? question).trim();
     if (message === undefined) question = "";
     const history = turns
@@ -174,14 +194,32 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question: text, history }),
       });
-      if (!response.ok || !response.body)
+      if (!response.ok || !response.body) {
+        if (
+          response.status === 429 ||
+          (response.status === 503 && response.headers.has("Retry-After"))
+        ) {
+          cooldown(response.headers.get("Retry-After"));
+          trackEvent("AI Question Throttled", {
+            retry_after_seconds: retrySeconds,
+          });
+        }
+        const detail = await response.json().catch(() => ({}));
+        const known = Object.prototype.hasOwnProperty.call(
+          ASK_ERRORS,
+          detail?.code,
+        )
+          ? ASK_ERRORS[detail.code as keyof typeof ASK_ERRORS]
+          : undefined;
         throw new Error(
-          response.status === 429
-            ? "Too many questions. Please try again shortly."
-            : response.status === 503
-              ? "Ask AI is unavailable right now. Please try again later."
-              : "The answer could not load. Please try again.",
+          known ||
+            (response.status === 429
+              ? "You're asking quickly. Please wait briefly."
+              : response.status === 503
+                ? "The assistant is busy. Please try again shortly."
+                : "The answer could not load. Please try again."),
         );
+      }
       for await (const data of streamData(response.body, controller.signal)) {
         const event = JSON.parse(data);
         if (event.type === "status") status = event.text;
@@ -219,12 +257,16 @@
     }
   }
   function retry(turn: Turn) {
+    if (busy || retrySeconds) return;
     question = turn.question;
     turns = turns.filter((item) => item !== turn);
     trackEvent("AI Question Retried");
     void send();
   }
-  onDestroy(() => controller?.abort());
+  onDestroy(() => {
+    controller?.abort();
+    clearInterval(cooldownTimer);
+  });
 </script>
 
 <svelte:window on:keydown={keyboard} />
@@ -246,7 +288,7 @@
           class="ai-icon"
           title="What can I ask?"
           aria-label="What can I ask?"
-          disabled={busy}
+          disabled={busy || retrySeconds > 0}
           on:click={help}
           ><svg viewBox="0 0 20 20" aria-hidden="true"
             ><circle cx="10" cy="10" r="7" /><path
@@ -311,7 +353,11 @@
             Find a model, compare prices, or make sense of what’s changed. Just
             ask.
           </p>
-          <button class="ai-help" type="button" on:click={help}
+          <button
+            class="ai-help"
+            type="button"
+            disabled={retrySeconds > 0}
+            on:click={help}
             >What can I ask? <span aria-hidden="true">→</span></button
           >
           <div class="ai-starters">
@@ -352,8 +398,13 @@
           {/if}
           {#if turn.error}<p class="ai-error" role="alert">
               {turn.error}
-              {#if !busy}<button type="button" on:click={() => retry(turn)}
-                  >Retry</button
+              {#if !busy}<button
+                  type="button"
+                  disabled={retrySeconds > 0}
+                  on:click={() => retry(turn)}
+                  >{retrySeconds
+                    ? `Retry in ${retrySeconds}s`
+                    : "Retry"}</button
                 >{/if}
             </p>{/if}
         </article>
@@ -392,7 +443,7 @@
           >{:else}<button
             type="submit"
             class="ai-send"
-            disabled={!question.trim()}
+            disabled={!question.trim() || retrySeconds > 0}
             aria-label="Send question"
             title="Send question"
             ><svg viewBox="0 0 20 20" aria-hidden="true"
