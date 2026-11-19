@@ -6,9 +6,89 @@ import AskAI from "./AskAI.svelte";
 let chat: AskAI;
 afterEach(() => {
   chat?.$destroy();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
   document.body.innerHTML = "";
+});
+
+it("shows a cooldown without retrying automatically, then lets the visitor retry", async () => {
+  vi.useFakeTimers();
+  const fetchMock = vi
+    .fn()
+    .mockResolvedValueOnce(
+      new Response("edge rate limit", {
+        status: 429,
+        headers: { "Retry-After": "3" },
+      }),
+    )
+    .mockResolvedValueOnce(
+      new Response(
+        'data: {"type":"delta","text":"An actual answer."}\n\ndata: {"type":"done","sources":[]}\n\n',
+      ),
+    );
+  vi.stubGlobal("fetch", fetchMock);
+  const trackEvent = vi.fn();
+  chat = new AskAI({ target: document.body, props: { trackEvent } });
+  await chat.openPanel();
+  const input = document.querySelector("textarea")!;
+  input.value = "Which models are available?";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await tick();
+  document
+    .querySelector("form")!
+    .dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.advanceTimersByTimeAsync(1);
+  await tick();
+  const retry = document.querySelector<HTMLButtonElement>(".ai-error button")!;
+  expect(retry.textContent).toBe("Retry in 3s");
+  expect(retry.disabled).toBe(true);
+  retry.click();
+  await vi.advanceTimersByTimeAsync(3_000);
+  await tick();
+  expect(fetchMock).toHaveBeenCalledOnce();
+  expect(retry.textContent).toBe("Retry");
+  expect(retry.disabled).toBe(false);
+  retry.click();
+  await vi.advanceTimersByTimeAsync(1);
+  await tick();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(document.querySelector(".ai-answer")?.textContent).toContain(
+    "An actual answer.",
+  );
+  expect(trackEvent).toHaveBeenCalledWith("AI Question Throttled", {
+    retry_after_seconds: 3,
+  });
+});
+
+it("shows actionable input errors without displaying arbitrary server text", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: "question_too_long",
+          error: "dummy-private-diagnostic",
+        }),
+        { status: 413, headers: { "Content-Type": "application/json" } },
+      ),
+    ),
+  );
+  chat = new AskAI({ target: document.body, props: { trackEvent: vi.fn() } });
+  await chat.openPanel();
+  const input = document.querySelector("textarea")!;
+  input.value = "A long question";
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  await tick();
+  document
+    .querySelector("form")!
+    .dispatchEvent(new Event("submit", { cancelable: true }));
+  await vi.waitFor(() =>
+    expect(document.body.textContent).toContain(
+      "Keep your question under 8,000 characters.",
+    ),
+  );
+  expect(document.body.textContent).not.toContain("dummy-private-diagnostic");
 });
 
 it("streams an answer without a source footer and copies only the answer", async () => {
