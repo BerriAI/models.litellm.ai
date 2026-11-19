@@ -77,7 +77,7 @@ var deprecationDays=${deprecationDays.toString()};
 var shiftDeprecationDay=${shiftDeprecationDay.toString()};
 var deprecationWindow=${deprecationWindow.toString()};
 var esc=function(v){return String(v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
-function load(){if(!loading)loading=fetch("/deprecated-models.json").then(function(r){return r.json()}).then(function(d){rows=Array.isArray(d)?d:[]},function(e){loading=null;throw e});return loading}
+function load(){if(!loading)loading=fetch("/deprecated-models.json").then(function(r){if(!r.ok)throw new Error("Catalog unavailable");return r.json()}).then(function(d){if(!Array.isArray(d))throw new Error("Invalid catalog");rows=d}).catch(function(e){loading=null;throw e});return loading}
 function row(e){var ids=e.ids.map(function(m){return"<code>"+esc(m)+"</code>"});return'<tr><td><a href="'+MONTHS+esc(e.d.slice(0,7))+"#"+esc(e.id)+'"><time datetime="'+esc(e.d)+'">'+esc(e.dt)+'</time></a></td><td><a href="'+MODELS+esc(e.s)+'">'+esc(e.n)+"</a></td><td>"+esc(e.pn)+'</td><td class="affected-routes">'+(ids.length===1?ids[0]:"<details><summary>"+ids.length+" listings</summary><ul>"+ids.map(function(c){return"<li>"+c+"</li>"}).join("")+"</ul></details>")+"</td><td>"+(e.r?"<code>"+esc(e.r)+"</code>":"–")+"</td><td>"+(e.ref?'<a class="ref" href="'+esc(e.ref)+'" rel="noopener" target="_blank">'+esc(e.rl||e.ref)+"</a>":"–")+"</td></tr>"}
 function sync(text,p,days){var u=new URLSearchParams(location.search);[["q",text||null],["provider",p||null],["days",days===null&&!month?"":days]].forEach(function(pair){if(pair[1]===null)u.delete(pair[0]);else u.set(pair[0],pair[1])});var s=u.toString();history.replaceState(null,"",location.pathname+(s?"?"+s:"")+location.hash)}
 function link(days){rssNote.hidden=false;rss.href=days===null?feedPath:feedPath+"?days="+days}
@@ -94,7 +94,7 @@ function apply(){
   daysInput.removeAttribute("aria-invalid");sync(text,p,days);link(days);
   var includes=days===null?null:deprecationWindow(new Date().toISOString().slice(0,10),days);
   if(month&&!text&&!p&&!includes){out.hidden=true;out.innerHTML="";status.hidden=true;if(def)def.hidden=false;return Promise.resolve(false)}
-  if(def)def.hidden=true;status.hidden=false;if(!rows){out.hidden=true;status.textContent="Loading deprecations…"}
+  if(def)def.hidden=true;status.hidden=false;out.hidden=true;if(!rows){status.textContent="Loading deprecations…"}
   return load().then(function(){
     if(run!==revision)return false;
     var terms=text.toLowerCase().split(/\\s+/).filter(Boolean);
@@ -103,7 +103,7 @@ function apply(){
     status.textContent=!hits.length?"No deprecations match.":hits.length+(hits.length===1?" matching deprecation.":" matching deprecations.");
     out.innerHTML=hits.length?'<div class="tbl"><table>${TABLE_HEAD}<tbody>'+hits.map(row).join("")+"</tbody></table></div>":"";
     return true;
-  },function(){if(run!==revision)return false;out.hidden=true;status.hidden=false;status.textContent="Filters could not load. Reload the page to try again.";return false});
+  },function(){if(run!==revision)return false;out.hidden=true;status.hidden=false;if(def)def.hidden=false;status.textContent="Filters could not load. Showing the original tables without filters. Reload the page to try again.";return false});
 }
 var pageKind=month?"deprecated-models-month":"deprecated-models";
 function track(){if(window.litellmTrack)window.litellmTrack("deprecations_filtered",{provider:sel.value||null,has_query:!!q.value.trim(),matches:matches,page_kind:pageKind,...(activeDays===null?{}:{days:activeDays})})}

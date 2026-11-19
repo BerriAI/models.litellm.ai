@@ -313,7 +313,7 @@ describe("deprecation search", () => {
     const fetched: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
       fetched.push(url);
-      return { json: async () => index };
+      return { ok: true, json: async () => index };
     });
     const tracked: [string, Record<string, unknown>][] = [];
     vi.stubGlobal(
@@ -424,9 +424,35 @@ describe("deprecation search", () => {
       document.querySelector<HTMLElement>("[data-dep-default]")!.hidden,
     ).toBe(true);
     expect(status.textContent).toBe("Loading deprecations…");
-    finish({ json: async () => deprecationSearchIndex(entries) });
+    finish({ ok: true, json: async () => deprecationSearchIndex(entries) });
     await settle();
     await settle();
+    expect(status.textContent).toBe("1 matching deprecation.");
+  });
+
+  test("a catalog failure shows the original tables, then retries on the next edit", async () => {
+    const entries = groupDeprecations(build());
+    vi.setSystemTime(new Date("2026-10-30T23:59:59Z"));
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response("[]", { status: 503 }))
+      .mockResolvedValueOnce({ ok: true, json: async () => deprecationSearchIndex(entries) });
+    vi.stubGlobal("fetch", fetch);
+    history.replaceState(null, "", "/deprecated-models");
+    document.body.innerHTML = deprecationBody(entries, months, "2026-10-30");
+    new Function(DEPRECATION_SEARCH_JS.replace(/^<script>|<\/script>$/g, ""))();
+    const original = document.querySelector<HTMLElement>("[data-dep-default]")!;
+    const status = document.querySelector("[data-dep-status]")!;
+    await settle();
+    expect(original.hidden).toBe(false);
+    expect(status.textContent).toContain("Showing the original tables without filters");
+    expect(document.querySelector("[data-dep-rss]")?.getAttribute("href")).toBe("/deprecated-models.xml?days=30");
+
+    const days = document.querySelector<HTMLInputElement>('[name="days"]')!;
+    days.value = "0";
+    days.dispatchEvent(new Event("input"));
+    await settle();
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(original.hidden).toBe(true);
     expect(status.textContent).toBe("1 matching deprecation.");
   });
 
