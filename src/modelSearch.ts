@@ -20,6 +20,7 @@ export type ModelFilters = {
   output?: "" | "text" | "image" | "video" | "audio" | "embedding";
   inputs?: ("text" | "image" | "file" | "audio" | "video")[];
   toolsOnly?: boolean;
+  capabilities?: string[];
 };
 
 export function supportsOutput(
@@ -149,7 +150,9 @@ export function passesFilters(
     (!filters.output || supportsOutput(item, filters.output)) &&
     (!filters.inputs?.length ||
       filters.inputs.every((input) => supportsInput(item, input))) &&
-    (!filters.toolsOnly || item.supports_function_calling === true)
+    (!filters.toolsOnly || item.supports_function_calling === true) &&
+    (!filters.capabilities?.length || filters.capabilities.every((key) =>
+      key.startsWith("supports_") && (item[key] === true || item[key] === 1)))
   );
 }
 
@@ -168,6 +171,7 @@ function filtersKey(filters: ModelFilters): string {
     filters.output ?? "",
     [...(filters.inputs ?? [])].sort(),
     !!filters.toolsOnly,
+    [...(filters.capabilities ?? [])].sort(),
   ]);
 }
 

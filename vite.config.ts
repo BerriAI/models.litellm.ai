@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { Readable } from "node:stream";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -10,8 +11,59 @@ export default defineConfig(({ mode }) => {
     env.VITE_CATALOG_API_PROXY_TARGET || "http://127.0.0.1:8000";
 
   return {
+    build: {
+      rollupOptions: {
+        input: {
+          main: resolve("index.html"),
+          "ask-ai": resolve("src/ask-ai-entry.ts"),
+        },
+        output: {
+          entryFileNames: (chunk) =>
+            chunk.name === "ask-ai"
+              ? "assets/ask-ai.js"
+              : "assets/[name]-[hash].js",
+        },
+      },
+    },
     plugins: [
       svelte(),
+      {
+        name: "models-ai-api",
+        configureServer(server) {
+          server.middlewares.use("/api/ask", async (request, response) => {
+            const controller = new AbortController();
+            response.on("close", () => controller.abort());
+            try {
+              if (request.method !== "POST") {
+                response.writeHead(405).end();
+                return;
+              }
+              const { POST } = await server.ssrLoadModule("/api/ask.ts");
+              const incoming = new Request(
+                `http://${request.headers.host}/api/ask`,
+                {
+                  method: "POST",
+                  headers: request.headers as Record<string, string>,
+                  body: Readable.toWeb(request) as ReadableStream,
+                  duplex: "half",
+                  signal: controller.signal,
+                } as RequestInit,
+              );
+              const result: Response = await POST(incoming);
+              response.writeHead(
+                result.status,
+                Object.fromEntries(result.headers),
+              );
+              if (result.body)
+                Readable.fromWeb(result.body as any).pipe(response);
+              else response.end();
+            } catch {
+              if (!response.headersSent) response.writeHead(500);
+              response.end();
+            }
+          });
+        },
+      },
       {
         name: "generated-catalog-data",
         configureServer(server) {
@@ -52,7 +104,16 @@ export default defineConfig(({ mode }) => {
                   "Content-Type",
                   `${contentType}; charset=utf-8`,
                 );
-                response.end(data);
+                response.end(
+                  contentType === "text/html"
+                    ? data
+                        .toString()
+                        .replace(
+                          'src="/assets/ask-ai.js"',
+                          'src="/src/ask-ai-entry.ts"',
+                        )
+                    : data,
+                );
               } catch {
                 next();
               }

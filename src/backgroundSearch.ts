@@ -40,11 +40,7 @@ const positioned = (
   max_output_tokens: item.max_output_tokens,
   supported_modalities: item.supported_modalities,
   supported_output_modalities: item.supported_output_modalities,
-  supports_vision: item.supports_vision,
-  supports_pdf_input: item.supports_pdf_input,
-  supports_audio_input: item.supports_audio_input,
-  supports_video_input: item.supports_video_input,
-  supports_function_calling: item.supports_function_calling,
+  ...Object.fromEntries(Object.entries(item).filter(([key]) => key.startsWith("supports_"))),
   zeroPriced: item.zeroPriced ?? hasZeroListedPrice(item),
   position,
 });

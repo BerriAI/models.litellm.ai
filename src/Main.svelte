@@ -6,8 +6,15 @@
   import Providers from "./Providers.svelte";
   import Cookbook from "./Cookbook.svelte";
   import Guardrails from "./Guardrails.svelte";
+  import type AskAI from "./AskAI.svelte";
+  import { tick } from "svelte";
   import RequestForm from "./RequestForm.svelte";
-  import { initAnalytics, track, trackPageView, trackTabChange } from "./analytics";
+  import {
+    initAnalytics,
+    track,
+    trackPageView,
+    trackTabChange,
+  } from "./analytics";
   import { PAGE_TITLES } from "./pageTitles";
   import { sanitizeSearchQuery } from "./searchQuery";
 
@@ -36,6 +43,28 @@
   let moreMenuOpen = false;
   let searchInput: HTMLInputElement;
   let requestForm: RequestForm;
+  let askAI: AskAI;
+  let AIComponent: typeof AskAI | undefined;
+  async function openAI() {
+    AIComponent ||= (await import("./AskAI.svelte")).default;
+    await tick();
+    void askAI.openPanel();
+  }
+  let aiOpen = false;
+  let header: HTMLElement;
+  let headerHeight = 85;
+  onMount(() => {
+    const resize = () => {
+      headerHeight = Math.max(0, header.getBoundingClientRect().bottom);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(header);
+    window.addEventListener("scroll", resize, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", resize);
+    };
+  });
 
   const tabPaths: Record<Tab, string> = {
     changelog: "/changelog",
@@ -168,7 +197,7 @@
 <svelte:window on:keydown={handleKeyboard} />
 
 <div class="app-container handoff-app">
-  <header class="hf-header">
+  <header class="hf-header" bind:this={header}>
     <div class="hf-header-inner">
       <a
         class="hf-brand"
@@ -197,117 +226,138 @@
         {/each}
       </nav>
 
-      <form
-        class="hf-header-search"
-        action="/search"
-        role="search"
-        on:submit|preventDefault={() => selectTab("models", searchQuery)}
-      >
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          aria-hidden="true"
-          ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
+      <div class="hf-header-tools">
+        <form
+          class="hf-header-search"
+          action="/search"
+          role="search"
+          on:submit|preventDefault={() => selectTab("models", searchQuery)}
         >
-        <input
-          bind:this={searchInput}
-          bind:value={searchQuery}
-          name="q"
-          type="search"
-          placeholder="Search models"
-          aria-label="Search models"
-          autocomplete="off"
-        />
-        <kbd aria-hidden="true">⌘ K</kbd>
-      </form>
-
-      <div class="hf-header-actions">
-        <a
-          class="hf-docs"
-          href="https://docs.litellm.ai"
-          target="_blank"
-          rel="noopener noreferrer">Docs ↗</a
-        >
-        <button
-          class="hf-theme-toggle"
-          type="button"
-          on:click={() => setTheme(theme === "light" ? "dark" : "light")}
-          aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-          title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
-        >
-          {#if theme === "light"}
-            <svg
-              width="19"
-              height="19"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              aria-hidden="true"
-              ><path
-                d="M20.8 13.1A9 9 0 0 1 10.9 3.2 9 9 0 1 0 20.8 13.1Z"
-              /></svg
-            >
-          {:else}
-            <svg
-              width="19"
-              height="19"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.5"
-              aria-hidden="true"
-              ><circle cx="12" cy="12" r="4" /><path
-                d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
-              /></svg
-            >
-          {/if}
-        </button>
-        <div class="hf-more">
-          <button
-            class="hf-more-toggle"
-            type="button"
-            aria-label="More navigation"
-            aria-expanded={moreMenuOpen}
-            aria-controls="hf-more-menu"
-            on:click={() => (moreMenuOpen = !moreMenuOpen)}>···</button
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+            ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
           >
-          {#if moreMenuOpen}
-            <nav
-              class="hf-more-menu"
-              id="hf-more-menu"
+          <input
+            bind:this={searchInput}
+            bind:value={searchQuery}
+            name="q"
+            type="search"
+            placeholder="Search models"
+            aria-label="Search models"
+            autocomplete="off"
+          />
+          <kbd aria-hidden="true">⌘ K</kbd>
+        </form>
+
+        <div class="hf-header-actions">
+          <a
+            class="hf-docs"
+            href="https://docs.litellm.ai"
+            target="_blank"
+            rel="noopener noreferrer">Docs ↗</a
+          >
+          <button
+            class="hf-ask-ai"
+            type="button"
+            aria-expanded={aiOpen}
+            aria-controls="models-ai-chat"
+            on:click={openAI}><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-2-2V7a3 3 0 0 1 3-3Z"/><path d="M6 8h7M6 11h4"/></svg>Ask AI</button
+          >
+          <button
+            class="hf-theme-toggle"
+            type="button"
+            on:click={() => setTheme(theme === "light" ? "dark" : "light")}
+            aria-label={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+            title={`Switch to ${theme === "light" ? "dark" : "light"} mode`}
+          >
+            {#if theme === "light"}
+              <svg
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                aria-hidden="true"
+                ><path
+                  d="M20.8 13.1A9 9 0 0 1 10.9 3.2 9 9 0 1 0 20.8 13.1Z"
+                /></svg
+              >
+            {:else}
+              <svg
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                aria-hidden="true"
+                ><circle cx="12" cy="12" r="4" /><path
+                  d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"
+                /></svg
+              >
+            {/if}
+          </button>
+          <div class="hf-more">
+            <button
+              class="hf-more-toggle"
+              type="button"
               aria-label="More navigation"
+              aria-expanded={moreMenuOpen}
+              aria-controls="hf-more-menu"
+              on:click={() => (moreMenuOpen = !moreMenuOpen)}
+              ><svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                ><circle cx="4" cy="10" r="1.5" /><circle
+                  cx="10"
+                  cy="10"
+                  r="1.5"
+                /><circle cx="16" cy="10" r="1.5" /></svg
+              ></button
             >
-              <a
-                href="/cookbook"
-                aria-current={activeTab === "cookbook" ? "page" : undefined}
-                on:click={(event) => navigate(event, "cookbook")}>Cookbook</a
+            {#if moreMenuOpen}
+              <nav
+                class="hf-more-menu"
+                id="hf-more-menu"
+                aria-label="More navigation"
               >
-              <a
-                href="/guardrails"
-                aria-current={activeTab === "guardrails" ? "page" : undefined}
-                on:click={(event) => navigate(event, "guardrails")}
-                >Guardrails</a
-              >
-              <a href="/models">All models index</a>
-              <a href="/compare/custom">Compare models</a>
-              <a href="/calculator">Pricing calculator</a>
-              <a href="/new-models">New models</a>
-              <a href="/deprecated-models">Recently deprecated</a>
-              <a
-                href="https://github.com/BerriAI/litellm"
-                target="_blank"
-                rel="noopener noreferrer">GitHub ↗</a
-              >
-              <button type="button" on:click={openRequest}
-                >Request a model +</button
-              >
-            </nav>
-          {/if}
+                <a
+                  href="/cookbook"
+                  aria-current={activeTab === "cookbook" ? "page" : undefined}
+                  on:click={(event) => navigate(event, "cookbook")}>Cookbook</a
+                >
+                <a
+                  href="/guardrails"
+                  aria-current={activeTab === "guardrails" ? "page" : undefined}
+                  on:click={(event) => navigate(event, "guardrails")}
+                  >Guardrails</a
+                >
+                <a href="/models">All models index</a>
+                <a href="/compare/custom">Compare models</a>
+                <a href="/calculator">Pricing calculator</a>
+                <a href="/new-models">New models</a>
+                <a href="/deprecated-models">Recently deprecated</a>
+                <a
+                  href="https://github.com/BerriAI/litellm"
+                  target="_blank"
+                  rel="noopener noreferrer">GitHub ↗</a
+                >
+                <button type="button" on:click={openRequest}
+                  >Request a model +</button
+                >
+              </nav>
+            {/if}
+          </div>
         </div>
       </div>
     </div>
@@ -320,7 +370,7 @@
       {:else if activeTab === "benchmarks"}
         <Benchmarks />
       {:else if activeTab === "models"}
-        <App compact on:querychange={handleQueryChange} />
+        <App compact {aiOpen} on:querychange={handleQueryChange} on:askai={openAI} />
       {:else if activeTab === "providers"}
         <Providers />
       {:else if activeTab === "cookbook"}
@@ -330,5 +380,14 @@
       {/if}
     </div>
   {/key}
+  <div style={`--ai-header-height: ${headerHeight}px`}>
+    <svelte:component
+      this={AIComponent}
+      bind:this={askAI}
+      on:change={(event) => {
+        aiOpen = event.detail;
+      }}
+    />
+  </div>
   <RequestForm bind:this={requestForm} />
 </div>

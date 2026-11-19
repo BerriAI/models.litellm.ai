@@ -131,6 +131,25 @@ If a public source cannot refresh, the build preserves the previous published da
 
 Epoch data is credited under [CC BY 4.0](https://epoch.ai/data). Terminal-Bench's public repository is [Apache 2.0 licensed](https://github.com/harbor-framework/terminal-bench/blob/main/LICENSE). Source links remain available beside the rankings and individual coding results.
 
+### Ask AI
+
+**Ask AI** beside Search opens a chat sidebar on the catalog and generated detail/archive pages. It can query model prices and capabilities, provider endpoint support, release metadata, catalog changes and deprecations. Answers stream, support conversational follow-ups, and have a copy button. Chat does not change the page's filters or sorting. Questions and answers stay in browser memory and are excluded from analytics capture; the server sends them to the configured gateway for inference.
+
+Set these server-side environment variables in the hosting project's production settings, then redeploy. Do not use `VITE_` prefixes or commit credential values.
+
+| Variable | Value |
+| --- | --- |
+| `LITELLM_PROXY_API_BASE` | Your gateway's HTTPS API base, with or without `/v1` |
+| `LITELLM_PROXY_API_KEY` | A dedicated inference-only virtual key restricted to the three model aliases below |
+| `CF_ACCESS_CLIENT_ID` | Cloudflare Access service-token client ID, when the gateway requires Access |
+| `CF_ACCESS_CLIENT_SECRET` | The matching Cloudflare client secret; set both Access variables together |
+
+The agent uses `openai/gpt-6.1-sol`, with `anthropic/claude-haiku-5-5` and `openai/gpt-6-luna` as fallbacks. Put the shared spending budget and model-call rate limits on its virtual key. `/api/ask` also limits each warm instance to 60 question attempts per minute and 10 active questions; these process-local safeguards are not a shared spending limit. Use the hosting firewall for shared visitor limits. Origin checks protect browsers but do not authenticate a public caller.
+
+For local use, export the same variables in your shell and run `npm run dev`. A gateway port-forward on localhost is also supported. Ask a provider-support question, then a pricing follow-up. Confirm that answers finish, copying includes only the answer, and browser network requests go only to `/api/ask` for inference. Missing credentials return 503; gateway failures show a retry action. Canceling stops the upstream request. A fresh server can spend additional time loading the public catalog.
+
+`server/catalog.ts` loads the site's existing public sources and generates the schema from their current fields. New price and capability fields become queryable without adding question-specific tools. `query_catalog` runs read-only SQLite in an isolated worker with a memory limit, a query deadline, and explicit pagination. It supports joins, JSON, aggregates and calculations across the full tables. Model requests have no application output-token cap. Catalog caches last five minutes; release dates and catalog-addition dates remain separate. The published changelog has a limited time window, and missing prices/dates remain unknown. Benchmark scores are not included in this query layer.
+
 ### LiteLLM coding-agent pilot
 
 The **LiteLLM coding pilot** disclosure on `/benchmarks` compares completed harness/model stacks from `public/benchmarks/results.json`, separately from published benchmarks. Data loads when the disclosure opens. Each chart labels the harness, model, and provider separately, and sorts independently from best to worst for its metric. The results view has no filters or recommendation controls; methodology and per-run evidence are collapsed. Pilot results cover one declared cohort at a time; incomplete runs do not enter charts. The current six-task, one-trial subset is directional. API estimates include failed attempts and retries, compute is excluded, and incomparable timing is withheld. Source configuration, credentials, raw runs and live activity are private; only reviewed sanitized summaries belong in this public manifest.

@@ -11,6 +11,7 @@
   import CatalogQuickStart from "./CatalogQuickStart.svelte";
   import PageHero from "./PageHero.svelte";
   import { searchIntent } from "./searchIntent";
+  import { catalogCapabilities } from "./modelCapabilities";
   import { sanitizeSearchQuery } from "./searchQuery";
   import { createSettledSearch } from "./settledSearch";
   import { loadCatalogData, type CatalogItem } from "./catalogData";
@@ -49,7 +50,8 @@
   import { longestPerColumn, rowOffsets, rowsInView } from "./rowWindow";
 
   export let compact = false;
-  const dispatch = createEventDispatcher<{ querychange: { query: string } }>();
+  export let aiOpen = false;
+  const dispatch = createEventDispatcher<{ querychange: { query: string }; askai: void }>();
   $: dispatch("querychange", { query });
 
   type Item = {
@@ -84,7 +86,10 @@
   let freeOnly = false;
   let output: NonNullable<ModelFilters["output"]> = "";
   let inputs: NonNullable<ModelFilters["inputs"]> = [];
-  let toolsOnly = false;
+  let capabilities: string[] = [];
+  let filtersOpen = false;
+  let capabilityOptions: ReturnType<typeof catalogCapabilities> = [];
+  $: extraCapabilityCount = capabilityOptions.slice(8).filter(({ key }) => capabilities.includes(key)).length;
   const outputTabs: { value: NonNullable<ModelFilters["output"]>; label: string }[] = [{ value: "", label: "All" }, { value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "video", label: "Video" }, { value: "audio", label: "Speech" }, { value: "embedding", label: "Embeddings" }];
   const inputOptions: NonNullable<ModelFilters["inputs"]> = ["text", "image", "file", "audio", "video"];
   let hiddenCount = 0;
@@ -126,6 +131,14 @@
   let codeTabStates: Record<string, "sdk" | "proxy"> = {};
 
   onMount(() => {
+    const desktop = window.matchMedia("(min-width: 1100px)");
+    const resizeFilters = () => { filtersOpen = desktop.matches; };
+    resizeFilters();
+    desktop.addEventListener("change", resizeFilters);
+    return () => desktop.removeEventListener("change", resizeFilters);
+  });
+
+  onMount(() => {
     const urlParams = new URLSearchParams(window.location.search);
     query = sanitizeSearchQuery(urlParams.get("q"));
 
@@ -160,6 +173,7 @@
         ...deriveModelMeta(item.name, metadata),
       }));
       providers = [...new Set(items.map((item) => item.litellm_provider).filter((provider): provider is string => typeof provider === "string" && !!provider))].sort();
+      capabilityOptions = catalogCapabilities(items);
       searcher = createModelSearcher(
         items,
         (message) => searchWorker?.postMessage(message),
@@ -221,7 +235,7 @@
     freeOnly = false;
     output = "";
     inputs = [];
-    toolsOnly = false;
+    capabilities = [];
   }
 
   function requestModel() {
@@ -396,7 +410,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         freeOnly: freeOnly || intent.freeOnly,
         output,
         inputs,
-        toolsOnly,
+        capabilities,
       },
     };
     analyticsRevision = queryAnalytics.begin();
@@ -640,7 +654,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
 
   <div class="catalog-layout">
     <aside class="catalog-sidebar" aria-label="Model filters">
-      <details class="filter-panel" open={typeof window !== "undefined" && window.innerWidth >= 1100}>
+      <details class="filter-panel" bind:open={filtersOpen}>
         <summary>Filters <span>⌄</span></summary>
         <div class="sidebar-filter-content">
           <section class="filter-block"><h2>Input modalities</h2><span class="filter-help">Must support all selected</span>
@@ -672,7 +686,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div></section>
           <section class="filter-block"><h2>Pricing</h2><label class="sidebar-check"><input type="checkbox" bind:checked={freeOnly} /><span>Zero listed price</span></label></section>
-          <section class="filter-block"><h2>Capabilities</h2><label class="sidebar-check"><input type="checkbox" bind:checked={toolsOnly} /><span>Tool calling</span></label></section>
+          <section class="filter-block"><h2>Capabilities</h2><span class="filter-help">Must support all selected</span>
+            {#each capabilityOptions.slice(0, 8) as capability}<label class="sidebar-check"><input type="checkbox" bind:group={capabilities} value={capability.key} /><span>{capability.label}</span></label>{/each}
+            {#if capabilityOptions.length > 8}<details class="more-capabilities" on:toggle={(event) => { if (event.currentTarget.open) track("Catalog Capabilities Expanded"); }}>
+              <summary>{capabilityOptions.length - 8} more capabilities{extraCapabilityCount ? ` · ${extraCapabilityCount} selected` : ""}</summary>
+              <div>{#each capabilityOptions.slice(8) as capability}<label class="sidebar-check"><input type="checkbox" bind:group={capabilities} value={capability.key} /><span>{capability.label}</span></label>{/each}</div>
+            </details>{/if}
+          </section>
           <p class="filter-help">Filters use reported capabilities. Unreported capabilities are not matched.</p>
           <button class="sidebar-clear" on:click={clearFilters}>Reset filters</button>
         </div>
@@ -710,8 +730,10 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
           <kbd class="search-shortcut">⌘K</kbd>
         {/if}
       </div>
-      
-
+      <button class="hf-ask-ai catalog-ask-ai" type="button" aria-expanded={aiOpen} aria-controls="models-ai-chat" on:click={() => { track("AI Entry Clicked", { source: "catalog_search" }); dispatch("askai"); }}>
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 4h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H8l-4 3v-3a2 2 0 0 1-2-2V7a3 3 0 0 1 3-3Z"/><path d="M6 8h7M6 11h4"/></svg>
+        Ask AI
+      </button>
     </div>
 
     {#if intent.title}
@@ -730,7 +752,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       <div class="results-meta">
         <span class="results-count" aria-live="polite">{searching ? "Searching…" : results.length.toLocaleString() + (results.length === 1 ? " model" : " models")}</span>
         <div class="results-meta-right">
-          {#if query || selectedProvider || maxInputTokens != null || maxOutputTokens != null || freeOnly || output || inputs.length || toolsOnly}
+          {#if query || selectedProvider || maxInputTokens != null || maxOutputTokens != null || freeOnly || output || inputs.length || capabilities.length}
             <button class="clear-filters" on:click={() => { query = ""; clearFilters(); }}>
               Clear all filters
             </button>
@@ -1143,14 +1165,16 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .catalog-layout { display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 34px; align-items: start; padding-top: 24px; }
   .catalog-results { min-width: 0; }
   .catalog-sidebar { padding-right: 26px; border-right: 1px solid var(--border-color); }
-  .filter-panel summary { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; list-style: none; padding-bottom: 20px; }
-  .filter-panel summary::-webkit-details-marker { display: none; }
-  .filter-panel summary span { display: none; }
+  .filter-panel > summary { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; list-style: none; padding-bottom: 20px; }
+  .filter-panel > summary::-webkit-details-marker { display: none; }
+  .filter-panel > summary span { display: none; }
   .filter-block { padding: 0 0 22px; margin-bottom: 22px; border-bottom: 1px solid var(--border-color); }
   .filter-block h2 { font-family: "DM Sans", sans-serif; font-size: 12px; font-weight: 600; margin: 0 0 12px; }
   .filter-help { display: block; color: var(--muted-color); font-size: 11px; line-height: 1.5; margin-bottom: 10px; }
   .sidebar-check { display: flex; align-items: center; gap: 10px; margin: 11px 0; font-size: 12px; cursor: pointer; }
-  .sidebar-check input { accent-color: var(--text-color); width: 14px; height: 14px; }
+  .sidebar-check input { accent-color: var(--text-color); width: 14px; height: 14px; flex-shrink: 0; }
+  .more-capabilities summary { cursor: pointer; font-size: 12px; color: var(--muted-color); margin-top: 14px; }
+  .more-capabilities > div { max-height: 280px; overflow-y: auto; scrollbar-gutter: stable; }
   .sidebar-clear { background: transparent; border: 0; padding: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; color: var(--muted-color); }
   .compact .catalog-sidebar .filters-row { display: flex; flex-direction: column; gap: 14px; }
   .compact .catalog-sidebar :global(.provider-dropdown) { width: 100%; min-width: 0; }
@@ -1164,8 +1188,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   @media (max-width: 1099px) {
     .catalog-layout { grid-template-columns: 1fr; gap: 20px; padding-top: 22px; }
     .catalog-sidebar { padding: 0; border: 1px solid var(--border-color); }
-    .filter-panel summary { padding: 12px 16px; cursor: pointer; }
-    .filter-panel summary span { display: inline; }
+    .filter-panel > summary { padding: 12px 16px; cursor: pointer; }
+    .filter-panel > summary span { display: inline; }
     .sidebar-filter-content { padding: 4px 16px 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
     .filter-block { margin-bottom: 0; }
   }
@@ -1326,9 +1350,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
     align-items: center;
   }
 
+  .catalog-ask-ai { height: 44px; min-width: 156px; padding: 0 24px; font-size: 14px; flex-shrink: 0; }
+  .catalog-ask-ai svg { width: 19px; height: 19px; }
+  @media (max-width: 640px) { .catalog-ask-ai { min-width: 104px; padding: 0 14px; font-size: 13px; } }
+
   .search-input-wrapper {
     position: relative;
     flex: 1;
+    min-width: 0;
   }
 
   .search-icon {
