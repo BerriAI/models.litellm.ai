@@ -1,6 +1,6 @@
 /**
  * Static HTML for the generated pages. Everything a reader or crawler needs is
- * in the HTML; the only scripts are a copy button and analytics.
+ * in the HTML. Interactive controls and the catalog assistant load separately.
  */
 import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/modelPresentation";
 import { headlinePrice, type PageCopy } from "./copy";
@@ -120,7 +120,7 @@ export function mixpanelScript(path: string, track?: { kind: string; id: string 
   if (!MIXPANEL_TOKEN) return "";
   const kind = track?.kind ?? pageKind(path);
   const page = { page: kind, page_kind: kind, page_id: track?.id ?? path };
-  return `<script>if(location.hostname==="models.litellm.ai"){${MIXPANEL_SNIPPET};mixpanel.init(${JSON.stringify(MIXPANEL_TOKEN)},${JSON.stringify(MIXPANEL_OPTIONS)});mixpanel.register(Object.assign({surface:"static"},${JSON.stringify(page)}));mixpanel.time_event("Page Leave");mixpanel.track("Page View",{page:${JSON.stringify(kind)},url:location.href,path:location.pathname,referrer:document.referrer});addEventListener("pagehide",function(){mixpanel.track("Page Leave",{page:${JSON.stringify(kind)}},{transport:"sendBeacon"})});document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a||a.origin===location.origin||!/^https?:$/.test(a.protocol))return;mixpanel.track("Outbound Link Clicked",{url:a.href,host:a.hostname,text:(a.textContent||"").trim().slice(0,80)},{transport:"sendBeacon"})},true)}</script>`;
+  return `<script>if(location.hostname==="models.litellm.ai"){${MIXPANEL_SNIPPET};mixpanel.init(${JSON.stringify(MIXPANEL_TOKEN)},${JSON.stringify(MIXPANEL_OPTIONS)});mixpanel.register(Object.assign({surface:"static"},${JSON.stringify(page)}));mixpanel.time_event("Page Leave");mixpanel.track("Page View",{page:${JSON.stringify(kind)},url:location.href,path:location.pathname,referrer:document.referrer});addEventListener("pagehide",function(){mixpanel.track("Page Leave",{page:${JSON.stringify(kind)}},{transport:"sendBeacon"})});document.addEventListener("click",function(e){var a=e.target.closest&&e.target.closest("a[href]");if(!a||a.closest("[data-ai-chat]")||a.origin===location.origin||!/^https?:$/.test(a.protocol))return;mixpanel.track("Outbound Link Clicked",{url:a.href,host:a.hostname,text:(a.textContent||"").trim().slice(0,80)},{transport:"sendBeacon"})},true)}</script>`;
 }
 
 const COPY_JS = `<script>document.addEventListener("click",function(e){var b=e.target.closest("[data-copy]");if(!b)return;var t=document.getElementById(b.getAttribute("data-copy"));if(!t||!navigator.clipboard)return;navigator.clipboard.writeText(t.innerText).then(function(){b.textContent="Copied";setTimeout(function(){b.textContent="Copy"},1500)}).catch(function(){});var m=document.querySelector("main");if(window.litellmTrack)litellmTrack("snippet_copied",{snippet:b.getAttribute("data-copy"),page_kind:m&&m.getAttribute("data-page-kind"),page_id:m&&m.getAttribute("data-page-id")})})</script>`;
@@ -191,7 +191,7 @@ ${l.jsonLd ? jsonLdScript(l.jsonLd) : ""}
 <header class="hf-header"><div class="hf-header-inner">
 <a class="hf-brand" href="/" aria-label="LiteLLM Models home"><img class="hf-logo-light" src="/brand/litellm-primary-blue.svg" alt="LiteLLM" width="132" height="32"><img class="hf-logo-dark" src="/brand/litellm-primary-white.svg" alt="LiteLLM" width="132" height="32"><span>/ MODELS</span></a>
 <nav class="hf-nav" aria-label="Main navigation"><a href="/"${/^\/(models|new-models|deprecated-models)(\/|$)/.test(l.path) ? ' aria-current="page"' : ""}>Models</a><a href="/providers"${l.path.startsWith("/providers/") ? ' aria-current="page"' : ""}>Providers</a><a href="/benchmarks">Benchmarks</a><a href="/changelog"${l.path === "/changelog" ? ' aria-current="page"' : ""}>Changelog</a></nav>
-<form class="hf-header-search" action="/search" role="search"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input name="q" type="search" placeholder="Search models" aria-label="Search models" autocomplete="off"><kbd aria-hidden="true">⌘ K</kbd></form>
+<div class="hf-search-and-ask"><form class="hf-header-search" action="/search" role="search"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5"/><path d="m13 13 4 4"/></svg><input name="q" type="search" placeholder="Search models" aria-label="Search models" autocomplete="off"><kbd aria-hidden="true">⌘ K</kbd></form><button class="hf-ask-ai" type="button" data-ask-ai aria-expanded="false" aria-controls="models-ai-chat">Ask AI</button></div>
 <div class="hf-header-actions"><a class="hf-docs" href="${DOCS_URL}" target="_blank" rel="noopener noreferrer">Docs ↗</a><button class="hf-theme-toggle" type="button" data-theme-toggle aria-label="Switch to dark mode"><svg class="theme-moon" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M20.8 13.1A9 9 0 0 1 10.9 3.2 9 9 0 1 0 20.8 13.1Z"/></svg><svg class="theme-sun" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/></svg></button>
 <details class="hf-more"><summary class="hf-more-toggle" aria-label="More navigation">···</summary><nav class="hf-more-menu" aria-label="More navigation"><a href="/cookbook">Cookbook</a><a href="/guardrails">Guardrails</a><a href="/models">All models index</a><a href="/compare/custom">Compare models</a><a href="/calculator">Pricing calculator</a><a href="/new-models">New models</a><a href="/deprecated-models">Recently deprecated</a><a href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href="/?request=true">Request a model +</a></nav></details></div>
 </div></header>
@@ -207,6 +207,7 @@ ${COPY_JS}
 ${l.script ?? ""}
 ${ANALYTICS}
 ${mixpanelScript(l.path, l.track)}
+<script type="module" src="/assets/ask-ai.js"></script>
 </body>
 </html>
 `;
