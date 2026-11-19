@@ -150,8 +150,10 @@ For shared limits on Vercel, open the project's **Firewall → Configure → New
 
 | Rule | Match | Fixed window | Response |
 | --- | --- | --- | --- |
-| Visitor allowance | `@vercel/firewall` rate limit ID `models-ai-visitor` | 10 requests / 60 seconds; the SDK supplies the signed visitor ID as the counting key | 429 |
+| Visitor allowance | `@vercel/firewall` rate limit ID `models-ai-visitor` | 10 requests / 60 seconds; counting key `header:x-vercel-rate-limit-key` | 429 |
 | IP backstop | Request path matches `^/api/ask/?$` and method equals `POST` | 120 requests / 60 seconds per IP | 429 |
+
+For the visitor rule, the Firewall API's `action.mitigate.rateLimit.keys` must be `["header:x-vercel-rate-limit-key"]`. The SDK fills that header from the verified visitor ID. Using `["ip"]` or an empty list combines independent visitors into one allowance. Verify the published rule with two synthetic visitor keys: the eleventh request for one key should return 429 while the first request for the other returns 204. This check uses only the firewall counter endpoint and requires no inference.
 
 The larger IP allowance accommodates shared office and VPN connections; it also limits callers that discard cookies. These rules do not require a challenge or affect browsing the catalog. Vercel counters are shared across instances within each region, not across all regions. Keep the gateway budget as the spending boundary. Enable Vercel's automatic system environment variables: the SDK destination comes from `VERCEL_PROJECT_PRODUCTION_URL`, never a request header. If the shared check fails or its rule is missing, local visitor limits stay active and the server logs a fixed warning; verify both published rules in the Firewall dashboard before launch. Hosting costs are separate from the gateway budget.
 
