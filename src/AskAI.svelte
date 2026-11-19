@@ -6,11 +6,9 @@
   import { streamData } from "./aiStream";
 
   export let trackEvent = track;
-  type Source = { id: number; title: string; url: string };
   type Turn = {
     question: string;
     answer: string;
-    sources: Source[];
     complete: boolean;
     error?: string;
   };
@@ -73,11 +71,7 @@
     }
   }
   function render(turn: Turn) {
-    const text = turn.answer.replace(/\[(\d+)\](?!\()/g, (match, id) => {
-      const source = turn.sources.find((source) => source.id === Number(id));
-      return source ? `[${match}](${source.url})` : match;
-    });
-    return DOMPurify.sanitize(marked.parse(text, { async: false }), {
+    return DOMPurify.sanitize(marked.parse(turn.answer, { async: false }), {
       ALLOWED_TAGS: [
         "p",
         "br",
@@ -113,14 +107,9 @@
   async function copy(turn: Turn, index: number) {
     copyError = "";
     try {
-      const sources = turn.sources
-        .map((source) => `[${source.id}] ${source.title}: ${source.url}`)
-        .join("\n");
-      await navigator.clipboard.writeText(
-        turn.answer + (sources ? `\n\n${sources}` : ""),
-      );
+      await navigator.clipboard.writeText(turn.answer);
       copied = index;
-      trackEvent("AI Answer Copied", { source_count: turn.sources.length });
+      trackEvent("AI Answer Copied");
       setTimeout(() => {
         copied = -1;
       }, 1800);
@@ -143,7 +132,6 @@
     const turn: Turn = {
       question: text,
       answer: "",
-      sources: [],
       complete: false,
     };
     turns = [...turns, turn];
@@ -177,7 +165,6 @@
         }
         if (event.type === "reset") turn.answer = "";
         if (event.type === "done") {
-          turn.sources = event.sources;
           turn.complete = true;
         }
         if (event.type === "error") throw new Error(event.text);
@@ -188,7 +175,7 @@
         throw new Error(
           "The connection ended before the answer finished. Please retry.",
         );
-      trackEvent("AI Answer Completed", { source_count: turn.sources.length });
+      trackEvent("AI Answer Completed");
     } catch (error) {
       turn.error = controller.signal.aborted
         ? "Stopped."
@@ -274,34 +261,6 @@
           </div>
           {#if turn.answer}
             <div class="ai-answer-footer">
-              {#if turn.sources.length}
-                <details
-                  on:toggle={(event) => {
-                    if (event.currentTarget.open)
-                      trackEvent("AI Sources Opened", {
-                        source_count: turn.sources.length,
-                      });
-                  }}
-                >
-                  <summary
-                    >{turn.sources.length}
-                    {turn.sources.length === 1 ? "source" : "sources"}</summary
-                  >
-                  <ul>
-                    {#each turn.sources as source}<li>
-                        <a
-                          href={source.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          on:click={() =>
-                            trackEvent("AI Source Opened", {
-                              source_id: source.id,
-                            })}>{source.title}</a
-                        >
-                      </li>{/each}
-                  </ul>
-                </details>
-              {:else}<span></span>{/if}
               <button
                 type="button"
                 class="ai-icon"
@@ -409,10 +368,8 @@
     color: inherit;
     font: inherit;
   }
-  button:focus-visible,
-  textarea:focus-visible,
-  summary:focus-visible {
-    outline: 2px solid var(--hf-accent);
+  button:focus-visible {
+    outline: 2px solid var(--hf-ink);
     outline-offset: 3px;
   }
   button:disabled {
@@ -495,8 +452,7 @@
   .ai-answer :global(ol) {
     padding-left: 20px;
   }
-  .ai-answer :global(a),
-  details a {
+  .ai-answer :global(a) {
     color: var(--hf-accent);
   }
   .ai-answer :global(pre) {
@@ -527,21 +483,8 @@
   .ai-answer-footer {
     display: flex;
     align-items: flex-start;
-    justify-content: space-between;
-    gap: 14px;
+    justify-content: flex-end;
     margin-top: 10px;
-  }
-  details {
-    font-size: 11px;
-    color: var(--hf-muted);
-    padding-top: 6px;
-  }
-  summary {
-    cursor: pointer;
-  }
-  details ul {
-    padding-left: 17px;
-    line-height: 1.8;
   }
   .ai-status {
     color: var(--hf-muted);
@@ -572,7 +515,10 @@
     padding: 10px;
   }
   .ai-input-wrap:focus-within {
-    border-color: var(--hf-accent);
+    border-color: var(--hf-ink);
+  }
+  textarea:focus-visible {
+    outline: none;
   }
   textarea {
     flex: 1;
