@@ -1153,14 +1153,14 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .catalog-layout { display: grid; grid-template-columns: 218px minmax(0, 1fr); gap: 34px; align-items: start; padding-top: 24px; }
   .catalog-results { min-width: 0; }
   .catalog-sidebar { padding-right: 26px; border-right: 1px solid var(--border-color); }
-  .filter-panel summary { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; list-style: none; padding-bottom: 20px; }
-  .filter-panel summary::-webkit-details-marker { display: none; }
-  .filter-panel summary span { display: none; }
+  .filter-panel > summary { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; list-style: none; padding-bottom: 20px; }
+  .filter-panel > summary::-webkit-details-marker { display: none; }
+  .filter-panel > summary span { display: none; }
   .filter-block { padding: 0 0 22px; margin-bottom: 22px; border-bottom: 1px solid var(--border-color); }
   .filter-block h2 { font-family: "DM Sans", sans-serif; font-size: 12px; font-weight: 600; margin: 0 0 12px; }
   .filter-help { display: block; color: var(--muted-color); font-size: 11px; line-height: 1.5; margin-bottom: 10px; }
   .sidebar-check { display: flex; align-items: center; gap: 10px; margin: 11px 0; font-size: 12px; cursor: pointer; }
-  .sidebar-check input { accent-color: var(--text-color); width: 14px; height: 14px; }
+  .sidebar-check input { accent-color: var(--text-color); width: 14px; height: 14px; flex-shrink: 0; }
   .more-capabilities summary { cursor: pointer; font-size: 12px; color: var(--muted-color); margin-top: 14px; }
   .more-capabilities > div { max-height: 280px; overflow-y: auto; scrollbar-gutter: stable; }
   .sidebar-clear { background: transparent; border: 0; padding: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; color: var(--muted-color); }
@@ -1176,8 +1176,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   @media (max-width: 1099px) {
     .catalog-layout { grid-template-columns: 1fr; gap: 20px; padding-top: 22px; }
     .catalog-sidebar { padding: 0; border: 1px solid var(--border-color); }
-    .filter-panel summary { padding: 12px 16px; cursor: pointer; }
-    .filter-panel summary span { display: inline; }
+    .filter-panel > summary { padding: 12px 16px; cursor: pointer; }
+    .filter-panel > summary span { display: inline; }
     .sidebar-filter-content { padding: 4px 16px 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
     .filter-block { margin-bottom: 0; }
   }
