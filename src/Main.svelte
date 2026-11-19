@@ -6,8 +6,15 @@
   import Providers from "./Providers.svelte";
   import Cookbook from "./Cookbook.svelte";
   import Guardrails from "./Guardrails.svelte";
+  import type AskAI from "./AskAI.svelte";
+  import { tick } from "svelte";
   import RequestForm from "./RequestForm.svelte";
-  import { initAnalytics, track, trackPageView, trackTabChange } from "./analytics";
+  import {
+    initAnalytics,
+    track,
+    trackPageView,
+    trackTabChange,
+  } from "./analytics";
   import { PAGE_TITLES } from "./pageTitles";
   import { sanitizeSearchQuery } from "./searchQuery";
 
@@ -36,6 +43,28 @@
   let moreMenuOpen = false;
   let searchInput: HTMLInputElement;
   let requestForm: RequestForm;
+  let askAI: AskAI;
+  let AIComponent: typeof AskAI | undefined;
+  async function openAI() {
+    AIComponent ||= (await import("./AskAI.svelte")).default;
+    await tick();
+    void askAI.openPanel();
+  }
+  let aiOpen = false;
+  let header: HTMLElement;
+  let headerHeight = 85;
+  onMount(() => {
+    const resize = () => {
+      headerHeight = Math.max(0, header.getBoundingClientRect().bottom);
+    };
+    const observer = new ResizeObserver(resize);
+    observer.observe(header);
+    window.addEventListener("scroll", resize, { passive: true });
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", resize);
+    };
+  });
 
   const tabPaths: Record<Tab, string> = {
     changelog: "/changelog",
@@ -168,7 +197,7 @@
 <svelte:window on:keydown={handleKeyboard} />
 
 <div class="app-container handoff-app">
-  <header class="hf-header">
+  <header class="hf-header" bind:this={header}>
     <div class="hf-header-inner">
       <a
         class="hf-brand"
@@ -197,33 +226,42 @@
         {/each}
       </nav>
 
-      <form
-        class="hf-header-search"
-        action="/search"
-        role="search"
-        on:submit|preventDefault={() => selectTab("models", searchQuery)}
-      >
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          aria-hidden="true"
-          ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
+      <div class="hf-search-and-ask">
+        <form
+          class="hf-header-search"
+          action="/search"
+          role="search"
+          on:submit|preventDefault={() => selectTab("models", searchQuery)}
         >
-        <input
-          bind:this={searchInput}
-          bind:value={searchQuery}
-          name="q"
-          type="search"
-          placeholder="Search models"
-          aria-label="Search models"
-          autocomplete="off"
-        />
-        <kbd aria-hidden="true">⌘ K</kbd>
-      </form>
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            aria-hidden="true"
+            ><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg
+          >
+          <input
+            bind:this={searchInput}
+            bind:value={searchQuery}
+            name="q"
+            type="search"
+            placeholder="Search models"
+            aria-label="Search models"
+            autocomplete="off"
+          />
+          <kbd aria-hidden="true">⌘ K</kbd>
+        </form>
+        <button
+          class="hf-ask-ai"
+          type="button"
+          aria-expanded={aiOpen}
+          aria-controls="models-ai-chat"
+          on:click={openAI}>Ask AI</button
+        >
+      </div>
 
       <div class="hf-header-actions">
         <a
@@ -330,5 +368,14 @@
       {/if}
     </div>
   {/key}
+  <div style={`--ai-header-height: ${headerHeight}px`}>
+    <svelte:component
+      this={AIComponent}
+      bind:this={askAI}
+      on:change={(event) => {
+        aiOpen = event.detail;
+      }}
+    />
+  </div>
   <RequestForm bind:this={requestForm} />
 </div>

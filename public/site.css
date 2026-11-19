@@ -578,3 +578,11 @@ main > .catalog-views {
 .segmented-tabs.wrap > button {
   flex: 1 0 auto;
 }
+
+/* Search remains independent from the catalog assistant. */
+.hf-search-and-ask { display: flex; align-items: center; gap: 8px; margin-left: auto; min-width: 0; }
+.hf-search-and-ask .hf-header-search { width: 190px; order: 0; }
+.hf-search-and-ask + .hf-header-actions { margin-left: 0; }
+.hf-ask-ai { height: 36px; padding: 0 12px; color: var(--hf-accent); background: var(--hf-dialog); border: 1px solid var(--hf-line); border-radius: var(--control-radius); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.hf-ask-ai[aria-expanded="true"] { border-color: var(--hf-accent); }
+@media (max-width: 1000px) { .hf-search-and-ask { order: 2; width: 100%; margin: 0; } .hf-search-and-ask .hf-header-search { flex: 1; width: 0; min-width: 0; } .hf-search-and-ask + .hf-header-actions { margin-left: auto; } .hf-ask-ai { height: 38px; } }
