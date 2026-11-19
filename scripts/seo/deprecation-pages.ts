@@ -59,7 +59,7 @@ function deprecationFilters(entries: Deprecation[], month?: string): string {
   ].sort((a, b) => a[1].localeCompare(b[1]));
   return `<form class="dep-filter" role="search" data-dep-filter${month ? ` data-month="${esc(month)}"` : ""}><label>Search<input type="search" name="q" placeholder="Model name or id, e.g. azure/gpt-4o" autocomplete="off" spellcheck="false"></label><label>API provider<select name="provider"><option value="">All API providers</option>${providers.map(([id, name]) => `<option value="${esc(id)}">${esc(name)}</option>`).join("")}</select></label><label class="dep-days">Deprecating within <input type="number" name="days" min="0" max="${MAX_DEPRECATION_DAYS}" step="1" value="${month ? "" : DEFAULT_DEPRECATION_DAYS}" aria-describedby="dep-window-help"> days</label></form>
 <p class="note" id="dep-window-help">Leave blank to show all dates. Days are counted from today (UTC).</p>
-<p class="note" data-dep-rss-note><a data-dep-rss href="${DEPRECATION_FEED_PATH}">Subscribe to deprecations (RSS)</a>. The RSS feed uses the days selected above. Search, provider, and month filters only affect the table.</p>
+<p class="note" data-dep-rss-note><a data-dep-rss href="${DEPRECATION_FEED_PATH}">Subscribe by RSS to deprecations</a></p>
 <p class="note" data-dep-status aria-live="polite" hidden></p><div data-dep-results hidden></div>`;
 }
 
@@ -82,7 +82,7 @@ function row(e){var ids=e.ids.map(function(m){return"<code>"+esc(m)+"</code>"});
 function sync(text,p,days){var u=new URLSearchParams(location.search);[["q",text||null],["provider",p||null],["days",days===null&&!month?"":days]].forEach(function(pair){if(pair[1]===null)u.delete(pair[0]);else u.set(pair[0],pair[1])});var s=u.toString();history.replaceState(null,"",location.pathname+(s?"?"+s:"")+location.hash)}
 function link(days){
   rssNote.hidden=false;rss.href=days===null?feedPath:feedPath+"?days="+days;
-  rss.textContent=days===null?"Subscribe to deprecations (RSS)":days===0?"Subscribe to today's deprecations (RSS)":"Subscribe to the "+days+"-day deprecation feed (RSS)";
+  rss.textContent=days===null?"Subscribe by RSS to deprecations":"Subscribe by RSS to models deprecating within "+days+" days";
 }
 function invalid(){
   daysInput.setAttribute("aria-invalid","true");rssNote.hidden=true;rss.removeAttribute("href");status.hidden=false;out.hidden=true;if(def)def.hidden=true;
