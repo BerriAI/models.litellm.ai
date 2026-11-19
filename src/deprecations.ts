@@ -24,6 +24,34 @@ export type Deprecation = Omit<
   reference?: string;
 };
 
+export const DEPRECATION_FEED_PATH = "/deprecated-models.xml";
+export const MAX_DEPRECATION_FEED_DAYS = 365;
+
+export function deprecationFeedDays(params: URLSearchParams): number | null {
+  const [value, ...rest] = params.getAll("days");
+  return value !== undefined &&
+    !rest.length &&
+    /^[0-9]+$/.test(value) &&
+    Number(value) <= MAX_DEPRECATION_FEED_DAYS
+    ? Number(value)
+    : null;
+}
+
+export type DeprecationSearchRow = {
+  id: string;
+  n: string;
+  s: string;
+  p: string;
+  pn: string;
+  d: string;
+  dt: string;
+  ids: string[];
+  observed: string;
+  r?: string;
+  ref?: string;
+  rl?: string;
+};
+
 export function isDay(value: unknown): value is string {
   if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value))
     return false;

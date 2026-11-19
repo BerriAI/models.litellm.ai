@@ -12,4 +12,6 @@ export const PROVIDER_SUPPORT_RAW_URL = "https://raw.githubusercontent.com/Berri
 
 export const modelPath = (slug: string) => `/models/${slug}`;
 export const providerPath = (hub: string) => `/providers/${hub}`;
+export const deprecationPath = ({ date, id }: { date: string; id: string }) =>
+  `/deprecated-models/${date.slice(0, 7)}#${id}`;
 export const abs = (path: string) => `${SITE_URL}${path}`;

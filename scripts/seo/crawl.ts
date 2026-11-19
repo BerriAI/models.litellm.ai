@@ -1,5 +1,5 @@
 /** robots.txt, the sitemap index and its children, and llms.txt. */
-import { SITE_URL, abs } from "./site";
+import { SITE_URL, abs } from "./site.js";
 
 /** `lastmod` only when we know when the page's content changed. */
 export type SitemapEntry = { path: string; lastmod?: string };
@@ -95,14 +95,14 @@ export function feedLink(link: string, feedPath: string): string {
   return url.toString();
 }
 
-export function rssFeed(title: string, link: string, description: string, items: { title: string; link: string; description: string; date: string; guid?: string }[], feedPath = "/new-models.xml"): string {
+export function rssFeed(title: string, link: string, description: string, items: { title: string; link: string; description: string; date: string; guid?: string }[], feedPath = "/new-models.xml", selfPath = feedPath): string {
   const rfc = (d: string) => new Date(`${d.length === 10 ? d : `${d}-01`}T00:00:00Z`).toUTCString();
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
 <channel>
 <title>${xmlEscape(title)}</title>
 <link>${xmlEscape(link)}</link>
-<atom:link href="${xmlEscape(abs(feedPath))}" rel="self" type="application/rss+xml"/>
+<atom:link href="${xmlEscape(abs(selfPath))}" rel="self" type="application/rss+xml"/>
 <description>${xmlEscape(description)}</description>
 <language>en</language>
 ${items

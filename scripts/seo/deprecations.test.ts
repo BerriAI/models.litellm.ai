@@ -8,10 +8,10 @@ import {
   DEPRECATION_SEARCH_JS,
   deprecationBody,
   deprecationMarkdown,
-  deprecationPath,
   deprecationSearchIndex,
 } from "./deprecation-pages";
 import { refreshCadence } from "./deprecation-sources";
+import { deprecationPath } from "./site";
 import { rssFeed } from "./crawl";
 import { loadDiscoveryCatalog } from "../../src/discoveryCatalog";
 
@@ -137,6 +137,9 @@ describe("provider deprecation history", () => {
       "2026-10-30",
     );
     const doc = new DOMParser().parseFromString(html, "text/html");
+    expect(doc.querySelector("[data-dep-rss]")?.getAttribute("href")).toBe(
+      "/deprecated-models.xml?days=30",
+    );
     expect(doc.querySelector("model")).toBeNull();
     expect(doc.body.textContent).toContain("Model <example> & sample");
     expect(doc.querySelectorAll("details li")).toHaveLength(2);

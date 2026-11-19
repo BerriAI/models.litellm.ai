@@ -1,11 +1,14 @@
-import type { Deprecation } from "../../src/deprecations";
+import {
+  DEPRECATION_FEED_PATH,
+  MAX_DEPRECATION_FEED_DAYS,
+  type Deprecation,
+  type DeprecationSearchRow,
+} from "../../src/deprecations";
 import { escapeHtml as esc, longDate, shortDate } from "./format";
 import { modelUpdatesMeta, modelUpdatesNav } from "./html";
-import { modelPath } from "./site";
+import { deprecationPath, modelPath } from "./site";
 import { refreshCadence } from "./deprecation-sources";
 
-export const deprecationPath = (entry: Deprecation) =>
-  `/deprecated-models/${entry.date.slice(0, 7)}#${entry.id}`;
 const monthName = (ym: string) => longDate(`${ym}-01`).replace(/ 1, /, " ");
 
 /** The notice's host, so the reference reads as a citation and not as a button. */
@@ -20,21 +23,7 @@ const noticeLink = (url: string | undefined): string =>
 const TABLE_HEAD =
   "<thead><tr><th>Effective date</th><th>Model</th><th>API provider</th><th>Affected listings</th><th>Replacement</th><th>Reference</th></tr></thead>";
 const SEARCH_LIMIT = 100;
-
-/** What the in-page search reads from /deprecated-models.json: one row per grouped deprecation. */
-export type DeprecationSearchRow = {
-  id: string;
-  n: string;
-  s: string;
-  p: string;
-  pn: string;
-  d: string;
-  dt: string;
-  ids: string[];
-  r?: string;
-  ref?: string;
-  rl?: string;
-};
+const EXAMPLE_FEED_DAYS = 30;
 
 export function deprecationSearchIndex(
   entries: Deprecation[],
@@ -48,6 +37,11 @@ export function deprecationSearchIndex(
     d: entry.date,
     dt: shortDate(entry.date),
     ids: [...new Set(entry.listings.map((row) => row.modelId))],
+    observed: entry.listings.reduce(
+      (earliest, row) =>
+        row.firstObservedOn < earliest ? row.firstObservedOn : earliest,
+      entry.listings[0].firstObservedOn,
+    ),
     ...(entry.successor ? { r: entry.successor } : {}),
     ...(entry.reference
       ? { ref: entry.reference, rl: noticeLabel(entry.reference) }
@@ -68,6 +62,8 @@ function deprecationFilters(entries: Deprecation[], month?: string): string {
 export const DEPRECATION_SEARCH_JS = `<script>(function(){
 var form=document.querySelector("[data-dep-filter]");if(!form)return;
 var q=form.querySelector('[name="q"]'),sel=form.querySelector('[name="provider"]'),month=form.getAttribute("data-month")||"";
+var rss=document.querySelector("[data-dep-rss]");
+if(rss)rss.addEventListener("click",function(){if(window.litellmTrack)window.litellmTrack("Deprecation RSS Window Opened",{days:${EXAMPLE_FEED_DAYS}})});
 var out=document.querySelector("[data-dep-results]"),status=document.querySelector("[data-dep-status]"),def=document.querySelector("[data-dep-default]");
 var rows=null,loading=null,matches=0,MONTHS="/deprecated-models/",MODELS="/models/",timer=null,MAX=${SEARCH_LIMIT};
 var esc=function(v){return String(v).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
@@ -156,11 +152,12 @@ export function deprecationBody(
     .join("");
   return `<div class="head"><nav class="crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span>›</span>${month ? `<a href="/deprecated-models">Deprecated models</a><span>›</span><span>${esc(monthName(month))}</span>` : "<span>Deprecated models</span>"}</nav>
 <h1>${esc(heading)}</h1><p class="answer">Model deprecations by provider, with effective dates and the exact listings affected. Other versions or providers may still be available.</p>
-${modelUpdatesMeta("deprecated", today)}</div>
+${modelUpdatesMeta("deprecated", today)}
+<p class="note">For advance alerts, subscribe to the <a data-dep-rss href="${DEPRECATION_FEED_PATH}?days=${EXAMPLE_FEED_DAYS}">${EXAMPLE_FEED_DAYS}-day RSS feed</a>. Change <code>days</code> in the feed URL to any whole number from 0 to ${MAX_DEPRECATION_FEED_DAYS}. The window starts today (UTC).</p></div>
 ${modelUpdatesNav("deprecated")}
 ${deprecationFilters(entries, month)}
 <div data-dep-default><section><h2>${month ? "Deprecated this month" : "Recently deprecated"}</h2>${deprecationTable(month ? recent : recent.slice(0, 30))}</section>
-${upcoming.length ? `<section><h2>Scheduled for deprecation</h2><p class="note">These dates are still ahead. Entries join the RSS feed when their effective date arrives.</p>${deprecationTable(month ? upcoming : upcoming.slice(0, 15))}</section>` : ""}
+${upcoming.length ? `<section><h2>Scheduled for deprecation</h2><p class="note">These dates are still ahead. Entries join the unfiltered RSS feed when their effective date arrives.</p>${deprecationTable(month ? upcoming : upcoming.slice(0, 15))}</section>` : ""}
 ${month ? "" : `<section><h2>Tracked providers</h2><p class="note">LiteLLM reads each provider's own retirement notice into its price file on the schedule below, and this site rebuilds within about 20 minutes of a price file change. Providers checked by hand get their dates recorded when a maintainer finds them.</p>${trackedProvidersTable(entries)}</section>`}</div>
 <section><h2>By month</h2><ul class="links">${byMonth}</ul></section>
 <p class="note">Dates come from <a href="https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json">LiteLLM’s price file</a> and reflect provider listings, not announcement dates. History is backfilled from recorded dates; it may not include models removed before tracking began. Regional and pricing variants with the same provider and date are grouped together.</p>`;
