@@ -176,7 +176,7 @@ function modelStream(sql?: string) {
           },
         ],
       }
-    : { content: "The answer. [1]" };
+    : { content: "The answer." };
   return new Response(
     sse({ choices: [{ delta }] }) +
       sse({
@@ -242,7 +242,7 @@ it("lets the model correct an ordinary SQL error while the worker remains usable
   expect(calls).toBe(3);
 });
 
-it("delivers the live schema to the model, queries evidence and streams a cited answer in the next call", async () => {
+it("delivers the live schema to the model, queries evidence and streams an answer without a source list", async () => {
   const events: any[] = [],
     inputs: any[] = [];
   await runAgent({
@@ -284,7 +284,7 @@ it("delivers the live schema to the model, queries evidence and streams a cited 
                 },
               ],
             }
-          : { content: "Seller supports chat completions. [3]" };
+          : { content: "Seller supports chat completions." };
       return new Response(
         sse({ choices: [{ delta }] }) +
           sse({
@@ -301,10 +301,13 @@ it("delivers the live schema to the model, queries evidence and streams a cited 
   });
   expect(inputs).toHaveLength(2);
   expect(inputs[0].messages[0].content).toContain(snapshot.schema);
+  expect(inputs[0].messages[0].content).toContain(
+    "without numbered citations or a Sources section",
+  );
   expect(inputs[1].messages.at(-1).content).toContain('"seller"');
   expect(events.at(-1)).toEqual({
     type: "done",
-    sources: [snapshot.sources[2]],
+    sources: [],
   });
 });
 
