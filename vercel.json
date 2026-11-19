@@ -3,7 +3,7 @@
   "functions": {
     "api/ask.ts": {
       "maxDuration": 120,
-      "includeFiles": ["server/query-worker.js", "node_modules/sql.js/dist/sql-wasm-inline.js"]
+      "includeFiles": "{server/query-worker.js,node_modules/sql.js/dist/sql-wasm-inline.js}"
     }
   },
   "trailingSlash": false,
