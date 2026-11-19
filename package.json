@@ -11,6 +11,8 @@
     "og:preview": "vite-node scripts/seo/og-preview.ts",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
+    "prism": "node cli/bin/prism.mjs",
+    "test:cli": "node --test cli/test/*.node.mjs",
     "format": "prettier --write .",
     "test": "vitest run",
     "changelog": "vite-node scripts/changelog/generate.ts"
