@@ -11,6 +11,7 @@
   import CatalogQuickStart from "./CatalogQuickStart.svelte";
   import PageHero from "./PageHero.svelte";
   import { searchIntent } from "./searchIntent";
+  import { catalogCapabilities } from "./modelCapabilities";
   import { sanitizeSearchQuery } from "./searchQuery";
   import { createSettledSearch } from "./settledSearch";
   import { loadCatalogData, type CatalogItem } from "./catalogData";
@@ -84,7 +85,9 @@
   let freeOnly = false;
   let output: NonNullable<ModelFilters["output"]> = "";
   let inputs: NonNullable<ModelFilters["inputs"]> = [];
-  let toolsOnly = false;
+  let capabilities: string[] = [];
+  let capabilityOptions: ReturnType<typeof catalogCapabilities> = [];
+  $: extraCapabilityCount = capabilityOptions.slice(8).filter(({ key }) => capabilities.includes(key)).length;
   const outputTabs: { value: NonNullable<ModelFilters["output"]>; label: string }[] = [{ value: "", label: "All" }, { value: "text", label: "Text" }, { value: "image", label: "Image" }, { value: "video", label: "Video" }, { value: "audio", label: "Speech" }, { value: "embedding", label: "Embeddings" }];
   const inputOptions: NonNullable<ModelFilters["inputs"]> = ["text", "image", "file", "audio", "video"];
   let hiddenCount = 0;
@@ -160,6 +163,7 @@
         ...deriveModelMeta(item.name, metadata),
       }));
       providers = [...new Set(items.map((item) => item.litellm_provider).filter((provider): provider is string => typeof provider === "string" && !!provider))].sort();
+      capabilityOptions = catalogCapabilities(items);
       searcher = createModelSearcher(
         items,
         (message) => searchWorker?.postMessage(message),
@@ -221,7 +225,7 @@
     freeOnly = false;
     output = "";
     inputs = [];
-    toolsOnly = false;
+    capabilities = [];
   }
 
   function requestModel() {
@@ -396,7 +400,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
         freeOnly: freeOnly || intent.freeOnly,
         output,
         inputs,
-        toolsOnly,
+        capabilities,
       },
     };
     analyticsRevision = queryAnalytics.begin();
@@ -672,7 +676,13 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       </div>
     </div></section>
           <section class="filter-block"><h2>Pricing</h2><label class="sidebar-check"><input type="checkbox" bind:checked={freeOnly} /><span>Zero listed price</span></label></section>
-          <section class="filter-block"><h2>Capabilities</h2><label class="sidebar-check"><input type="checkbox" bind:checked={toolsOnly} /><span>Tool calling</span></label></section>
+          <section class="filter-block"><h2>Capabilities</h2><span class="filter-help">Must support all selected</span>
+            {#each capabilityOptions.slice(0, 8) as capability}<label class="sidebar-check"><input type="checkbox" bind:group={capabilities} value={capability.key} /><span>{capability.label}</span></label>{/each}
+            {#if capabilityOptions.length > 8}<details class="more-capabilities" on:toggle={(event) => { if (event.currentTarget.open) track("Catalog Capabilities Expanded"); }}>
+              <summary>{capabilityOptions.length - 8} more capabilities{extraCapabilityCount ? ` · ${extraCapabilityCount} selected` : ""}</summary>
+              <div>{#each capabilityOptions.slice(8) as capability}<label class="sidebar-check"><input type="checkbox" bind:group={capabilities} value={capability.key} /><span>{capability.label}</span></label>{/each}</div>
+            </details>{/if}
+          </section>
           <p class="filter-help">Filters use reported capabilities. Unreported capabilities are not matched.</p>
           <button class="sidebar-clear" on:click={clearFilters}>Reset filters</button>
         </div>
@@ -730,7 +740,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
       <div class="results-meta">
         <span class="results-count" aria-live="polite">{searching ? "Searching…" : results.length.toLocaleString() + (results.length === 1 ? " model" : " models")}</span>
         <div class="results-meta-right">
-          {#if query || selectedProvider || maxInputTokens != null || maxOutputTokens != null || freeOnly || output || inputs.length || toolsOnly}
+          {#if query || selectedProvider || maxInputTokens != null || maxOutputTokens != null || freeOnly || output || inputs.length || capabilities.length}
             <button class="clear-filters" on:click={() => { query = ""; clearFilters(); }}>
               Clear all filters
             </button>
@@ -1151,6 +1161,8 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   .filter-help { display: block; color: var(--muted-color); font-size: 11px; line-height: 1.5; margin-bottom: 10px; }
   .sidebar-check { display: flex; align-items: center; gap: 10px; margin: 11px 0; font-size: 12px; cursor: pointer; }
   .sidebar-check input { accent-color: var(--text-color); width: 14px; height: 14px; }
+  .more-capabilities summary { cursor: pointer; font-size: 12px; color: var(--muted-color); margin-top: 14px; }
+  .more-capabilities > div { max-height: 280px; overflow-y: auto; scrollbar-gutter: stable; }
   .sidebar-clear { background: transparent; border: 0; padding: 0; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; color: var(--muted-color); }
   .compact .catalog-sidebar .filters-row { display: flex; flex-direction: column; gap: 14px; }
   .compact .catalog-sidebar :global(.provider-dropdown) { width: 100%; min-width: 0; }

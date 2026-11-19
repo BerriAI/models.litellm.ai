@@ -2,7 +2,7 @@
  * Mode-specific pricing, SDK/proxy snippets, and capability rows for the catalog UI.
  */
 
-import { formatExactUsd, formatPricingSlot, formatTokenCostPerMillion, slotSortValue, type PricingSlots } from "./catalogApi";
+import { formatExactUsd, formatPricingSlot, formatTokenCostPerMillion, slotSortValue, type PricingSlots } from "./catalogApi.js";
 
 export function isImagePricingMode(mode: string | undefined): boolean {
   const m = (mode || "").toLowerCase();

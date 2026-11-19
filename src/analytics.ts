@@ -55,7 +55,7 @@ export function trackPageView(page: string) {
   }
 }
 // Track search
-export function trackSearch(query: string, provider?: string, resultsCount?: number, filters?: { minInputTokens: number | null; minOutputTokens: number | null; freeOnly?: boolean; hiddenCount?: number; output?: string; inputs?: string[]; toolsOnly?: boolean }) {
+export function trackSearch(query: string, provider?: string, resultsCount?: number, filters?: { minInputTokens: number | null; minOutputTokens: number | null; freeOnly?: boolean; hiddenCount?: number; output?: string; inputs?: string[]; toolsOnly?: boolean; capabilities?: string[] }) {
   if (MIXPANEL_TOKEN) {
     mixpanel.track('Search', {
       query: query,
@@ -68,7 +68,8 @@ export function trackSearch(query: string, provider?: string, resultsCount?: num
         hidden_by_filters_count: filters.hiddenCount ?? 0,
         output_modality: filters.output || "all",
         input_modalities: filters.inputs ?? [],
-        tools_only: !!filters.toolsOnly,
+        tools_only: !!filters.toolsOnly || !!filters.capabilities?.includes("supports_function_calling"),
+        capabilities: filters.capabilities ?? [],
       } : {}),
       timestamp: new Date().toISOString()
     });

@@ -1,5 +1,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=DM+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
 
+html {
+  scrollbar-gutter: stable;
+}
+
 :root,
 :root[data-theme="light"] {
   --page-width: 1600px;
@@ -246,12 +250,6 @@ button:disabled {
 .hf-more-toggle:hover {
   background: var(--hf-faint);
   border-color: var(--hf-ink);
-}
-.hf-more-toggle {
-  font-size: 25px;
-  line-height: 1;
-  padding-bottom: 10px;
-  letter-spacing: 1px;
 }
 .hf-more {
   position: relative;

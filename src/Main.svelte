@@ -311,7 +311,19 @@
               aria-label="More navigation"
               aria-expanded={moreMenuOpen}
               aria-controls="hf-more-menu"
-              on:click={() => (moreMenuOpen = !moreMenuOpen)}>···</button
+              on:click={() => (moreMenuOpen = !moreMenuOpen)}
+              ><svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+                ><circle cx="4" cy="10" r="1.5" /><circle
+                  cx="10"
+                  cy="10"
+                  r="1.5"
+                /><circle cx="16" cy="10" r="1.5" /></svg
+              ></button
             >
             {#if moreMenuOpen}
               <nav
