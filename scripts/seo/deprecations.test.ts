@@ -478,6 +478,13 @@ describe("deprecation search", () => {
     expect(page.results()).toHaveLength(2);
     expect(page.days.parentElement?.textContent).toBe("Deprecating within  days");
     expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml?days=30");
+    expect(page.rss.textContent).toBe("Subscribe to the 30-day deprecation feed (RSS)");
+
+    page.days.value = "7";
+    page.days.dispatchEvent(new Event("input"));
+    await settle();
+    expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml?days=7");
+    expect(page.rss.textContent).toBe("Subscribe to the 7-day deprecation feed (RSS)");
 
     page.days.value = "0";
     page.days.dispatchEvent(new Event("input"));
@@ -487,6 +494,7 @@ describe("deprecation search", () => {
     expect(location.search).toBe("?days=0");
     expect(location.hash).toBe("#archive");
     expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml?days=0");
+    expect(page.rss.textContent).toBe("Subscribe to today's deprecations (RSS)");
     page.rss.dispatchEvent(new Event("click"));
     expect(page.tracked.at(-1)).toEqual(["Deprecation RSS Window Opened", { days: 0 }]);
 
@@ -495,6 +503,7 @@ describe("deprecation search", () => {
     await settle();
     expect(page.results()).toHaveLength(2);
     expect(page.rss.getAttribute("href")).toBe("/deprecated-models.xml");
+    expect(page.rss.textContent).toBe("Subscribe to deprecations (RSS)");
     expect(location.search).toBe("?days=");
     expect(page.tracked.at(-1)).toEqual([
       "Deprecation Window Cleared",
