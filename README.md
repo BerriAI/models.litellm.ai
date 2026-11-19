@@ -142,7 +142,22 @@ Set these server-side environment variables in the hosting project's production 
 | `CF_ACCESS_CLIENT_ID` | Cloudflare Access service-token client ID, when the gateway requires Access |
 | `CF_ACCESS_CLIENT_SECRET` | The matching Cloudflare client secret; set both Access variables together |
 
-The agent uses `openai/gpt-6.1-sol`, with `anthropic/claude-haiku-5-5` and `openai/gpt-6-luna` as fallbacks. Put the shared spending budget and model-call rate limits on its virtual key. `/api/ask` also limits each warm instance to 60 question attempts per minute and 10 active questions; these process-local safeguards are not a shared spending limit. Use the hosting firewall for shared visitor limits. Origin checks protect browsers but do not authenticate a public caller.
+The agent uses `openai/gpt-6.1-sol`, with `anthropic/claude-haiku-5-5` and `openai/gpt-6-luna` as fallbacks. Put the shared spending budget and model-call rate limits on its virtual key. Origin checks protect browsers but do not authenticate a public caller.
+
+Public visitors can ask their first question without signing in. The server sets a signed, HttpOnly, one-day anonymous cookie and allows 10 valid questions per minute per visitor. Each instance allows two active questions per visitor and ten in total. Invalid bodies do not consume these allowances. A `429` response includes `Retry-After`; the chat shows a countdown and waits for the visitor to retry. The cookie contains no conversation or IP address; rotating the gateway key invalidates existing cookies.
+
+For shared limits on Vercel, open the project's **Firewall → Configure → New Rule** and configure these two rules, then **Review Changes → Publish**:
+
+| Rule | Match | Fixed window | Response |
+| --- | --- | --- | --- |
+| Visitor allowance | `@vercel/firewall` rate limit ID `models-ai-visitor` | 10 requests / 60 seconds; counting key `header:x-vercel-rate-limit-key` | 429 |
+| IP backstop | Request path matches `^/api/ask/?$` and method equals `POST` | 120 requests / 60 seconds per IP | 429 |
+
+For the visitor rule, the Firewall API's `action.mitigate.rateLimit.keys` must be `["header:x-vercel-rate-limit-key"]`. The SDK fills that header from the verified visitor ID. Using `["ip"]` or an empty list combines independent visitors into one allowance. Verify the published rule with two synthetic visitor keys: the eleventh request for one key should return 429 while the first request for the other returns 204. This check uses only the firewall counter endpoint and requires no inference.
+
+The larger IP allowance accommodates shared office and VPN connections; it also limits callers that discard cookies. These rules do not require a challenge or affect browsing the catalog. Vercel counters are shared across instances within each region, not across all regions. Keep the gateway budget as the spending boundary. Enable Vercel's automatic system environment variables: the SDK destination comes from `VERCEL_PROJECT_PRODUCTION_URL`, never a request header. If the shared check fails or its rule is missing, local visitor limits stay active and the server logs a fixed warning; verify both published rules in the Firewall dashboard before launch. Hosting costs are separate from the gateway budget.
+
+Requests have a five-second body-reading deadline and a 256 KiB JSON body limit, enforced while reading even without `Content-Length`. Questions can contain up to 8,000 characters; history can contain up to 40 turns with 64,000 characters per previous answer, within the total body limit. Longer conversations receive a prompt to start a new conversation. Answers are not silently truncated and model output-token limits are unchanged.
 
 For local use, export the same variables in your shell and run `npm run dev`. A gateway port-forward on localhost is also supported. Ask a provider-support question, then a pricing follow-up. Confirm that answers finish, copying includes only the answer, and browser network requests go only to `/api/ask` for inference. Missing credentials return 503; gateway failures show a retry action. Canceling stops the upstream request. A fresh server can spend additional time loading the public catalog.
 

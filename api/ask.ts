@@ -1,13 +1,27 @@
 import { gatewayConfig, runAgent, type Turn } from "../server/agent.js";
 import { loadSnapshot } from "../server/catalog.js";
+import {
+  admitVisitor,
+  readBody,
+  RequestError,
+  visitorIdentity,
+} from "../server/admission.js";
+import {
+  ASK_ERRORS,
+  ASK_MAX_HISTORY_ANSWER,
+  ASK_MAX_QUESTION,
+  ASK_MAX_TURNS,
+} from "../src/askLimits.js";
 
-let active = 0,
-  attempts = 0,
-  windowStart = Date.now();
-const json = (status: number, error: string) =>
+const json = (
+  status: number,
+  error: string,
+  headers: Record<string, string> = {},
+  code?: string,
+) =>
   Response.json(
-    { error },
-    { status, headers: { "Cache-Control": "no-store" } },
+    { error, ...(code ? { code } : {}) },
+    { status, headers: { "Cache-Control": "no-store", ...headers } },
   );
 export async function POST(request: Request): Promise<Response> {
   const origin = request.headers.get("origin");
@@ -29,21 +43,9 @@ export async function POST(request: Request): Promise<Response> {
     return json(503, "Ask AI is not configured.");
   }
   if (!gateway) return json(503, "Ask AI is not configured.");
-  if (Date.now() - windowStart >= 60_000) {
-    windowStart = Date.now();
-    attempts = 0;
-  }
-  if (attempts >= 60 || active >= 10)
-    return json(429, "Too many questions. Please try again shortly.");
-  attempts++;
-  active++;
-  const invalid = (status: number, message: string) => {
-    active--;
-    return json(status, message);
-  };
   let body: { question: string; history?: Turn[] };
   try {
-    body = await request.json();
+    body = (await readBody(request)) as typeof body;
     const valid = (turn: any) =>
       turn &&
       typeof turn.question === "string" &&
@@ -58,10 +60,42 @@ export async function POST(request: Request): Promise<Response> {
       (body.history !== undefined &&
         (!Array.isArray(body.history) || !body.history.every(valid)))
     )
-      return invalid(400, "Send a question and optional conversation history.");
-  } catch {
-    return invalid(400, "Invalid JSON.");
+      return json(400, "Send a question and optional conversation history.");
+    if (body.question.length > ASK_MAX_QUESTION)
+      throw new RequestError(413, "question_too_long");
+    if (
+      (body.history?.length || 0) > ASK_MAX_TURNS ||
+      body.history?.some(
+        (turn) =>
+          turn.question.length > ASK_MAX_QUESTION ||
+          (turn.answer?.length || 0) > ASK_MAX_HISTORY_ANSWER,
+      )
+    )
+      throw new RequestError(413, "history_too_long");
+  } catch (error) {
+    if (error instanceof RequestError)
+      return json(
+        error.status,
+        ASK_ERRORS[error.code as keyof typeof ASK_ERRORS] || "Invalid JSON.",
+        {},
+        error.code,
+      );
+    return json(400, "Invalid JSON.");
   }
+  if (request.signal.aborted) return json(408, ASK_ERRORS.body_timeout);
+  const visitor = visitorIdentity(request, gateway.key);
+  const headers: Record<string, string> = visitor.cookie
+    ? { "Set-Cookie": visitor.cookie }
+    : {};
+  const admission = await admitVisitor(visitor.id);
+  if ("status" in admission)
+    return json(
+      admission.status,
+      admission.status === 429
+        ? "You're asking quickly. Please wait briefly."
+        : "The assistant is busy. Please try again shortly.",
+      { ...headers, "Retry-After": String(admission.retryAfter) },
+    );
   const controller = new AbortController();
   const abort = () => controller.abort();
   request.signal.addEventListener("abort", abort, { once: true });
@@ -95,7 +129,7 @@ export async function POST(request: Request): Promise<Response> {
       } finally {
         clearTimeout(timeout);
         request.signal.removeEventListener("abort", abort);
-        active--;
+        admission.release();
         try {
           stream.close();
         } catch {
@@ -109,6 +143,7 @@ export async function POST(request: Request): Promise<Response> {
   });
   return new Response(stream, {
     headers: {
+      ...headers,
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-store, no-transform",
       "X-Content-Type-Options": "nosniff",
