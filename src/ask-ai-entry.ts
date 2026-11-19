@@ -3,9 +3,10 @@ export {};
 
 const trigger = document.querySelector<HTMLButtonElement>("[data-ask-ai]");
 let chat: import("./AskAI.svelte").default | undefined;
+let opening = false;
 trigger?.addEventListener("click", async () => {
-  if (trigger.disabled) return;
-  trigger.disabled = true;
+  if (opening) return;
+  opening = true;
   try {
     if (!chat) {
       const { default: AskAI } = await import("./AskAI.svelte");
@@ -32,6 +33,6 @@ trigger?.addEventListener("click", async () => {
     }
     await chat.openPanel();
   } finally {
-    trigger.disabled = false;
+    opening = false;
   }
 });
