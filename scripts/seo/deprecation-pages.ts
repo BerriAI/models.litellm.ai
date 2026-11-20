@@ -101,7 +101,7 @@ function apply(){
   return load().then(function(){
     if(run!==revision)return false;
     var terms=text.toLowerCase().split(/\\s+/).filter(Boolean);
-    var hits=rows.filter(function(e){if(month&&e.d.slice(0,7)!==month)return false;if(p&&e.p!==p)return false;if(includes&&!includes(e.d))return false;var h=(e.n+" "+e.pn+" "+e.ids.join(" ")+" "+(e.r||"")).toLowerCase();return terms.every(function(t){return h.indexOf(t)>=0})});
+    var hits=rows.filter(function(e){if(month&&e.d.slice(0,7)!==month)return false;if(p&&e.p!==p)return false;if(includes&&!includes(e.d))return false;var h=(e.n+" "+e.pn+" "+e.ids.join(" ")+" "+(e.r||"")).toLowerCase();return terms.every(function(t){return h.indexOf(t)>=0})}).sort(function(a,b){return a.d<b.d?-1:a.d>b.d?1:0});
     matches=hits.length;if(def)def.hidden=true;status.hidden=false;out.hidden=!hits.length;
     status.textContent=!hits.length?"No deprecations match.":hits.length+(hits.length===1?" matching deprecation.":" matching deprecations.");
     out.innerHTML=hits.length?'<div class="tbl"><table>${TABLE_HEAD}<tbody>'+hits.map(row).join("")+"</tbody></table></div>":"";
@@ -158,7 +158,8 @@ export function trackedProvidersTable(entries: Deprecation[]): string {
 export function deprecationTable(entries: Deprecation[]): string {
   if (!entries.length)
     return '<p class="note">No deprecations recorded for this period.</p>';
-  return `<div class="tbl"><table>${TABLE_HEAD}<tbody>${entries
+  return `<div class="tbl"><table>${TABLE_HEAD}<tbody>${[...entries]
+    .sort((a, b) => a.date.localeCompare(b.date))
     .map((entry) => {
       const routes = [...new Set(entry.listings.map((row) => row.modelId))];
       const listing = (route: string) => `<code>${esc(route)}</code>`;
