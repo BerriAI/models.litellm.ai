@@ -2,6 +2,12 @@
 
 LiteLLM's model catalog: pricing, context windows and providers for every model in LiteLLM's open-source [price file](https://github.com/BerriAI/litellm/blob/main/model_prices_and_context_window.json). Every price, model and provider on the site comes from that file and from `provider_endpoints_support.json` in the same repo; nothing is scraped from other sites.
 
+## Prism CLI
+
+View the model table in your terminal with `npm run prism`. To install the `prism` command from this checkout, run `npm install --global ./cli` (Node.js 20+). Prism shows Google, Anthropic, and OpenAI model families in XL, L, M+, M, and S/XS columns. Use `prism --table` for prices and context limits, with search, lab filters, sorting, JSON output, and offline caching. See [cli/README.md](cli/README.md) for examples.
+
+![Prism model family matrix](docs/screenshots/prism.png)
+
 ## Development
 
 ```bash
