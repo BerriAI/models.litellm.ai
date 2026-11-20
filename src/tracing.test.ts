@@ -115,15 +115,17 @@ describe("agent tracing", () => {
     });
     expect(calls).toBe(2);
     expect(events.at(-1)).toEqual({ type: "done", sources: [] });
-    expect(exported.spans).toHaveLength(5);
+    expect(exported.spans).toHaveLength(6);
     const root = exported.spans.find((span) => span.name === AGENT_NAME)!;
     const turn = exported.spans.find((span) => span.name === "answer")!;
+    const user = exported.spans.find((span) => span.name === "user message")!;
     expect(root.resource.attributes["service.name"]).toBe(AGENT_NAME);
     expect(turn.parentSpanContext?.spanId).toBe(root.spanContext().spanId);
-    for (const span of [root, turn]) {
+    for (const span of [root, turn, user]) {
       expect(span.attributes["input.value"]).toBe("How many models?");
       expect(span.attributes["input.mime_type"]).toBe("text/plain");
     }
+    expect(user.attributes["lens.capture.source"]).toBe("session_transcript");
     expect(turn.attributes["output.value"]).toBe("One model.");
     for (const child of exported.spans.filter(
       (span) => span !== root && span !== turn,
@@ -144,6 +146,7 @@ describe("agent tracing", () => {
       history: [{ question: "Earlier", answer: "Context" }],
     });
     expect(model.attributes).toMatchObject({
+      "lens.capture.messages_separate": true,
       "gen_ai.usage.input_tokens": 17,
       "gen_ai.usage.output_tokens": 5,
       "gen_ai.usage.cache_read.input_tokens": 3,
@@ -228,8 +231,15 @@ describe("agent tracing", () => {
         fetchImpl: async () => new Response(null, { status: 503 }),
       }),
     ).rejects.toThrow("The model is unavailable");
-    expect(exported.spans).toHaveLength(3);
-    expect(exported.spans.every((span) => span.status.code === 2)).toBe(true);
+    expect(exported.spans).toHaveLength(4);
+    expect(
+      exported.spans
+        .filter((span) => span.name !== "user message")
+        .every((span) => span.status.code === 2),
+    ).toBe(true);
+    expect(
+      exported.spans.find((span) => span.name === "user message")!.status.code,
+    ).toBe(1);
   });
 
   it("joins follow-ups across request lifetimes while keeping fresh conversations separate", async () => {
@@ -276,6 +286,11 @@ describe("agent tracing", () => {
       "First",
       "Follow-up",
     ]);
+    expect(
+      conversation
+        .filter((span) => span.name === "user message")
+        .map((span) => span.attributes["input.value"]),
+    ).toEqual(["First", "Follow-up"]);
     expect(
       new Set(conversation.map((span) => span.spanContext().spanId)).size,
     ).toBe(conversation.length);

@@ -112,6 +112,16 @@ export async function runAgent(options: AgentOptions): Promise<void> {
             "input.mime_type": "text/plain",
           },
           async (span) => {
+            await tracing.span(
+              "user message",
+              {
+                "openinference.span.kind": "CHAIN",
+                "lens.capture.source": "session_transcript",
+                "input.value": options.question,
+                "input.mime_type": "text/plain",
+              },
+              async () => {},
+            );
             let answer = "";
             await runAgentTurns({
               ...options,
@@ -159,6 +169,7 @@ async function runAgentTurns({
           "openinference.span.kind": "LLM",
           "gen_ai.operation.name": "chat",
           "gen_ai.request.model": "openai/gpt-6.1-sol",
+          "lens.capture.messages_separate": true,
           "input.value": JSON.stringify(messages),
           "input.mime_type": "application/json",
         },
