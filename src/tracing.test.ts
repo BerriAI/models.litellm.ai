@@ -115,16 +115,20 @@ describe("agent tracing", () => {
     });
     expect(calls).toBe(2);
     expect(events.at(-1)).toEqual({ type: "done", sources: [] });
-    expect(exported.spans).toHaveLength(4);
+    expect(exported.spans).toHaveLength(5);
     const root = exported.spans.find((span) => span.name === AGENT_NAME)!;
+    const turn = exported.spans.find((span) => span.name === "answer")!;
     expect(root.resource.attributes["service.name"]).toBe(AGENT_NAME);
+    expect(turn.parentSpanContext?.spanId).toBe(root.spanContext().spanId);
     expect(
-      JSON.parse(String(root.attributes["input.value"])).history,
+      JSON.parse(String(turn.attributes["input.value"])).history,
     ).toHaveLength(1);
-    expect(root.attributes["output.value"]).toBe("One model.");
-    for (const child of exported.spans.filter((span) => span !== root)) {
+    expect(turn.attributes["output.value"]).toBe("One model.");
+    for (const child of exported.spans.filter(
+      (span) => span !== root && span !== turn,
+    )) {
       expect(child.spanContext().traceId).toBe(root.spanContext().traceId);
-      expect(child.parentSpanContext?.spanId).toBe(root.spanContext().spanId);
+      expect(child.parentSpanContext?.spanId).toBe(turn.spanContext().spanId);
     }
     const tool = exported.spans.find((span) => span.name === "query_catalog")!;
     expect(JSON.parse(String(tool.attributes["output.value"])).rows).toEqual([
@@ -200,7 +204,7 @@ describe("agent tracing", () => {
       );
       expect(children).toHaveLength(1);
       expect(children[0].attributes["output.value"]).toBe(
-        root.attributes["output.value"],
+        root.attributes["input.value"],
       );
     }
     expect(warning).toHaveBeenCalledWith("Lens trace export failed.");
@@ -218,8 +222,109 @@ describe("agent tracing", () => {
         fetchImpl: async () => new Response(null, { status: 503 }),
       }),
     ).rejects.toThrow("The model is unavailable");
-    expect(exported.spans).toHaveLength(2);
+    expect(exported.spans).toHaveLength(3);
     expect(exported.spans.every((span) => span.status.code === 2)).toBe(true);
+  });
+
+  it("joins follow-ups across request lifetimes while keeping fresh conversations separate", async () => {
+    const bodies: string[] = [];
+    const run = async (question: string, traceContext?: string) => {
+      let nextContext: string | undefined;
+      await runAgent({
+        question,
+        history: traceContext
+          ? [{ question: "First", answer: "First answer" }]
+          : [],
+        traceContext,
+        snapshot,
+        gateway,
+        signal: new AbortController().signal,
+        emit(event) {
+          if (event.type === "trace") nextContext = event.context;
+        },
+        fetchImpl: async (_url, init) => {
+          bodies.push(String(init?.body));
+          return response(false, question);
+        },
+      });
+      return nextContext!;
+    };
+    const context = await run("First");
+    expect(context).toMatch(/^[a-f0-9]{32}\.[a-f0-9]{16}\.[A-Za-z0-9_-]{43}$/);
+    expect(await run("Follow-up", context)).toBe(context);
+    const freshContext = await run("First");
+    expect(freshContext).not.toBe(context);
+    const [traceId, parentId] = context.split(".");
+    const conversation = exported.spans.filter(
+      (span) => span.spanContext().traceId === traceId,
+    );
+    expect(
+      conversation.filter((span) => span.name === AGENT_NAME),
+    ).toHaveLength(1);
+    const turns = conversation.filter((span) => span.name === "answer");
+    expect(turns).toHaveLength(2);
+    expect(
+      turns.every((span) => span.parentSpanContext?.spanId === parentId),
+    ).toBe(true);
+    expect(turns.map((span) => span.attributes["output.value"])).toEqual([
+      "First",
+      "Follow-up",
+    ]);
+    expect(
+      new Set(conversation.map((span) => span.spanContext().spanId)).size,
+    ).toBe(conversation.length);
+    expect(bodies.join("")).not.toContain(context);
+    expect(
+      JSON.stringify(exported.spans.map((span) => span.attributes)),
+    ).not.toContain(context);
+  });
+
+  it("starts a separate trace for forged parents and references signed with a different key", async () => {
+    let context = "";
+    const first = createTracing(gateway);
+    await first.conversation(
+      {
+        question: "First",
+        onContext: (value) => {
+          context = value;
+        },
+      },
+      async () => {},
+    );
+    await first.shutdown();
+    const [traceId, spanId, mac] = context.split(".");
+    const forged = [
+      `${traceId}.${spanId}.${mac[0] === "A" ? "B" : "A"}${mac.slice(1)}`,
+      `${"0".repeat(32)}.${spanId}.${mac}`,
+      `${traceId}.${"0".repeat(16)}.${mac}`,
+    ];
+    for (const value of forged) {
+      const tracing = createTracing(gateway);
+      await tracing.conversation(
+        {
+          context: value,
+          question: "Other",
+          onContext: (next) => {
+            expect(next.split(".")[0]).not.toBe(traceId);
+          },
+        },
+        async () => {},
+      );
+      await tracing.shutdown();
+    }
+    vi.stubEnv("LITELLM_TRACING_KEY", "example-rotated-tracing-credential");
+    const rotated = createTracing(gateway);
+    await rotated.conversation(
+      {
+        context,
+        question: "After rotation",
+        onContext: (next) => {
+          expect(next.split(".")[0]).not.toBe(traceId);
+        },
+      },
+      async () => {},
+    );
+    await rotated.shutdown();
   });
 
   it("does not export with incomplete, invalid, or shared inference credentials", async () => {

@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "node:async_hooks";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   ROOT_CONTEXT,
   SpanKind,
@@ -17,8 +18,18 @@ import {
 import type { Gateway } from "./agent.js";
 
 export const AGENT_NAME = "litellm-models-agent";
+export const TRACE_CONTEXT_PATTERN =
+  /^[a-f0-9]{32}\.[a-f0-9]{16}\.[A-Za-z0-9_-]{43}$/;
 type TraceSpan = { setAttributes(values: Attributes): void };
 export type Tracing = {
+  conversation<T>(
+    options: {
+      context?: string;
+      question: string;
+      onContext: (context: string) => void;
+    },
+    work: () => Promise<T>,
+  ): Promise<T>;
   span<T>(
     name: string,
     attributes: Attributes,
@@ -27,6 +38,7 @@ export type Tracing = {
   shutdown(): Promise<void>;
 };
 const disabled: Tracing = {
+  conversation: (_options, work) => work(),
   span: (_name, _attributes, work) => work({ setAttributes() {} }),
   shutdown: async () => {},
 };
@@ -92,6 +104,24 @@ export function createTracing(gateway: Gateway, env = process.env): Tracing {
     });
     const tracer = provider.getTracer(AGENT_NAME);
     const active = new AsyncLocalStorage<Span>();
+    const signature = (value: string) =>
+      createHmac("sha256", key)
+        .update(`${AGENT_NAME}:conversation:v1:${value}`)
+        .digest("base64url");
+    const decodeContext = (value?: string) => {
+      if (!value || !TRACE_CONTEXT_PATTERN.test(value)) return;
+      const [traceId, spanId, mac] = value.split(".");
+      if (
+        /^0+$/.test(traceId) ||
+        /^0+$/.test(spanId) ||
+        !timingSafeEqual(
+          Buffer.from(mac),
+          Buffer.from(signature(`${traceId}.${spanId}`)),
+        )
+      )
+        return;
+      return { traceId, spanId, traceFlags: 1, isRemote: true };
+    };
     const clean = (text: string) =>
       secrets.reduce(
         (value, secret) => value.replaceAll(secret, "[REDACTED]"),
@@ -116,6 +146,30 @@ export function createTracing(gateway: Gateway, env = process.env): Tracing {
           ),
       );
     return {
+      async conversation({ context, question, onContext }, work) {
+        const parent = decodeContext(context);
+        if (parent) {
+          onContext(context!);
+          return active.run(trace.wrapSpanContext(parent), work);
+        }
+        return this.span(
+          AGENT_NAME,
+          {
+            "openinference.span.kind": "AGENT",
+            "gen_ai.agent.name": AGENT_NAME,
+            "agent.name": AGENT_NAME,
+            "gen_ai.operation.name": "invoke_agent",
+            "input.value": question,
+            "input.mime_type": "text/plain",
+          },
+          async () => {
+            const { traceId, spanId } = active.getStore()!.spanContext();
+            const value = `${traceId}.${spanId}`;
+            onContext(`${value}.${signature(value)}`);
+            return work();
+          },
+        );
+      },
       async span(name, values, work) {
         const parent = active.getStore();
         const span = tracer.startSpan(
