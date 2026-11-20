@@ -108,11 +108,8 @@ export async function runAgent(options: AgentOptions): Promise<void> {
           "answer",
           {
             "openinference.span.kind": "CHAIN",
-            "input.value": JSON.stringify({
-              question: options.question,
-              history: options.history,
-            }),
-            "input.mime_type": "application/json",
+            "input.value": options.question,
+            "input.mime_type": "text/plain",
           },
           async (span) => {
             let answer = "";
