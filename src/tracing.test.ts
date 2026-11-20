@@ -291,6 +291,17 @@ describe("agent tracing", () => {
         .filter((span) => span.name === "user message")
         .map((span) => span.attributes["input.value"]),
     ).toEqual(["First", "Follow-up"]);
+    const modelCalls = conversation.filter((span) => span.name === "chat");
+    expect(modelCalls).toHaveLength(2);
+    for (const span of modelCalls)
+      expect(span.attributes["lens.capture.messages_separate"]).toBe(true);
+    const followUpInput = JSON.parse(
+      String(modelCalls[1].attributes["input.value"]),
+    );
+    expect(JSON.parse(followUpInput[1].content)).toEqual({
+      history: [{ question: "First", answer: "First answer" }],
+      question: "Follow-up",
+    });
     expect(
       new Set(conversation.map((span) => span.spanContext().spanId)).size,
     ).toBe(conversation.length);
