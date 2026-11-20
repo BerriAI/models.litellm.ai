@@ -1,5 +1,6 @@
 import { gatewayConfig, runAgent, type Turn } from "../server/agent.js";
 import { loadSnapshot } from "../server/catalog.js";
+import { TRACE_CONTEXT_PATTERN } from "../server/tracing.js";
 import {
   admitVisitor,
   readBody,
@@ -43,7 +44,7 @@ export async function POST(request: Request): Promise<Response> {
     return json(503, "Ask AI is not configured.");
   }
   if (!gateway) return json(503, "Ask AI is not configured.");
-  let body: { question: string; history?: Turn[] };
+  let body: { question: string; history?: Turn[]; traceContext?: string };
   try {
     body = (await readBody(request)) as typeof body;
     const valid = (turn: any) =>
@@ -56,7 +57,12 @@ export async function POST(request: Request): Promise<Response> {
       !body ||
       typeof body.question !== "string" ||
       !body.question.trim() ||
-      Object.keys(body).some((key) => !["question", "history"].includes(key)) ||
+      Object.keys(body).some(
+        (key) => !["question", "history", "traceContext"].includes(key),
+      ) ||
+      (body.traceContext !== undefined &&
+        (typeof body.traceContext !== "string" ||
+          !TRACE_CONTEXT_PATTERN.test(body.traceContext))) ||
       (body.history !== undefined &&
         (!Array.isArray(body.history) || !body.history.every(valid)))
     )
@@ -115,6 +121,7 @@ export async function POST(request: Request): Promise<Response> {
         await runAgent({
           question: body.question,
           history: body.history || [],
+          traceContext: body.traceContext,
           snapshot,
           gateway,
           signal,

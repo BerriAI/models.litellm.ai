@@ -24,6 +24,7 @@
     copied = -1,
     copyError = "";
   let turns: Turn[] = [];
+  let traceContext: string | undefined;
   let input: HTMLTextAreaElement,
     panel: HTMLElement,
     conversation: HTMLDivElement;
@@ -88,6 +89,7 @@
   function clear() {
     if (busy) return;
     turns = [];
+    traceContext = undefined;
     copyError = "";
     trackEvent("AI Conversation Cleared");
     input?.focus({ preventScroll: true });
@@ -192,7 +194,7 @@
         method: "POST",
         signal: controller.signal,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: text, history }),
+        body: JSON.stringify({ question: text, history, traceContext }),
       });
       if (!response.ok || !response.body) {
         if (
@@ -222,6 +224,7 @@
       }
       for await (const data of streamData(response.body, controller.signal)) {
         const event = JSON.parse(data);
+        if (event.type === "trace") traceContext = event.context;
         if (event.type === "status") status = event.text;
         if (event.type === "delta") {
           turn.answer += event.text;

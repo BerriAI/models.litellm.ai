@@ -56,6 +56,28 @@ it("rejects cross-origin calls and caller-controlled roles, models and tools", a
     expect((await POST(request(body))).status).toBe(400);
   expect(engine).not.toHaveBeenCalled();
 });
+it("accepts an opaque conversation reference and rejects malformed tracing input", async () => {
+  const { POST } = await import("../api/ask.js");
+  for (const traceContext of [null, 1, {}, "", "a".repeat(500)]) {
+    expect((await POST(request({ question: "hi", traceContext }))).status).toBe(
+      400,
+    );
+  }
+  expect(engine).not.toHaveBeenCalled();
+  const traceContext = `${"1".repeat(32)}.${"2".repeat(16)}.${"a".repeat(43)}`;
+  engine.mockImplementation(async ({ emit }) => {
+    emit({ type: "trace", context: traceContext });
+    emit({ type: "done", sources: [] });
+  });
+  const result = await POST(request({ question: "Follow-up", traceContext }));
+  expect(result.status).toBe(200);
+  expect(await result.text()).toContain(
+    JSON.stringify({ type: "trace", context: traceContext }),
+  );
+  expect(engine).toHaveBeenCalledWith(
+    expect.objectContaining({ traceContext }),
+  );
+});
 it("bounds active inference and releases completed slots", async () => {
   const { POST } = await import("../api/ask.js");
   let release!: () => void;

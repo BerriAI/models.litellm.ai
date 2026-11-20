@@ -234,3 +234,80 @@ it("renders reported capabilities and includes visual facts in copying and follo
     JSON.parse(String(fetchMock.mock.calls[1][1]?.body)).history[0].answer,
   ).toContain("Vision: No");
 });
+
+it("keeps a trace across follow-ups, reopening and retries, then resets it for a new conversation", async () => {
+  const context = `${"1".repeat(32)}.${"2".repeat(16)}.${"a".repeat(43)}`;
+  const nextContext = `${"3".repeat(32)}.${"4".repeat(16)}.${"b".repeat(43)}`;
+  const bodies: { question: string; traceContext?: string }[] = [];
+  const fetchMock = vi.fn(
+    async (_url: RequestInfo | URL, init?: RequestInit) => {
+      const index = bodies.push(JSON.parse(String(init?.body))) - 1;
+      const events = [
+        { type: "trace", context: index === 4 ? nextContext : context },
+        ...(index === 2
+          ? [{ type: "error", text: "Please retry." }]
+          : [
+              { type: "delta", text: "An answer." },
+              { type: "done", sources: [] },
+            ]),
+      ];
+      return new Response(
+        events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join(""),
+      );
+    },
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  const trackEvent = vi.fn();
+  chat = new AskAI({ target: document.body, props: { trackEvent } });
+  await chat.openPanel();
+  const send = async (question: string) => {
+    const input = document.querySelector("textarea")!;
+    input.value = question;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+    document
+      .querySelector("form")!
+      .dispatchEvent(new Event("submit", { cancelable: true }));
+  };
+  const completed = (count: number) =>
+    vi.waitFor(() => {
+      expect(
+        trackEvent.mock.calls.filter(
+          ([name]) => name === "AI Answer Completed",
+        ),
+      ).toHaveLength(count);
+    });
+  await send("First question");
+  await completed(1);
+  document
+    .querySelector<HTMLButtonElement>('[aria-label="Close chat"]')!
+    .click();
+  await chat.openPanel();
+  await send("Follow-up");
+  await completed(2);
+  await send("Interrupted question");
+  await vi.waitFor(() =>
+    expect(document.querySelector(".ai-error")?.textContent).toContain(
+      "Please retry.",
+    ),
+  );
+  document.querySelector<HTMLButtonElement>(".ai-error button")!.click();
+  await completed(3);
+  document
+    .querySelector<HTMLButtonElement>('[aria-label="New conversation"]')!
+    .click();
+  await tick();
+  await send("Fresh question");
+  await completed(4);
+  expect(bodies.map((body) => body.traceContext)).toEqual([
+    undefined,
+    context,
+    context,
+    context,
+    undefined,
+  ]);
+  expect(bodies[3].question).toBe("Interrupted question");
+  expect(trackEvent).toHaveBeenCalledWith("AI Conversation Cleared");
+  expect(JSON.stringify(trackEvent.mock.calls)).not.toContain(context);
+  expect(document.body.textContent).not.toContain(nextContext);
+});

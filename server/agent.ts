@@ -3,10 +3,11 @@ import type { Snapshot } from "./catalog.js";
 import { querySession } from "./query.js";
 import { answerView, viewSchema } from "./views.js";
 import type { AnswerView } from "../src/aiViews.js";
-import { AGENT_NAME, createTracing, type Tracing } from "./tracing.js";
+import { createTracing, type Tracing } from "./tracing.js";
 
 export type Turn = { question: string; answer?: string };
 export type Event =
+  | { type: "trace"; context: string }
   | { type: "reset" }
   | { type: "status"; text: string }
   | { type: "delta"; text: string }
@@ -85,6 +86,7 @@ const tools = [
 type AgentOptions = {
   question: string;
   history: Turn[];
+  traceContext?: string;
   snapshot: Snapshot;
   gateway: Gateway;
   signal: AbortSignal;
@@ -95,36 +97,41 @@ type AgentOptions = {
 export async function runAgent(options: AgentOptions): Promise<void> {
   const tracing = createTracing(options.gateway);
   try {
-    await tracing.span(
-      AGENT_NAME,
+    await tracing.conversation(
       {
-        "openinference.span.kind": "AGENT",
-        "gen_ai.agent.name": AGENT_NAME,
-        "agent.name": AGENT_NAME,
-        "gen_ai.operation.name": "invoke_agent",
-        "input.value": JSON.stringify({
-          question: options.question,
-          history: options.history,
-        }),
-        "input.mime_type": "application/json",
+        context: options.traceContext,
+        question: options.question,
+        onContext: (context) => options.emit({ type: "trace", context }),
       },
-      async (span) => {
-        let answer = "";
-        await runAgentTurns({
-          ...options,
-          tracing,
-          emit(event) {
-            if (event.type === "reset") answer = "";
-            if (event.type === "delta") answer += event.text;
-            if (event.type === "done")
-              span.setAttributes({
-                "output.value": answer,
-                "output.mime_type": "text/plain",
-              });
-            options.emit(event);
+      () =>
+        tracing.span(
+          "answer",
+          {
+            "openinference.span.kind": "CHAIN",
+            "input.value": JSON.stringify({
+              question: options.question,
+              history: options.history,
+            }),
+            "input.mime_type": "application/json",
           },
-        });
-      },
+          async (span) => {
+            let answer = "";
+            await runAgentTurns({
+              ...options,
+              tracing,
+              emit(event) {
+                if (event.type === "reset") answer = "";
+                if (event.type === "delta") answer += event.text;
+                if (event.type === "done")
+                  span.setAttributes({
+                    "output.value": answer,
+                    "output.mime_type": "text/plain",
+                  });
+                options.emit(event);
+              },
+            });
+          },
+        ),
     );
   } finally {
     await tracing.shutdown();
