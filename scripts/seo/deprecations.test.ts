@@ -517,6 +517,35 @@ describe("deprecation search", () => {
     expect((await open("/deprecated-models?days=", undefined, 55)).results()).toHaveLength(110);
   });
 
+  test("lists rows by effective date ascending in the filtered results and the static tables", async () => {
+    vi.setSystemTime(new Date("2026-10-30T23:59:59Z"));
+    const page = await open("/deprecated-models?days=30");
+    expect(
+      [...document.querySelectorAll("[data-dep-results] tbody time")].map(
+        (time) => time.getAttribute("datetime"),
+      ),
+    ).toEqual(["2026-10-30", "2026-11-01"]);
+
+    const entries = groupDeprecations(
+      build({
+        ...map,
+        "azure/gpt-older": row("azure", "2026-10-02"),
+        "azure/gpt-oldest": row("azure", "2026-09-15"),
+      }),
+    );
+    const doc = new DOMParser().parseFromString(
+      deprecationBody(entries, [], "2026-10-30"),
+      "text/html",
+    );
+    const dates = (section: Element) =>
+      [...section.querySelectorAll("tbody time")].map((time) =>
+        time.getAttribute("datetime"),
+      );
+    const [recent, upcoming] = doc.querySelectorAll("[data-dep-default] section");
+    expect(dates(recent)).toEqual(["2026-09-15", "2026-10-02", "2026-10-30"]);
+    expect(dates(upcoming)).toEqual(["2026-11-01"]);
+  });
+
   test("anchors a shared window to UTC today and matches the inclusive cutoff", async () => {
     vi.setSystemTime(new Date("2026-10-30T23:59:59Z"));
     const before = await open("/deprecated-models?days=1");
