@@ -3,6 +3,7 @@ import type { Snapshot } from "./catalog.js";
 import { querySession } from "./query.js";
 import { answerView, viewSchema } from "./views.js";
 import type { AnswerView } from "../src/aiViews.js";
+import { AGENT_NAME, createTracing, type Tracing } from "./tracing.js";
 
 export type Turn = { question: string; answer?: string };
 export type Event =
@@ -81,15 +82,7 @@ const tools = [
   },
 ];
 
-export async function runAgent({
-  question,
-  history,
-  snapshot,
-  gateway,
-  signal,
-  emit,
-  fetchImpl = fetch,
-}: {
+type AgentOptions = {
   question: string;
   history: Turn[];
   snapshot: Snapshot;
@@ -97,7 +90,57 @@ export async function runAgent({
   signal: AbortSignal;
   emit: (event: Event) => void;
   fetchImpl?: typeof fetch;
-}): Promise<void> {
+};
+
+export async function runAgent(options: AgentOptions): Promise<void> {
+  const tracing = createTracing(options.gateway);
+  try {
+    await tracing.span(
+      AGENT_NAME,
+      {
+        "openinference.span.kind": "AGENT",
+        "gen_ai.agent.name": AGENT_NAME,
+        "agent.name": AGENT_NAME,
+        "gen_ai.operation.name": "invoke_agent",
+        "input.value": JSON.stringify({
+          question: options.question,
+          history: options.history,
+        }),
+        "input.mime_type": "application/json",
+      },
+      async (span) => {
+        let answer = "";
+        await runAgentTurns({
+          ...options,
+          tracing,
+          emit(event) {
+            if (event.type === "reset") answer = "";
+            if (event.type === "delta") answer += event.text;
+            if (event.type === "done")
+              span.setAttributes({
+                "output.value": answer,
+                "output.mime_type": "text/plain",
+              });
+            options.emit(event);
+          },
+        });
+      },
+    );
+  } finally {
+    await tracing.shutdown();
+  }
+}
+
+async function runAgentTurns({
+  question,
+  history,
+  snapshot,
+  gateway,
+  signal,
+  emit,
+  fetchImpl = fetch,
+  tracing,
+}: AgentOptions & { tracing: Tracing }): Promise<void> {
   const messages: any[] = [
     { role: "system", content: instructions(snapshot) },
     { role: "user", content: JSON.stringify({ history, question }) },
@@ -106,76 +149,126 @@ export async function runAgent({
   try {
     for (let round = 0; round < 12; round++) {
       signal.throwIfAborted();
-      const response = await fetchImpl(`${gateway.base}/chat/completions`, {
-        method: "POST",
-        redirect: "error",
-        signal,
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${gateway.key}`,
-          ...(gateway.clientId
-            ? {
-                "CF-Access-Client-Id": gateway.clientId,
-                "CF-Access-Client-Secret": gateway.clientSecret!,
-              }
-            : {}),
+      const { answer, calls } = await tracing.span(
+        "chat",
+        {
+          "openinference.span.kind": "LLM",
+          "gen_ai.operation.name": "chat",
+          "gen_ai.request.model": "openai/gpt-6.1-sol",
+          "input.value": JSON.stringify(messages),
+          "input.mime_type": "application/json",
         },
-        body: JSON.stringify({
-          model: "openai/gpt-6.1-sol",
-          reasoning_effort: "low",
-          stream: true,
-          messages,
-          tools,
-          tool_choice: round === 11 ? "none" : "auto",
-          parallel_tool_calls: false,
-          fallbacks: [
-            { model: "anthropic/claude-haiku-5-5", reasoning_effort: "none" },
-            { model: "openai/gpt-6-luna", reasoning_effort: "none" },
-          ],
-          max_fallbacks: 2,
-          num_retries: 0,
-          cache: { "no-cache": true, "no-store": true },
-        }),
-      });
-      if (!response.ok || !response.body)
-        throw new Error(
-          response.status === 429
-            ? "The model is busy. Please try again shortly."
-            : "The model is unavailable. Please try again.",
-        );
-      let answer = "",
-        finished = false;
-      const calls: any[] = [];
-      for await (const data of streamData(response.body, signal)) {
-        if (data === "[DONE]") break;
-        const chunk = JSON.parse(data);
-        if (chunk.error)
-          throw new Error("The answer was interrupted. Please try again.");
-        const choice = chunk.choices?.[0];
-        if (!choice) continue;
-        if (choice.finish_reason)
-          finished = ["stop", "tool_calls"].includes(choice.finish_reason);
-        const delta = choice.delta || {};
-        if (typeof delta.content === "string") {
-          answer += delta.content;
-          emit({ type: "delta", text: delta.content });
-        }
-        for (const call of delta.tool_calls || []) {
-          if (!Number.isInteger(call.index) || call.index < 0 || call.index > 3)
-            throw new Error("Invalid tool response");
-          const current = (calls[call.index] ||= {
-            id: "",
-            type: "function",
-            function: { name: "", arguments: "" },
+        async (span) => {
+          const response = await fetchImpl(`${gateway.base}/chat/completions`, {
+            method: "POST",
+            redirect: "error",
+            signal,
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${gateway.key}`,
+              ...(gateway.clientId
+                ? {
+                    "CF-Access-Client-Id": gateway.clientId,
+                    "CF-Access-Client-Secret": gateway.clientSecret!,
+                  }
+                : {}),
+            },
+            body: JSON.stringify({
+              model: "openai/gpt-6.1-sol",
+              reasoning_effort: "low",
+              stream: true,
+              stream_options: { include_usage: true },
+              messages,
+              tools,
+              tool_choice: round === 11 ? "none" : "auto",
+              parallel_tool_calls: false,
+              fallbacks: [
+                {
+                  model: "anthropic/claude-haiku-5-5",
+                  reasoning_effort: "none",
+                },
+                { model: "openai/gpt-6-luna", reasoning_effort: "none" },
+              ],
+              max_fallbacks: 2,
+              num_retries: 0,
+              cache: { "no-cache": true, "no-store": true },
+            }),
           });
-          if (call.id) current.id = call.id;
-          if (call.function?.name) current.function.name += call.function.name;
-          if (call.function?.arguments)
-            current.function.arguments += call.function.arguments;
-        }
-      }
-      if (!finished)
-        throw new Error("The answer was interrupted. Please try again.");
+          span.setAttributes({ "http.response.status_code": response.status });
+          if (!response.ok || !response.body)
+            throw new Error(
+              response.status === 429
+                ? "The model is busy. Please try again shortly."
+                : "The model is unavailable. Please try again.",
+            );
+          let answer = "",
+            finished = false;
+          const calls: any[] = [];
+          for await (const data of streamData(response.body, signal)) {
+            if (data === "[DONE]") break;
+            const chunk = JSON.parse(data);
+            if (chunk.error)
+              throw new Error("The answer was interrupted. Please try again.");
+            span.setAttributes({
+              "gen_ai.response.id": chunk.id,
+              "gen_ai.response.model": chunk.model,
+              "llm.model_name": chunk.model,
+              "gen_ai.usage.input_tokens": chunk.usage?.prompt_tokens,
+              "gen_ai.usage.output_tokens": chunk.usage?.completion_tokens,
+              "gen_ai.usage.cache_read.input_tokens":
+                chunk.usage?.prompt_tokens_details?.cached_tokens,
+              "gen_ai.usage.reasoning.output_tokens":
+                chunk.usage?.completion_tokens_details?.reasoning_tokens,
+            });
+            const choice = chunk.choices?.[0];
+            if (!choice) continue;
+            if (choice.finish_reason) {
+              finished = ["stop", "tool_calls"].includes(choice.finish_reason);
+              span.setAttributes({
+                "gen_ai.response.finish_reasons": [choice.finish_reason],
+              });
+            }
+            const delta = choice.delta || {};
+            if (typeof delta.content === "string") {
+              answer += delta.content;
+              emit({ type: "delta", text: delta.content });
+            }
+            for (const call of delta.tool_calls || []) {
+              if (
+                !Number.isInteger(call.index) ||
+                call.index < 0 ||
+                call.index > 3
+              )
+                throw new Error("Invalid tool response");
+              const current = (calls[call.index] ||= {
+                id: "",
+                type: "function",
+                function: { name: "", arguments: "" },
+              });
+              if (call.id) current.id = call.id;
+              if (call.function?.name)
+                current.function.name += call.function.name;
+              if (call.function?.arguments)
+                current.function.arguments += call.function.arguments;
+            }
+          }
+          if (!finished)
+            throw new Error("The answer was interrupted. Please try again.");
+          span.setAttributes({
+            "output.value": calls.length
+              ? JSON.stringify({
+                  role: "assistant",
+                  content: answer,
+                  tool_calls: calls,
+                })
+              : answer,
+            "output.mime_type": calls.length
+              ? "application/json"
+              : "text/plain",
+          });
+          return { answer, calls };
+        },
+      );
       if (!calls.length) {
         if (!answer.trim())
           throw new Error("No answer was returned. Please try again.");
@@ -190,46 +283,64 @@ export async function runAgent({
         tool_calls: calls,
       });
       for (const call of calls) {
-        let result: any;
-        let args: { sql: string; offset?: number; view?: unknown } | undefined;
-        try {
-          const parsed = JSON.parse(call.function.arguments);
-          if (
-            call.function.name !== "query_catalog" ||
-            !parsed ||
-            typeof parsed.sql !== "string" ||
-            Object.keys(parsed).some(
-              (key) => !["sql", "offset", "view"].includes(key),
-            )
-          )
-            throw new Error("Invalid query arguments");
-          args = parsed;
-        } catch {
-          result = {
-            error:
-              "Use query_catalog with a SQL string, optional nonnegative offset and optional view.",
-          };
-        }
-        if (args) {
-          // SQL errors are returned as tool results; worker failures must stop inference.
-          emit({ type: "status", text: "Checking the catalog…" });
-          result = await db.query(args.sql, args.offset);
-          if (args.view !== undefined && !result.error) {
+        const result = await tracing.span(
+          "query_catalog",
+          {
+            "openinference.span.kind": "TOOL",
+            "tool.name": "query_catalog",
+            "input.value": call.function.arguments,
+            "input.mime_type": "application/json",
+          },
+          async (span) => {
+            let result: any;
+            let args:
+              | { sql: string; offset?: number; view?: unknown }
+              | undefined;
             try {
-              const view = answerView(args.view, result, snapshot);
-              emit({ type: "view", view });
-              result.displayed_view = view;
-            } catch (error) {
-              result.view_error =
-                error instanceof Error ? error.message : "Invalid view";
+              const parsed = JSON.parse(call.function.arguments);
+              if (
+                call.function.name !== "query_catalog" ||
+                !parsed ||
+                typeof parsed.sql !== "string" ||
+                Object.keys(parsed).some(
+                  (key) => !["sql", "offset", "view"].includes(key),
+                )
+              )
+                throw new Error("Invalid query arguments");
+              args = parsed;
+            } catch {
+              result = {
+                error:
+                  "Use query_catalog with a SQL string, optional nonnegative offset and optional view.",
+              };
             }
-          }
-          result.sources = snapshot.sources.filter((source) =>
-            (result.tables || []).some((table: string) =>
-              snapshot.tables[table]?.sources.includes(source.id),
-            ),
-          );
-        }
+            if (args) {
+              // SQL errors are returned as tool results; worker failures must stop inference.
+              emit({ type: "status", text: "Checking the catalog…" });
+              result = await db.query(args.sql, args.offset);
+              if (args.view !== undefined && !result.error) {
+                try {
+                  const view = answerView(args.view, result, snapshot);
+                  emit({ type: "view", view });
+                  result.displayed_view = view;
+                } catch (error) {
+                  result.view_error =
+                    error instanceof Error ? error.message : "Invalid view";
+                }
+              }
+              result.sources = snapshot.sources.filter((source) =>
+                (result.tables || []).some((table: string) =>
+                  snapshot.tables[table]?.sources.includes(source.id),
+                ),
+              );
+            }
+            span.setAttributes({
+              "output.value": JSON.stringify(result),
+              "output.mime_type": "application/json",
+            });
+            return result;
+          },
+        );
         messages.push({
           role: "tool",
           tool_call_id: call.id,
