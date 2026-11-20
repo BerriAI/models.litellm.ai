@@ -120,9 +120,10 @@ describe("agent tracing", () => {
     const turn = exported.spans.find((span) => span.name === "answer")!;
     expect(root.resource.attributes["service.name"]).toBe(AGENT_NAME);
     expect(turn.parentSpanContext?.spanId).toBe(root.spanContext().spanId);
-    expect(
-      JSON.parse(String(turn.attributes["input.value"])).history,
-    ).toHaveLength(1);
+    for (const span of [root, turn]) {
+      expect(span.attributes["input.value"]).toBe("How many models?");
+      expect(span.attributes["input.mime_type"]).toBe("text/plain");
+    }
     expect(turn.attributes["output.value"]).toBe("One model.");
     for (const child of exported.spans.filter(
       (span) => span !== root && span !== turn,
@@ -137,6 +138,11 @@ describe("agent tracing", () => {
     const model = exported.spans.find(
       (span) => span.attributes["gen_ai.response.id"] === "answer-1",
     )!;
+    const messages = JSON.parse(String(model.attributes["input.value"]));
+    expect(JSON.parse(messages[1].content)).toEqual({
+      question: "How many models?",
+      history: [{ question: "Earlier", answer: "Context" }],
+    });
     expect(model.attributes).toMatchObject({
       "gen_ai.usage.input_tokens": 17,
       "gen_ai.usage.output_tokens": 5,
