@@ -3,6 +3,7 @@ import { pageCopy } from "./copy";
 import { article, tokensShort, usd, usdShort } from "./format";
 import { assignSlugs, catalogSlugs, groupCostMap, normalizeKey, providerNamespaces, type CostMap } from "./group";
 import { jsonLdScript, modelGraph } from "./jsonld";
+import { modelBody } from "./html";
 import { loadPreviousManifest } from "./manifest";
 import { modelMarkdown } from "./markdown";
 import { buildModelView, cleanName } from "./model-view";
@@ -49,6 +50,63 @@ const views = () => {
   const slugs = assignSlugs(groups);
   return new Map(groups.map((g) => [g.pageKey, buildModelView(g, slugs.get(g.pageKey)!, {}, {}, "2026-09-22")]));
 };
+
+describe("voice model setup", () => {
+  const date = "2026-11-20";
+  const render = (key: string, provider: string, mode: string, endpoints?: string[]) => {
+    const [group] = groupCostMap({
+      [key]: { litellm_provider: provider, mode, input_cost_per_second: 0.001, supported_endpoints: endpoints },
+    });
+    const slug = assignSlugs([group]).get(group.pageKey)!;
+    const view = buildModelView(group, slug, {}, {}, date);
+    const copy = pageCopy(view, date);
+    const html = modelBody(view, copy, { buildDate: date, lastChanged: date, related: [], history: [], hubs: new Set() });
+    return { copy, use: html.split('<section id="use">')[1].split("</section>")[0], slug };
+  };
+
+  test.each([
+    ["gpt-live-1", "openai"],
+    ["gpt-live-1.1", "openai"],
+    ["azure/gpt-live-1", "azure"],
+  ])("starts a GPT-Live session for %s with the proxy alias", (key, provider) => {
+    const { use, copy, slug } = render(key, provider, "realtime", ["/v1/live/sessions"]);
+    expect(copy.endpoint).toBe("/v1/live/sessions");
+    expect(copy.faq.some((f) => f.a.includes("over WebSocket to /v1/live/sessions"))).toBe(true);
+    expect(use).toContain("ws://localhost:4000/v1/live/sessions");
+    expect(use).not.toContain("/v1/live/sessions?model=");
+    expect(use).toContain("session.start");
+    expect(use).toContain(`model_name: ${slug}`);
+    expect(use).toContain(`model: ${provider}/gpt-live`);
+    expect(use).toContain(`&quot;model&quot;: &quot;${slug}&quot;`);
+    expect(use).not.toMatch(/chat\/completions|from litellm/);
+  });
+
+  test("uses transcription intent for live models and keeps file transcription on HTTP", () => {
+    const { use, slug } = render("azure/gpt-live-transcribe", "azure", "audio_transcription", [
+      "/v1/realtime", "/v1/realtime/transcription_sessions",
+    ]);
+    expect(use).toContain(`/v1/realtime?model=${slug}&amp;intent=transcription`);
+    expect(use).toContain("input_audio_buffer.commit");
+    expect(use).toContain("conversation.item.input_audio_transcription.completed");
+    expect(use).not.toContain("/v1/audio/transcriptions");
+    expect(render("gpt-4o-transcribe", "openai", "audio_transcription").use).toContain("/v1/audio/transcriptions");
+  });
+
+  test("uses the conversation WebSocket and does not show chat completion code", () => {
+    const { use, slug } = render("gpt-realtime-2.1", "openai", "realtime", ["/v1/realtime"]);
+    expect(use).toContain(`ws://localhost:4000/v1/realtime?model=${slug}`);
+    expect(use).not.toMatch(/chat\/completions|from litellm|session.start/);
+  });
+
+  test("links to the translation and provider-native guides without claiming a generic Python SDK call", () => {
+    const translation = render("gpt-realtime-translate", "openai", "realtime", ["/v1/realtime/translations"]);
+    expect(translation.use).toContain("<code>/v1/realtime/translations</code>");
+    expect(translation.use).toContain("/docs/realtime_translation");
+    const native = render("vertex_ai/gemini-live-preview", "vertex_ai", "realtime", ["/vertex_ai/live"]);
+    expect(native.use).toContain("/docs/providers/vertex_realtime");
+    expect(native.use).not.toMatch(/\/v1\/realtime|from litellm|chat\/completions/);
+  });
+});
 
 describe("model modalities", () => {
   const view = (extra: Record<string, unknown>) => {

@@ -36,6 +36,7 @@
     chatSortCacheRead,
     chatSortCacheWrite,
   } from "./modelPresentation";
+  import { getVoiceUsage, getVoiceWebSocketSnippet } from "./voiceUsage";
   import {
     EMPTY_MODELS_DEV_INDEX,
     compareReleaseDates,
@@ -929,6 +930,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
               <td class="cost-cell td-hide-mobile">{tableCacheWriteCell(item)}</td>
             </tr>
             {#if expandedRows.has(name)}
+              {@const voice = getVoiceUsage(item)}
               <tr
                 class="expanded-content"
                 aria-rowindex={rowNumber + 1}
@@ -1040,6 +1042,26 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                       {/if}
                     </div>
 
+                    {#if voice}
+                      {@const snippet = getVoiceWebSocketSnippet(voice, name, name)}
+                      <div class="detail-code-section">
+                        <div class="code-header-row voice-code-header">
+                          <span>{voice.endpoint ? "WebSocket" : "Voice"}</span>
+                          <a href={voice.guide} target="_blank" rel="noopener noreferrer" on:click|stopPropagation>Voice setup guide</a>
+                          {#if snippet}
+                            <button class="copy-code-btn" on:click|stopPropagation={() => copyToClipboard(snippet, "websocket_snippet", name)}>
+                              {copiedModel === snippet ? "Copied!" : "Copy"}
+                            </button>
+                          {/if}
+                        </div>
+                        {#if snippet}
+                          <p class="voice-code-note">Connect to <code>{voice.endpoint}</code>. Set the proxy model alias to <code>{name}</code> in your config and set <code>LITELLM_API_KEY</code> to a LiteLLM proxy key.</p>
+                          <pre class="code-snippet"><code>{snippet}</code></pre>
+                        {:else if voice.endpoint}
+                          <p class="voice-code-note">Connect to <code>{voice.endpoint}</code> over WebSocket.</p>
+                        {/if}
+                      </div>
+                    {:else}
                     <!-- Code snippet with tabs -->
                     <div class="detail-code-section">
                       <div class="code-header-row">
@@ -1071,6 +1093,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                         <pre class="code-snippet"><code>{@html getLiteLLmProxyCurlSnippetHtml(mode, getDisplayModelName(name, litellm_provider))}</code></pre>
                       {/if}
                     </div>
+                    {/if}
 
                     <!-- Actions -->
                     <div class="detail-actions">
@@ -1912,6 +1935,22 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
   }
 
   .code-header-row .detail-heading { margin: 0; }
+
+  .voice-code-header {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    font-size: 0.8125rem;
+  }
+
+  .voice-code-header .copy-code-btn { margin-left: auto; }
+
+  .voice-code-note {
+    margin: 0;
+    padding: 0.75rem 1rem 0;
+    font-size: 0.8125rem;
+    overflow-wrap: anywhere;
+  }
 
   .code-tabs {
     display: flex;
