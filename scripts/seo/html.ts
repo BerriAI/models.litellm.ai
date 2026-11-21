@@ -3,6 +3,7 @@
  * in the HTML. Interactive controls and the catalog assistant load separately.
  */
 import { getLiteLLmProxyCurlSnippet, getLiteLLmSdkSnippet } from "../../src/modelPresentation";
+import { getVoiceWebSocketSnippet } from "../../src/voiceUsage";
 import { headlinePrice, type PageCopy } from "./copy";
 import { onCompareTool, TOOL_CSS } from "./compare-tool";
 import { CALC_DEFAULTS, DAYS_PER_MONTH, calcCost, calcMoney, onCalculator } from "./calculator";
@@ -296,6 +297,8 @@ const API_KEY_ENV: Record<string, string> = {
 
 function proxyConfig(v: ModelView, r: RowView): string {
   const env = API_KEY_ENV[r.hub];
+  const model = r.voice && r.hub === "openai" && !r.modelString.includes("/")
+    ? `openai/${r.modelString}` : r.modelString;
   const creds = env
     ? `      api_key: os.environ/${env}`
     : r.hub === "bedrock"
@@ -308,8 +311,8 @@ function proxyConfig(v: ModelView, r: RowView): string {
   return `model_list:
   - model_name: ${v.slug}
     litellm_params:
-      model: ${r.modelString}
-${creds}`;
+      model: ${model}
+${creds}${r.voice ? "\n\ngeneral_settings:\n  master_key: os.environ/LITELLM_MASTER_KEY" : ""}`;
 }
 
 function codeBlock(id: string, label: string, code: string): string {
@@ -442,7 +445,17 @@ ${v.inputModalities.length ? `<p>Input: ${esc(v.inputModalities.join(", "))}.${v
 <ul class="caps">${v.capabilities.map((c) => `<li class="${c.supported ? "y" : "n"}">${esc(c.label)}</li>`).join("")}</ul></section>`);
   }
 
-  parts.push(`<section id="use"><h2>Use ${esc(v.name)} with LiteLLM</h2>
+  if (copy.voice) {
+    const endpoint = copy.voice.endpoint;
+    const snippet = getVoiceWebSocketSnippet(copy.voice, v.slug, ms);
+    parts.push(`<section id="use"><h2>Use ${esc(v.name)} with LiteLLM</h2>
+<p>${endpoint ? `Connect to <code>${esc(endpoint)}</code> over WebSocket from your server. ` : ""}<a href="${esc(copy.voice.guide)}">Voice setup guide</a></p>
+${snippet ? `<p>Set the provider variables in the config below and choose a <code>LITELLM_MASTER_KEY</code> that starts with <code>sk-</code>. Start the proxy with <code>litellm --config config.yaml</code>. For the example, set <code>LITELLM_API_KEY</code> to that key or to a virtual key with access to this model.</p>
+${codeBlock("cfg", "Proxy config.yaml", proxyConfig(v, h ?? v.rows[0]))}
+${codeBlock("websocket", "WebSocket (Python)", snippet)}` : ""}
+</section>`);
+  } else {
+    parts.push(`<section id="use"><h2>Use ${esc(v.name)} with LiteLLM</h2>
 <p>Call ${esc(v.name)} through the LiteLLM Python SDK, or put it behind the LiteLLM proxy and send OpenAI-format requests to <code>${copy.endpoint}</code>. LiteLLM tracks the cost of every request at these prices.</p>
 <div class="grid2">
 ${codeBlock("sdk", "Python SDK", getLiteLLmSdkSnippet(mode, ms))}
@@ -450,6 +463,7 @@ ${h ? codeBlock("cfg", "Proxy config.yaml", proxyConfig(v, h)) : ""}
 </div>
 ${codeBlock("curl", "Call the proxy", getLiteLLmProxyCurlSnippet(mode, v.slug))}
 </section>`);
+  }
 
   if (ctx.history.length > 1) {
     parts.push(`<section id="history"><h2>${esc(v.name)} price history</h2>

@@ -5,6 +5,7 @@
 import { article, int, listProse, longDate, monthYear, tokensShort, usd, usdShort } from "./format";
 import type { ModelView, RowView } from "./model-view";
 import { CHAT_MODES, IMAGE_MODES, UNIT_LABEL, leadsWithTokens } from "./pricing";
+import type { VoiceUsage } from "../../src/voiceUsage";
 
 export type Faq = { q: string; a: string };
 export type CostExample = { label: string; rows: { who: string; cost: number }[] };
@@ -18,6 +19,7 @@ export type PageCopy = {
   faq: Faq[];
   examples: CostExample[];
   endpoint: string;
+  voice?: VoiceUsage;
 };
 
 const ENDPOINTS: Record<string, string> = {
@@ -203,7 +205,7 @@ function examples(v: ModelView): CostExample[] {
   return list.filter((x): x is CostExample => x !== null);
 }
 
-function faq(v: ModelView, price: string | null, buildDate: string): Faq[] {
+function faq(v: ModelView, price: string | null, buildDate: string, endpoint: string, voice?: VoiceUsage): Faq[] {
   const items: Faq[] = [];
   const h = v.headline;
   if (price && h) {
@@ -231,8 +233,14 @@ function faq(v: ModelView, price: string | null, buildDate: string): Faq[] {
     if (v.range && v.range.min < v.range.max) a += ` The lowest price is on ${v.range.minProvider}.`;
     items.push({ q: `Which providers offer ${v.name}?`, a });
   }
-  if (h) {
-    const endpoint = ENDPOINTS[h.mode] ?? "/v1/chat/completions";
+  if (voice) {
+    items.push({
+      q: `How do I use ${v.name} with LiteLLM?`,
+      a: voice.endpoint
+        ? `Add the model to your LiteLLM proxy, then connect over WebSocket to ${voice.endpoint}. See the setup guide at ${voice.guide}.`
+        : `Follow the voice setup guide for your provider at ${voice.guide}.`,
+    });
+  } else if (h) {
     items.push({
       q: `How do I call ${v.name} with an OpenAI-compatible API?`,
       a: `Use the LiteLLM Python SDK with model="${h.modelString}", or add the model to the LiteLLM proxy's config.yaml and send requests to ${endpoint} from any OpenAI client. LiteLLM tracks the cost of every request at the prices on this page.`,
@@ -284,6 +292,9 @@ function describe(v: ModelView, price: string | null): string {
 
 export function pageCopy(v: ModelView, buildDate: string): PageCopy {
   const price = priceSentence(v);
+  const row = v.headline ?? v.rows[0];
+  const voice = row?.voice;
+  const endpoint = voice?.endpoint ?? ENDPOINTS[row?.mode ?? v.mode] ?? "/v1/chat/completions";
   const tp = titlePrice(v);
   const base = tp ? `${v.name} API Pricing (${monthYear(buildDate)}): ${tp}` : `${v.name} API Pricing, Context Window & Providers`;
   const title = `${base} | LiteLLM`.length <= 70 ? `${base} | LiteLLM` : base;
@@ -300,8 +311,9 @@ export function pageCopy(v: ModelView, buildDate: string): PageCopy {
     h1: `${v.name} API Pricing`,
     priceSentence: price,
     answer,
-    faq: faq(v, price, buildDate),
+    faq: faq(v, price, buildDate, endpoint, voice),
     examples: examples(v),
-    endpoint: ENDPOINTS[v.headline?.mode ?? v.mode] ?? "/v1/chat/completions",
+    endpoint,
+    voice,
   };
 }

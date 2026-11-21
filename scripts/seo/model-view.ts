@@ -3,6 +3,7 @@
  * rows so the HTML, markdown and JSON-LD renderers agree on every number.
  */
 import { EMPTY_MODELS_DEV_INDEX, deriveModelMeta } from "../../src/modelMeta";
+import { getVoiceUsage, type VoiceUsage } from "../../src/voiceUsage";
 import { FIRST_PARTY_PROVIDERS, type Group, type IntroPricing, type Member, type Overrides } from "./group";
 import { CHAT_MODES, IMAGE_MODES, primaryMetric, rowPrices, type Metric, type RowPrices } from "./pricing";
 import { hubProvider, isLabProvider, labFor, providerDocsUrl, providerName, type ProviderSupport } from "./providers";
@@ -15,6 +16,7 @@ export type RowView = {
   qualifier: string;
   modelString: string;
   mode: string;
+  voice?: VoiceUsage;
   prices: RowPrices;
   metric: Metric | null;
   outlier: boolean;
@@ -251,6 +253,11 @@ export function buildModelView(
       qualifier: qualifierFor(m),
       modelString: modelString(m.key, m.provider),
       mode: m.mode,
+      voice: getVoiceUsage({
+        mode: m.mode,
+        litellm_provider: m.provider,
+        supported_endpoints: m.row.supported_endpoints,
+      }),
       prices,
       metric: primaryMetric(m.mode, prices),
       outlier: false,
