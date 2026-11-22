@@ -131,6 +131,40 @@ describe("Models page search", () => {
     );
   });
 
+  it("shows the GPT-Live WebSocket example in expanded catalog rows", async () => {
+    vi.mocked(loadCatalogData).mockResolvedValueOnce({
+      items: [
+        {
+          name: "azure/gpt-live-1",
+          mode: "realtime",
+          litellm_provider: "azure",
+          supported_endpoints: ["/v1/live/sessions"],
+        },
+      ],
+      lines: [],
+      metadata: Promise.resolve(new Map()),
+      fetchedAt: Date.now(),
+    });
+    app = new App({ target: document.body, props: { compact: true } });
+    await vi.waitFor(() =>
+      expect(document.querySelectorAll(".model-row")).toHaveLength(1),
+    );
+    document.querySelector<HTMLTableRowElement>(".model-row")!.click();
+    await vi.waitFor(() => {
+      const detail = document.querySelector(".expanded-content")!;
+      expect(detail.querySelector("pre")?.textContent).toContain(
+        "ws://localhost:4000/v1/live/sessions",
+      );
+      expect(detail.querySelector("pre")?.textContent).toContain(
+        '"model": "azure/gpt-live-1"',
+      );
+      expect(detail.textContent).not.toContain("/v1/chat/completions");
+      expect(
+        detail.querySelector('a[href$="/docs/live_sessions"]'),
+      ).not.toBeNull();
+    });
+  });
+
   it("should filter by the Mantle provider ID while displaying its name, prices, limits and routing snippet", async () => {
     const mantleModel = "bedrock_mantle/anthropic.claude-opus-5-5";
     vi.mocked(loadCatalogData).mockResolvedValueOnce({
