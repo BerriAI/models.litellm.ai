@@ -2,13 +2,14 @@ import providerLogos from "./providerLogos.json";
 import {
   PROVIDER_DISPLAY_NAMES,
   getProviderDisplayName,
+  modelProviderId,
 } from "./providerNames";
 
 /**
  * Shared provider display names, logos and initials
  */
 
-export { PROVIDER_DISPLAY_NAMES, getProviderDisplayName };
+export { PROVIDER_DISPLAY_NAMES, getProviderDisplayName, modelProviderId };
 
 /**
  * Get the initial/abbreviation for a provider name

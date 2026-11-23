@@ -2,7 +2,7 @@
   import { afterUpdate, createEventDispatcher, onDestroy, onMount } from "svelte";
   import { fly } from "svelte/transition";
 
-  import { getProviderDisplayName, getProviderInitial, getProviderLogo } from "./providers";
+  import { getProviderDisplayName, getProviderInitial, getProviderLogo, modelProviderId } from "./providers";
   import ProviderDropdown from "./ProviderDropdown.svelte";
   import { track, trackSearch } from "./analytics";
   import { buildInfo, formatStars } from "./buildInfo";
@@ -851,6 +851,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
             {@const name = item.name}
             {@const mode = item.mode}
             {@const litellm_provider = item.litellm_provider}
+            {@const providerDisplayName = getProviderDisplayName(modelProviderId(litellm_provider, name))}
             {@const max_input_tokens = item.max_input_tokens}
             {@const max_output_tokens = item.max_output_tokens}
             {@const rowNumber = rowNumbers[shownStart + shownIndex] + 2}
@@ -871,7 +872,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                     {#if getProviderLogo(litellm_provider)}
                       <img 
                         src={getProviderLogo(litellm_provider)} 
-                        alt={getProviderDisplayName(litellm_provider)}
+                        alt={providerDisplayName}
                         class="provider-logo-img"
                         on:error={(e) => {
                           const image = e.currentTarget;
@@ -903,7 +904,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                         <span class="model-title" title={item.display_name}>{item.display_name}</span>
                       {/if}
                     </div>
-                    <span class="model-provider">{getProviderDisplayName(litellm_provider)}</span>
+                    <span class="model-provider">{providerDisplayName}</span>
                   </div>
                   <button
                     class="copy-button"
@@ -993,7 +994,7 @@ We also need to update [${RESOURCE_BACKUP_NAME}](https://github.com/${REPO_FULL_
                           </div>
                           <div class="info-row">
                             <span class="info-label">Provider</span>
-                            <span class="info-value">{getProviderDisplayName(litellm_provider)}</span>
+                            <span class="info-value">{providerDisplayName}</span>
                           </div>
                           <div class="info-row">
                             <span class="info-label">Mode</span>

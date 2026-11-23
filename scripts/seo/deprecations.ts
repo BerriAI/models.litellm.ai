@@ -3,6 +3,7 @@ import {
   parseDeprecations,
   type DeprecationListing,
 } from "../../src/deprecations";
+import { getProviderDisplayName, modelProviderId } from "../../src/providerNames";
 import type { CostMap } from "./group";
 import type { ModelView } from "./model-view";
 
@@ -25,7 +26,7 @@ export function buildDeprecations(
         key: row.key,
         slug: view.slug,
         name: view.name,
-        provider: row.hub,
+        provider: modelProviderId(row.hub, row.key),
         providerName: row.providerName,
         modelId: row.modelString,
         date: row.deprecation,
@@ -37,8 +38,15 @@ export function buildDeprecations(
     }
   }
   for (const entry of prior.values()) {
-    if (!(entry.key in costMap) && entry.date <= today)
-      current.set(entry.key, entry);
+    if (!(entry.key in costMap) && entry.date <= today) {
+      const provider = modelProviderId(entry.provider, entry.key);
+      current.set(
+        entry.key,
+        provider === entry.provider
+          ? entry
+          : { ...entry, provider, providerName: getProviderDisplayName(provider) },
+      );
+    }
   }
   return [...current.values()].sort((a, b) => a.key.localeCompare(b.key));
 }
