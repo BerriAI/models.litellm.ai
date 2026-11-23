@@ -102,13 +102,23 @@ export function parseDeprecations(value: unknown): DeprecationListing[] {
 export function groupDeprecations(
   listings: DeprecationListing[],
 ): Deprecation[] {
+  const idFor = ({ slug, date }: DeprecationListing, provider: string) =>
+    `${slug}--${provider}--${date}`;
+  const nativeBedrockIds = new Set(
+    listings
+      .filter(({ provider }) => provider === "bedrock")
+      .map((listing) => idFor(listing, "bedrock")),
+  );
   const groups = new Map<string, Deprecation>();
   for (const listing of listings) {
-    const id = `${listing.slug}--${listing.provider}--${listing.date}`;
+    const id = idFor(listing, listing.provider);
     let group = groups.get(id);
     if (!group) {
+      const bedrockId = idFor(listing, "bedrock");
+      const keepsBedrockId =
+        listing.provider === "bedrock_claude_platform" && !nativeBedrockIds.has(bedrockId);
       group = {
-        id,
+        id: keepsBedrockId ? bedrockId : id,
         slug: listing.slug,
         name: listing.name,
         provider: listing.provider,

@@ -42,6 +42,33 @@ function build(data = map, previous: unknown = [], today = "2026-10-30") {
 }
 
 describe("provider deprecation history", () => {
+  test("labels Claude Platform separately from native Bedrock, even if both retire the same model on the same date", () => {
+    const platform = "bedrock/claude_platform/claude-sonnet-4-5";
+    const native = "bedrock/anthropic.claude-sonnet-4-5-20250929-v1:0";
+    const date = "2026-11-30";
+    const listings = build({ [platform]: row("bedrock", date), [native]: row("bedrock", date) });
+    const entries = groupDeprecations(listings);
+
+    expect(new Set(entries.map(({ slug }) => slug)).size).toBe(1);
+    expect(deprecationSearchIndex(entries)).toEqual([
+      expect.objectContaining({ p: "bedrock", pn: "Amazon Bedrock", ids: [native] }),
+      expect.objectContaining({ p: "bedrock_claude_platform", pn: "Claude Platform on AWS", ids: [platform] }),
+    ]);
+    expect(deprecationBody(entries, [], "2026-10-30", "2026-11")).toContain(
+      '<option value="bedrock_claude_platform">Claude Platform on AWS</option>',
+    );
+    expect(new Set(entries.map(({ id }) => id)).size).toBe(2);
+
+    const platformListing = listings.find(({ key }) => key === platform)!;
+    const oldListing = { ...platformListing, provider: "bedrock", providerName: "Amazon Bedrock" };
+    const [previous] = groupDeprecations([oldListing]);
+    const [archived] = groupDeprecations(build({}, [oldListing], date));
+    expect(archived).toMatchObject({
+      id: previous.id,
+      providerName: "Claude Platform on AWS",
+    });
+  });
+
   test("backfills valid dates and groups variants without deprecating the active seller", () => {
     const listings = build();
     expect(listings).toHaveLength(3);

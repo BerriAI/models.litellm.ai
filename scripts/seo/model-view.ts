@@ -3,6 +3,7 @@
  * rows so the HTML, markdown and JSON-LD renderers agree on every number.
  */
 import { EMPTY_MODELS_DEV_INDEX, deriveModelMeta } from "../../src/modelMeta";
+import { modelProviderId } from "../../src/providerNames";
 import { getVoiceUsage, type VoiceUsage } from "../../src/voiceUsage";
 import { FIRST_PARTY_PROVIDERS, type Group, type IntroPricing, type Member, type Overrides } from "./group";
 import { CHAT_MODES, IMAGE_MODES, primaryMetric, rowPrices, type Metric, type RowPrices } from "./pricing";
@@ -248,7 +249,7 @@ export function buildModelView(
     return {
       key: m.key,
       provider: m.provider,
-      providerName: providerName(m.provider, support),
+      providerName: providerName(modelProviderId(m.provider, m.key), support),
       hub: hubProvider(m.provider),
       qualifier: qualifierFor(m),
       modelString: modelString(m.key, m.provider),

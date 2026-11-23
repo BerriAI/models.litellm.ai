@@ -10,6 +10,7 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   gemini: "Google AI Studio",
   vertex_ai: "Google Vertex AI",
   bedrock: "Amazon Bedrock",
+  bedrock_claude_platform: "Claude Platform on AWS",
   bedrock_converse: "Bedrock Converse",
   bedrock_mantle: "Amazon Bedrock Mantle",
   sagemaker: "Amazon SageMaker",
@@ -73,6 +74,12 @@ export const PROVIDER_DISPLAY_NAMES: Record<string, string> = {
   gmi: "GMI Cloud",
   aiand: "ai&",
 };
+
+export function modelProviderId(provider: string, modelKey: string): string {
+  return provider === "bedrock" && modelKey.startsWith("bedrock/claude_platform/")
+    ? "bedrock_claude_platform"
+    : provider;
+}
 
 /** A readable label for display only; filtering and routing continue to use the provider id. */
 export function getProviderDisplayName(
