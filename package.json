@@ -28,7 +28,7 @@
     "typescript": "^5.2.2",
     "vite": "^5.3.5",
     "vite-node": "^3.2.4",
-    "vitest": "^3.2.7"
+    "vitest": "^4.1.11"
   },
   "dependencies": {
     "@opentelemetry/api": "1.9.1",
